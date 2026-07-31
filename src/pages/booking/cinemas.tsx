@@ -20,7 +20,14 @@ const BookingCinemasPage: React.FC = () => {
 
   useEffect(() => {
     if (!movieId) return;
-    void catalogApi.getMovie(movieId).then(setMovie);
+    void catalogApi.getMovie(movieId).then((m) => {
+      setMovie(m);
+      // 进入选影院页即写入 Draft，保护已选片步骤（模式切换 / Agent 打开不回退）
+      void patchLocal(
+        { movieId: m.movieId, filmTitle: m.title, state: 'SelectCinema' },
+        { debounce: false },
+      );
+    });
     void catalogApi
       .listCinemas({ movieId, sort: 'distance', page: 1, size: 20 })
       .then((r) => setCinemas(r.items));

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { history, useLocation } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { MovieVO } from '@/types';
+import { useBookingStore } from '@/stores/booking';
 import styles from './movies.less';
 
 const MoviesPage: React.FC = () => {
@@ -12,6 +13,7 @@ const MoviesPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ items: MovieVO[]; total: number }>({ items: [], total: 0 });
   const [loading, setLoading] = useState(true);
+  const patchLocal = useBookingStore((s) => s.patchLocal);
 
   useEffect(() => {
     let c = false;
@@ -38,11 +40,15 @@ const MoviesPage: React.FC = () => {
 
   return (
     <div className="miaoyu-container">
-      <h1 className={styles.h1}>电影{q ? ` · 「${q}」` : ''}</h1>
+      <span className="miaoyu-eyebrow">FILM ARCHIVE</span>
+      <h1 className={styles.h1}>
+        {q ? `搜索「${q}」` : '找一部值得出门的电影'}
+      </h1>
+      {!q ? <p className={styles.sub}>不是无尽滑动。先说类型、时间，或你今天的心情。</p> : null}
       <div className={styles.tabs}>
         {[
-          ['hot_showing', '热映'],
-          ['coming_soon', '待映'],
+          ['hot_showing', '正在热映'],
+          ['coming_soon', '即将上映'],
           ['all', '全部'],
         ].map(([k, label]) => (
           <button
@@ -66,21 +72,29 @@ const MoviesPage: React.FC = () => {
             <div key={m.movieId} className={styles.row} onClick={() => history.push(`/movies/${m.movieId}`)}>
               <img src={m.posterUrl} alt="" />
               <div className={styles.info}>
+                <span className={styles.eyebrow}>
+                  {m.status === 'coming_soon' ? '即将上映' : m.rating != null && m.rating >= 9 ? '编辑推荐' : '热映中'}
+                </span>
                 <h3>{m.title}</h3>
                 <p>
-                  {m.rating != null ? `★ ${m.rating}` : '暂无评分'} · {m.genres.join(' / ')} · {m.durationMin}分钟
+                  {m.genres.join(' / ')} · {m.durationMin} 分钟
+                  {m.rating != null ? ` · ${m.rating.toFixed(1)} 分` : ''}
                 </p>
                 <p className={styles.desc}>{m.description}</p>
               </div>
               <button
                 type="button"
                 className="miaoyu-btn-primary"
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.stopPropagation();
+                  await patchLocal(
+                    { movieId: m.movieId, filmTitle: m.title, state: 'SelectCinema' },
+                    { debounce: false },
+                  );
                   history.push(`/booking/cinemas?movieId=${m.movieId}`);
                 }}
               >
-                购票
+                选场购票
               </button>
             </div>
           ))}

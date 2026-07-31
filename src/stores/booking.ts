@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { BookingDraft, BookingState, SeatNameMap } from '@/types';
 import * as draftApi from '@/api/draft';
+import { firstIncompleteStep, progressFromDraft } from '@/utils/bookingProgress';
+import { useAgentStore } from '@/stores/agent';
 
 const SESSION_KEY = 'miaoyu_sessionId';
 
@@ -13,6 +15,12 @@ function emptyDraft(sessionId: string): BookingDraft {
     seatIds: [],
     version: 1,
   };
+}
+
+function syncAgentProgress(draft: BookingDraft) {
+  if (useAgentStore.getState().open) {
+    useAgentStore.setState({ progress: progressFromDraft(draft) });
+  }
 }
 
 interface BookingStateStore {
@@ -41,6 +49,14 @@ const DEPENDENT_FIELDS: Record<string, (keyof BookingDraft)[]> = {
   SelectShow: ['seatIds', 'lockId', 'orderId', 'expireAt'],
   SelectSeat: ['lockId', 'orderId', 'expireAt'],
 };
+
+function withDerivedState(base: BookingDraft, patch: DraftPatchInput): BookingDraft {
+  const merged = { ...base, ...patch } as BookingDraft;
+  if (patch.state == null) {
+    merged.state = firstIncompleteStep(merged);
+  }
+  return merged;
+}
 
 export const useBookingStore = create<BookingStateStore>((set, get) => ({
   draft: null,
@@ -90,24 +106,32 @@ export const useBookingStore = create<BookingStateStore>((set, get) => ({
     const d = await draftApi.getDraft(sid);
     localStorage.setItem(SESSION_KEY, d.sessionId);
     set({ draft: d });
+    syncAgentProgress(d);
     return d;
   },
 
   patchLocal: async (patch, opts) => {
     const draft = get().draft || (await get().ensureSession());
     if (get().agentPaused && opts?.debounce !== false) {
-      const merged = { ...draft, ...patch, version: draft.version } as BookingDraft;
+      const merged = withDerivedState(draft, patch);
+      merged.version = draft.version;
       set({ draft: merged });
+      syncAgentProgress(merged);
       return merged;
     }
 
     const doPut = async (p: DraftPatchInput) => {
       const current = get().draft || draft;
+      const bodyPatch = { ...p };
+      if (bodyPatch.state == null) {
+        bodyPatch.state = firstIncompleteStep({ ...current, ...p } as BookingDraft);
+      }
       const updated = await draftApi.updateDraft(current.sessionId, {
         version: current.version,
-        patch: p,
+        patch: bodyPatch,
       });
       set({ draft: updated });
+      syncAgentProgress(updated);
       return updated;
     };
 
@@ -116,8 +140,9 @@ export const useBookingStore = create<BookingStateStore>((set, get) => ({
     }
 
     pendingPatch = { ...(pendingPatch || {}), ...patch };
-    const optimistic = { ...draft, ...pendingPatch } as BookingDraft;
+    const optimistic = withDerivedState(draft, pendingPatch);
     set({ draft: optimistic });
+    syncAgentProgress(optimistic);
 
     return new Promise((resolve, reject) => {
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -136,6 +161,7 @@ export const useBookingStore = create<BookingStateStore>((set, get) => ({
   applyAgentDraft: (draft) => {
     localStorage.setItem(SESSION_KEY, draft.sessionId);
     set({ draft });
+    syncAgentProgress(draft);
   },
 
   rollbackDependent: (from) => {
@@ -147,7 +173,9 @@ export const useBookingStore = create<BookingStateStore>((set, get) => ({
       if (k === 'seatIds') next.seatIds = [];
       else delete (next as Record<string, unknown>)[k];
     }
+    next.state = firstIncompleteStep(next);
     set({ draft: next });
+    syncAgentProgress(next);
   },
 }));
 

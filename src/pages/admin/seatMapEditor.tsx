@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Input, InputNumber, Space, message } from 'antd';
+import { Button, Input, InputNumber, Space, Tag, message } from 'antd';
 import { history, useParams } from 'umi';
 import * as adminApi from '@/api/admin';
 import type { SeatVO, SeatType, SeatZone } from '@/types';
+import { DEFAULT_ZONE_PRESETS, distinctZones, zoneColor, zoneLabel } from '@/utils/zone';
 import styles from './seatMapEditor.less';
 
 type Cell =
@@ -28,8 +29,10 @@ const SeatMapEditorPage: React.FC = () => {
   const [id, setId] = useState(seatMapId || '');
   const [grid, setGrid] = useState<Cell[][]>([]);
   const [tool, setTool] = useState<'add' | 'delete' | 'zone' | 'type'>('add');
-  const [zone, setZone] = useState<SeatZone>('normal');
+  const [zone, setZone] = useState<SeatZone>('A');
+  const [customZone, setCustomZone] = useState('');
   const [seatType, setSeatType] = useState<SeatType>('normal');
+  const [zonePresets, setZonePresets] = useState<string[]>([...DEFAULT_ZONE_PRESETS]);
 
   const emptyGrid = (r: number, c: number): Cell[][] =>
     Array.from({ length: r }, () => Array.from({ length: c }, () => ({ kind: 'empty' as const })));
@@ -59,6 +62,9 @@ const SeatMapEditorPage: React.FC = () => {
         };
       }
       setGrid(g);
+      const found = distinctZones(map.seats);
+      setZonePresets(Array.from(new Set([...DEFAULT_ZONE_PRESETS, ...found])));
+      if (found[0]) setZone(found[0]);
     });
   }, [seatMapId, isNew]);
 
@@ -67,8 +73,34 @@ const SeatMapEditorPage: React.FC = () => {
     [grid],
   );
 
+  const usedZones = useMemo(
+    () =>
+      distinctZones(
+        grid.flat().filter((c): c is Extract<Cell, { kind: 'seat' }> => c.kind === 'seat'),
+      ),
+    [grid],
+  );
+
   const generate = () => {
     setGrid(emptyGrid(rows, cols));
+  };
+
+  const addCustomZone = () => {
+    const code = customZone.trim();
+    if (!code) {
+      message.warning('请输入分区 code');
+      return;
+    }
+    if (code.length > 16) {
+      message.warning('分区 code 最长 16 字符');
+      return;
+    }
+    if (!zonePresets.includes(code)) {
+      setZonePresets((prev) => [...prev, code]);
+    }
+    setZone(code);
+    setCustomZone('');
+    message.success(`已选用 ${zoneLabel(code)}`);
   };
 
   const paint = (ri: number, ci: number) => {
@@ -127,12 +159,17 @@ const SeatMapEditorPage: React.FC = () => {
 
   const save = async () => {
     const seats = toSeats();
+    if (seats.length === 0) {
+      message.warning('请至少添加一个座位');
+      return;
+    }
     const body = {
       seatMapId: id || undefined,
       rows,
       cols,
       screenLabel,
       seats,
+      zones: distinctZones(seats),
       mutable: true,
     };
     if (isNew || !id) {
@@ -184,21 +221,61 @@ const SeatMapEditorPage: React.FC = () => {
               {t === 'add' ? '添加座位' : t === 'delete' ? '删除' : t === 'zone' ? '刷区' : '刷类型'}
             </Button>
           ))}
-          <h4>分区</h4>
-          <Button block type={zone === 'normal' ? 'primary' : 'default'} onClick={() => setZone('normal')}>
-            普通
-          </Button>
-          <Button block type={zone === 'golden' ? 'primary' : 'default'} style={{ marginTop: 8 }} onClick={() => setZone('golden')}>
-            黄金
-          </Button>
+          <h4>分区（自定义 code）</h4>
+          <p className={styles.hint}>当前画笔：{zoneLabel(zone)}</p>
+          <div className={styles.zoneList}>
+            {zonePresets.map((z) => (
+              <Button
+                key={z}
+                block
+                type={zone === z ? 'primary' : 'default'}
+                style={{
+                  marginBottom: 6,
+                  borderColor: zoneColor(z),
+                  background: zone === z ? undefined : zoneColor(z),
+                  color: zone === z ? undefined : '#333',
+                }}
+                onClick={() => setZone(z)}
+              >
+                {zoneLabel(z)}
+              </Button>
+            ))}
+          </div>
+          <Space.Compact style={{ width: '100%', marginTop: 8 }}>
+            <Input
+              placeholder="自定义区 code"
+              value={customZone}
+              maxLength={16}
+              onChange={(e) => setCustomZone(e.target.value)}
+              onPressEnter={addCustomZone}
+            />
+            <Button onClick={addCustomZone}>添加</Button>
+          </Space.Compact>
           <h4 style={{ marginTop: 16 }}>类型</h4>
           <Button block type={seatType === 'normal' ? 'primary' : 'default'} onClick={() => setSeatType('normal')}>
             普通座
           </Button>
-          <Button block type={seatType === 'couple' ? 'primary' : 'default'} style={{ marginTop: 8 }} onClick={() => setSeatType('couple')}>
+          <Button
+            block
+            type={seatType === 'couple' ? 'primary' : 'default'}
+            style={{ marginTop: 8 }}
+            onClick={() => setSeatType('couple')}
+          >
             情侣座
           </Button>
           <p style={{ marginTop: 16, color: '#666' }}>座位数：{seatCount}</p>
+          <div className={styles.usedZones}>
+            <span style={{ color: '#666', fontSize: 12 }}>本图已用区：</span>
+            {usedZones.length === 0 ? (
+              <span style={{ color: '#999', fontSize: 12 }}>无</span>
+            ) : (
+              usedZones.map((z) => (
+                <Tag key={z} color={zoneColor(z)} style={{ marginTop: 4 }}>
+                  {zoneLabel(z)}
+                </Tag>
+              ))
+            )}
+          </div>
         </div>
         <div className={styles.canvas}>
           <div className={styles.screen}>{screenLabel}</div>
@@ -213,18 +290,20 @@ const SeatMapEditorPage: React.FC = () => {
                 <button
                   key={`${ri}-${ci}`}
                   type="button"
-                  className={`${styles.cell} ${
-                    cell.kind === 'empty'
-                      ? styles.empty
-                      : cell.zone === 'golden'
-                        ? styles.golden
-                        : cell.type === 'couple'
-                          ? styles.couple
-                          : styles.seat
-                  }`}
+                  title={cell.kind === 'seat' ? zoneLabel(cell.zone) : '空'}
+                  className={`${styles.cell} ${cell.kind === 'empty' ? styles.empty : styles.seat}`}
+                  style={
+                    cell.kind === 'seat'
+                      ? {
+                          background: zoneColor(cell.zone),
+                          borderStyle: 'solid',
+                          opacity: cell.type === 'couple' ? 0.95 : 1,
+                        }
+                      : undefined
+                  }
                   onClick={() => paint(ri, ci)}
                 >
-                  {cell.kind === 'seat' && cell.type === 'couple' ? '♥' : ''}
+                  {cell.kind === 'seat' && cell.type === 'couple' ? '♥' : cell.kind === 'seat' ? cell.zone : ''}
                 </button>
               )),
             )}

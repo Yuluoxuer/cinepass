@@ -1,15 +1,16 @@
 .card {
   margin-top: 8px;
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 12px;
+  background: white;
+  border: 1px solid #dcd7cf;
+  padding: 14px;
+  box-shadow: 0 8px 22px rgba(16, 24, 40, 0.06);
 }
 
 .title {
-  font-weight: 650;
+  font-weight: 700;
   margin-bottom: 8px;
-  font-size: 13px;
+  font-size: 17px;
+  font-family: var(--font-display);
   color: var(--color-text-primary);
 }
 
@@ -26,10 +27,10 @@
 }
 
 .row img {
-  width: 40px;
-  height: 60px;
+  width: 55px;
+  height: 72px;
   object-fit: cover;
-  border-radius: var(--radius-sm);
+  flex-shrink: 0;
 }
 
 .info {
@@ -47,15 +48,20 @@
 
 .row button,
 .card > button {
-  border: 1px solid var(--color-primary);
-  color: var(--color-primary);
-  background: #fff;
+  border: 0;
+  background: var(--color-agent);
+  color: white;
   border-radius: var(--radius-sm);
-  padding: 4px 10px;
+  padding: 8px 12px;
   font-size: 12px;
   font-weight: 650;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.row button:hover,
+.card > button:hover {
+  background: var(--color-agent-hover);
 }
 
 .warn {
@@ -66,7 +72,7 @@
 .link {
   background: none;
   border: none;
-  color: var(--color-primary);
+  color: var(--color-agent);
   cursor: pointer;
   font-size: 12px;
   font-weight: 650;
@@ -80,16 +86,16 @@
 }
 
 .chips button {
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-card);
-  border-radius: var(--radius-sm);
-  padding: 4px 10px;
+  border: 1px solid #bbb6ae;
+  background: transparent;
+  border-radius: 20px;
+  padding: 7px 10px;
   font-size: 12px;
   cursor: pointer;
-  color: var(--color-text-secondary);
+  color: #5f6671;
 }
 
 .chips button:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  border-color: var(--color-agent);
+  color: #167b6d;
 }

@@ -9,6 +9,7 @@ import type {
   PageResult,
   AdminUserVO,
   TicketVerifyVO,
+  ZonePrice,
 } from '@/types';
 
 export function createMovie(body: Partial<MovieVO>) {
@@ -59,18 +60,25 @@ export function deleteSeatMap(id: string) {
   return del<{ deleted: boolean }>(`/seat-maps/${id}`);
 }
 
-export function createShow(body: Partial<ShowVO> & {
+export function createShow(body: {
   movieId: string;
   cinemaId: string;
   hallId: string;
   startTime: string;
   endTime: string;
-  price: number;
+  zonePrices: ZonePrice[];
+  /** @deprecated 忽略；服务端用 zonePrices 回填 min */
+  price?: number;
 }) {
   return post<ShowVO>('/admin/shows', body);
 }
 
-export function updateShow(showId: string, body: Partial<ShowVO>) {
+export function updateShow(
+  showId: string,
+  body: Partial<Pick<ShowVO, 'startTime' | 'endTime' | 'price'>> & {
+    zonePrices?: ZonePrice[];
+  },
+) {
   return put<ShowVO>(`/admin/shows/${showId}`, body);
 }
 

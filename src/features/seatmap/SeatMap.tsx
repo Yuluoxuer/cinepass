@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { SeatVO, SeatStatus } from '@/types';
+import { distinctZones, zoneColor, zoneLabel } from '@/utils/zone';
 import styles from './SeatMap.less';
 
 export interface SeatMapProps {
@@ -11,15 +12,14 @@ export interface SeatMapProps {
   onToggle?: (seat: SeatVO) => void;
   readonly?: boolean;
   scale?: number;
+  legend?: Record<string, string>;
 }
 
-function statusClass(status?: SeatStatus, selected?: boolean, zone?: string, type?: string) {
+function statusClass(status?: SeatStatus, selected?: boolean) {
   if (selected) return styles.selected;
   if (status === 'sold') return styles.sold;
   if (status === 'locked') return styles.locked;
   if (status === 'unavailable') return styles.unavailable;
-  if (zone === 'golden') return styles.golden;
-  if (type === 'couple') return styles.couple;
   return styles.available;
 }
 
@@ -32,9 +32,11 @@ const SeatMap: React.FC<SeatMapProps> = ({
   onToggle,
   readonly,
   scale = 1,
+  legend,
 }) => {
   const byPos = new Map(seats.map((s) => [`${s.graphRow}:${s.graphCol}`, s]));
   const selected = new Set(selectedIds);
+  const zones = useMemo(() => distinctZones(seats), [seats]);
 
   return (
     <div className={styles.wrap} style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}>
@@ -57,13 +59,21 @@ const SeatMap: React.FC<SeatMapProps> = ({
               !readonly &&
               onToggle &&
               (seat.status === 'available' || seat.status === undefined || isSel);
+            const zoneBg =
+              !isSel &&
+              seat.status !== 'sold' &&
+              seat.status !== 'locked' &&
+              seat.status !== 'unavailable'
+                ? zoneColor(seat.zone)
+                : undefined;
             return (
               <button
                 key={seat.seatId}
                 type="button"
-                title={seat.seatName}
+                title={`${seat.seatName} · ${zoneLabel(seat.zone)}${seat.price != null ? ` · ¥${seat.price}` : ''}`}
                 disabled={!clickable}
-                className={`${styles.cell} ${statusClass(seat.status, isSel, seat.zone, seat.type)}`}
+                className={`${styles.cell} ${statusClass(seat.status, isSel)}`}
+                style={zoneBg ? { background: zoneBg } : undefined}
                 onClick={() => clickable && onToggle?.(seat)}
               >
                 {seat.type === 'couple' ? '♥' : isSel ? '✓' : ''}
@@ -74,7 +84,12 @@ const SeatMap: React.FC<SeatMapProps> = ({
       </div>
       <div className={styles.legend}>
         <span><i className={styles.available} />可选</span>
-        <span><i className={styles.golden} />黄金</span>
+        {zones.map((z) => (
+          <span key={z}>
+            <i style={{ background: zoneColor(z), display: 'inline-block', width: 12, height: 12, borderRadius: 2, marginRight: 4 }} />
+            {legend?.[z] || zoneLabel(z)}
+          </span>
+        ))}
         <span><i className={styles.couple} />情侣</span>
         <span><i className={styles.selected} />已选</span>
         <span><i className={styles.sold} />已售</span>

@@ -2,20 +2,27 @@
   display: flex;
   gap: 16px;
   align-items: center;
-  background:
-    radial-gradient(ellipse 80% 120% at 90% 10%, rgba(212, 160, 23, 0.22), transparent 55%),
-    linear-gradient(135deg, #0b0d11 0%, #15201f 100%);
+  background: var(--color-bg-ink);
   color: var(--color-text-on-ink);
-  padding: 22px 20px;
-  border-radius: var(--radius-md);
+  padding: 28px 24px;
+  border-radius: 2px 18px 2px 18px;
   cursor: pointer;
-  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
 }
 
 .avatar {
   width: 52px;
   height: 52px;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   background: var(--color-primary);
   color: #fff;
   display: flex;
@@ -23,19 +30,30 @@
   justify-content: center;
   font-family: var(--font-display);
   font-size: 22px;
-  font-weight: 500;
+  font-weight: 700;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
 }
 
 .card h2 {
   margin: 0 0 4px;
   font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 500;
+  font-size: 24px;
+  font-weight: 700;
   color: #fff;
+  position: relative;
+  z-index: 1;
 }
 
-.card p  { margin: 0; color: rgba(242, 240, 235, 0.55); font-size: 12px; }
+.card p {
+  margin: 0;
+  color: rgba(242, 240, 235, 0.55);
+  font-size: 12px;
+  position: relative;
+  z-index: 1;
+}
 
 .roleTag {
   margin-top: 6px !important;
@@ -48,9 +66,8 @@
 .menu {
   margin-top: 14px;
   background: var(--color-bg-card);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
   overflow: hidden;
-  box-shadow: var(--shadow-card);
 }
 
 .item {
@@ -65,8 +82,145 @@
   transition: background 0.12s, color 0.12s;
 }
 
-.item:last-child { border-bottom: none; }
-.item:hover      {
-  background: var(--color-primary-soft);
+.item:last-child {
+  border-bottom: none;
+}
+
+.item:hover {
+  background: var(--color-agent-soft);
+  color: #167b6d;
+}
+
+/* ── Orders ticket cards ── */
+.pageTitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  margin: 28px 0 18px;
+  gap: 16px;
+}
+
+.pageTitle h1 {
+  font: 700 36px var(--font-display);
+  margin: 6px 0 0;
+}
+
+.orderTabs {
+  display: flex;
+  gap: 9px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.orderTabs button {
+  background: transparent;
+  border: 1px solid #bbb6ae;
+  border-radius: 20px;
+  padding: 7px 12px;
+  color: #5f6671;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.active {
+  background: var(--color-bg-ink) !important;
+  color: white !important;
+  border-color: var(--color-bg-ink) !important;
+}
+
+.orderCard {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  gap: 22px;
+  align-items: center;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  margin-top: 14px;
+  padding: 18px;
+}
+
+.muted {
+  opacity: 0.76;
+}
+
+.ticketStub {
+  border-right: 1px dashed #bbb5ab;
+  text-align: center;
+  padding-right: 20px;
+}
+
+.ticketStub span,
+.ticketStub small {
+  display: block;
+  color: var(--color-text-muted);
+  font: 11px var(--font-mono);
+}
+
+.ticketStub strong {
+  font: 700 31px var(--font-mono);
+  display: block;
+  margin: 4px 0;
+}
+
+.orderInfo h2 {
+  font: 700 20px var(--font-display);
+  margin: 6px 0;
+}
+
+.orderInfo p {
+  color: var(--color-text-muted);
+  margin: 5px 0;
+  font-size: 13px;
+}
+
+.status {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.statusPending {
+  color: #9c731d;
+}
+
+.statusIssued {
+  color: #16806f;
+}
+
+.statusCancelled {
+  color: var(--color-text-muted);
+}
+
+.orderPrice {
+  text-align: right;
+}
+
+.orderPrice > strong {
+  display: block;
+  font: 700 22px var(--font-mono);
+  margin-bottom: 12px;
   color: var(--color-primary);
+}
+
+.orderActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
+@media (max-width: 720px) {
+  .orderCard {
+    grid-template-columns: 70px 1fr;
+  }
+
+  .orderPrice {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .pageTitle {
+    flex-direction: column;
+    align-items: start;
+  }
 }

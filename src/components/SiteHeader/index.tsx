@@ -5,10 +5,10 @@ import { isStaffOrAdmin, useAuthStore } from '@/stores/auth';
 import styles from './SiteHeader.less';
 
 const NAV = [
-  { path: '/', label: '首页', match: (p: string) => p === '/' },
+  { path: '/', label: '发现', match: (p: string) => p === '/' },
   { path: '/movies', label: '电影', match: (p: string) => p.startsWith('/movies') },
   { path: '/cinemas', label: '影院', match: (p: string) => p.startsWith('/cinemas') },
-  { path: '/me', label: '我的', match: (p: string) => p.startsWith('/me') },
+  { path: '/me/orders', label: '我的票夹', match: (p: string) => p.startsWith('/me') },
 ];
 
 const SiteHeader: React.FC = () => {
@@ -23,61 +23,58 @@ const SiteHeader: React.FC = () => {
     history.push(`/movies?q=${encodeURIComponent(q.trim())}`);
   };
 
+  const avatarChar = user?.nickname?.slice(0, 1) || '登';
+
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
-        <div className={styles.logo} onClick={() => history.push('/')}>
-          <span className={styles.logoMark} aria-hidden>
-            <svg viewBox="0 0 32 32" width="28" height="28">
-              <rect width="32" height="32" rx="3" fill="#0f8f84" />
-              <path
-                d="M8 22V10l6 7.5L20 10v12h-2.4v-7.2L14 19.6 10.4 14.8V22H8z"
-                fill="#f2f0eb"
-              />
-            </svg>
-          </span>
-          <span className={styles.logoText}>
-            妙语<em>购票</em>
-          </span>
-        </div>
-        <nav className={styles.nav}>
+        <button type="button" className={styles.brand} onClick={() => history.push('/')}>
+          <img className={styles.brandMark} src="/app-icon.png" alt="" />
+          <span>妙语购票</span>
+        </button>
+        <nav className={styles.nav} aria-label="主导航">
           {NAV.map((n) => (
-            <a
+            <button
               key={n.path}
-              className={n.match(loc.pathname) ? styles.active : undefined}
+              type="button"
+              className={`${styles.navLink} ${n.match(loc.pathname) ? styles.active : ''}`}
               onClick={() => history.push(n.path)}
             >
               {n.label}
-            </a>
+            </button>
           ))}
         </nav>
-        <span className={styles.city}>上海</span>
-        <form className={styles.searchForm} onSubmit={onSearch}>
-          <span className={styles.searchIcon}>⌕</span>
-          <input
-            className={styles.search}
-            placeholder="搜影片、影院"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </form>
-        {user ? (
-          <button type="button" className={styles.userBtn} onClick={() => history.push('/me')}>
-            {user.nickname}
+        <div className={styles.actions}>
+          <form className={styles.search} onSubmit={onSearch}>
+            <span aria-hidden>⌕</span>
+            <input
+              aria-label="搜索电影或影院"
+              placeholder="搜索电影或影院"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </form>
+          <button type="button" className={styles.agentBtn} onClick={() => openDrawer()}>
+            <span className={styles.spark} aria-hidden>
+              ✦
+            </span>
+            妙语助手
+            <span className={styles.agentState}>可对话</span>
           </button>
-        ) : (
-          <button type="button" className={styles.loginBtn} onClick={() => openLogin()}>
-            登录
+          {isStaffOrAdmin(user?.role) ? (
+            <button type="button" className={styles.opsBtn} onClick={() => history.push('/admin')}>
+              运营
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className={styles.avatar}
+            aria-label={user ? '个人账户' : '登录'}
+            onClick={() => (user ? history.push('/me') : openLogin())}
+          >
+            {avatarChar}
           </button>
-        )}
-        {isStaffOrAdmin(user?.role) ? (
-          <button type="button" className={styles.opsBtn} onClick={() => history.push('/admin')}>
-            后台
-          </button>
-        ) : null}
-        <button type="button" className={styles.agentBtn} onClick={() => openDrawer()}>
-          问 Agent
-        </button>
+        </div>
       </div>
     </header>
   );

@@ -86,7 +86,7 @@ const BookingShowsPage: React.FC = () => {
                   {s.hallName}
                   {s.hallName.includes('IMAX') ? ' · IMAX' : ' · 中文 2D'}
                 </div>
-                <div className={styles.price}>¥{s.price}</div>
+                <div className={styles.price}>¥{s.price}起</div>
                 <div className={styles.remain}>{LEVEL_TEXT[s.seatRemainLevel] || s.seatRemain}</div>
                 <button
                   type="button"

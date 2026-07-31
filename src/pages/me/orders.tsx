@@ -5,6 +5,8 @@ import * as orderApi from '@/api/order';
 import type { OrderVO } from '@/types';
 import { useAuthStore } from '@/stores/auth';
 import { useBookingStore } from '@/stores/booking';
+import { useAgentStore } from '@/stores/agent';
+import styles from './me.less';
 
 const TABS = [
   { key: '', label: '全部' },
@@ -13,11 +15,29 @@ const TABS = [
   { key: 'cancelled', label: '已取消' },
 ];
 
-const STATUS: Record<string, string> = {
+const STATUS_CLASS: Record<string, string> = {
+  pending_pay: styles.statusPending,
+  issued: styles.statusIssued,
+  cancelled: styles.statusCancelled,
+};
+
+const STATUS_LABEL: Record<string, string> = {
   pending_pay: '待支付',
   issued: '已出票',
   cancelled: '已取消',
 };
+
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+function stubParts(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { month: '—', day: '—', time: '' };
+  return {
+    month: MONTHS[d.getMonth()],
+    day: String(d.getDate()).padStart(2, '0'),
+    time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+  };
+}
 
 const OrdersPage: React.FC = () => {
   const [status, setStatus] = useState('');
@@ -25,6 +45,7 @@ const OrdersPage: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const openLogin = useAuthStore((s) => s.openLoginModal);
   const seatNameById = useBookingStore((s) => s.seatNameById);
+  const openDrawer = useAgentStore((s) => s.openDrawer);
 
   const load = async () => {
     if (!user) {
@@ -39,47 +60,71 @@ const OrdersPage: React.FC = () => {
     void load();
   }, [status, user]);
 
+  const pendingCount = orders.filter((o) => o.status === 'pending_pay').length;
+
   return (
-    <div className="miaoyu-container">
-      <h1>我的订单</h1>
-      <div style={{ display: 'flex', gap: 16, margin: '16px 0' }}>
+    <div className="miaoyu-container" style={{ maxWidth: 1040 }}>
+      <div className={styles.pageTitle}>
+        <div>
+          <span className="miaoyu-eyebrow">MY TICKETS</span>
+          <h1>我的票夹</h1>
+        </div>
+        <button
+          type="button"
+          className="miaoyu-btn-secondary"
+          onClick={() => openDrawer({ message: '帮我看看订单' })}
+        >
+          向 Agent 问订单
+        </button>
+      </div>
+
+      <div className={styles.orderTabs}>
         {TABS.map((t) => (
           <button
             key={t.key}
             type="button"
-            className={status === t.key ? 'miaoyu-btn-primary' : 'miaoyu-btn-ghost'}
+            className={status === t.key ? styles.active : ''}
             onClick={() => setStatus(t.key)}
           >
             {t.label}
+            {t.key === 'pending_pay' && pendingCount > 0 ? ` ${pendingCount}` : ''}
           </button>
         ))}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {orders.map((o) => (
-          <div
-            key={o.orderId}
-            style={{ background: '#fff', borderRadius: 8, padding: 16 }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <strong>{o.movieTitle}</strong>
-              <span>{STATUS[o.status]}</span>
+
+      {orders.map((o) => {
+        const stub = stubParts(o.startTime);
+        const muted = o.status === 'cancelled';
+        return (
+          <div key={o.orderId} className={`${styles.orderCard} ${muted ? styles.muted : ''}`}>
+            <div className={styles.ticketStub}>
+              <span>{stub.month}</span>
+              <strong>{stub.day}</strong>
+              <small>{stub.time}</small>
             </div>
-            <p style={{ color: '#666', fontSize: 13 }}>
-              {o.startTime.replace('T', ' ').slice(0, 16)} · {o.hallName} ·{' '}
-              {o.seatIds.map((id) => seatNameById[id] || id).join('/')}
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: '#e54847', fontWeight: 600 }}>¥{o.amount}</span>
-              <div style={{ display: 'flex', gap: 8 }}>
+            <div className={styles.orderInfo}>
+              <span className={`${styles.status} ${STATUS_CLASS[o.status] || ''}`}>
+                {STATUS_LABEL[o.status] || o.status}
+              </span>
+              <h2>{o.movieTitle}</h2>
+              <p>
+                {o.cinemaName ? `${o.cinemaName} · ` : ''}
+                {o.hallName}
+              </p>
+              <p>{o.seatIds.map((id) => seatNameById[id] || id).join('、') || '座位信息待确认'}</p>
+            </div>
+            <div className={styles.orderPrice}>
+              <strong>¥{Number(o.amount).toFixed(2)}</strong>
+              <div className={styles.orderActions}>
                 {o.status === 'pending_pay' ? (
                   <>
                     <button
                       type="button"
                       className="miaoyu-btn-primary"
-                      style={{ height: 32 }}
+                      style={{ height: 36 }}
                       onClick={() => history.push(`/booking/pay?orderId=${o.orderId}`)}
                     >
-                      去支付
+                      继续支付
                     </button>
                     <button
                       type="button"
@@ -98,10 +143,10 @@ const OrdersPage: React.FC = () => {
                   <button
                     type="button"
                     className="miaoyu-btn-secondary"
-                    style={{ height: 32 }}
+                    style={{ height: 36 }}
                     onClick={() => history.push(`/booking/ticket?orderId=${o.orderId}`)}
                   >
-                    查看取票
+                    查看取票码
                   </button>
                 ) : null}
                 <button
@@ -114,9 +159,9 @@ const OrdersPage: React.FC = () => {
               </div>
             </div>
           </div>
-        ))}
-        {!orders.length ? <p style={{ color: '#999' }}>暂无订单</p> : null}
-      </div>
+        );
+      })}
+      {!orders.length ? <p style={{ color: 'var(--color-text-muted)', marginTop: 24 }}>暂无订单</p> : null}
     </div>
   );
 };

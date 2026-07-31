@@ -59,9 +59,14 @@ export default defineConfig({
   antd: {
     theme: {
       token: {
-        colorPrimary: '#0f8f84',
-        borderRadius: 3,
-        fontFamily: "'Manrope', 'Noto Sans SC', 'PingFang SC', sans-serif",
+        colorPrimary: '#37b7a5',
+        colorError: '#d9423a',
+        colorWarning: '#f2b84b',
+        borderRadius: 4,
+        fontFamily:
+          "'MiSans', 'HarmonyOS Sans SC', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+        colorBgLayout: '#f6f1e8',
+        colorBgContainer: '#fffdf9',
       },
     },
   },

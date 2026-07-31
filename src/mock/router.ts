@@ -26,7 +26,10 @@ import type {
   PersonalRecoResult,
   HallVO,
   AdminUserVO,
+  ZonePrice,
+  SeatPriceSnapshot,
 } from '@/types';
+import { distinctZones, zoneLabel } from '@/utils/zone';
 
 export interface MockRequest {
   method: string;
@@ -76,8 +79,18 @@ function requireStaff(req: MockRequest) {
   return { error: null, user: user! };
 }
 
-function progressFromState(state: BookingState): AgentProgress {
+function progressFromDraft(draft: BookingDraft): AgentProgress {
   const steps = ['选片', '影院', '场次', '选座', '支付'];
+  // 与前端 utils/bookingProgress.firstIncompleteStep 对齐
+  let state: BookingState = draft.state;
+  if (!draft.movieId) state = 'SelectMovie';
+  else if (!draft.cinemaId) state = 'SelectCinema';
+  else if (!draft.showId) state = 'SelectShow';
+  else if (!draft.lockId) state = 'SelectSeat';
+  else if (!draft.orderId) state = draft.state === 'PayMock' ? 'PayMock' : 'ConfirmOrder';
+  else if (draft.state === 'TicketIssued') state = 'TicketIssued';
+  else state = 'PayMock';
+
   const map: Record<BookingState, number> = {
     Idle: 0,
     SelectMovie: 0,
@@ -89,6 +102,17 @@ function progressFromState(state: BookingState): AgentProgress {
     TicketIssued: 5,
   };
   return { steps, currentIndex: map[state] ?? 0, state };
+}
+
+function progressFromState(state: BookingState): AgentProgress {
+  return progressFromDraft({
+    sessionId: '',
+    source: 'manual',
+    state,
+    count: 1,
+    seatIds: [],
+    version: 0,
+  });
 }
 
 function getOrCreateDraft(sessionId?: string, patch?: Partial<BookingDraft>): BookingDraft {
@@ -134,23 +158,55 @@ function seatMapForShow(showId: string): SeatMapVO | null {
   const hall = hallById(show.hallId);
   const sm = db.seatMaps.find((x) => x.seatMapId === hall?.seatMapId) || db.seatMaps[0];
   const statusMap = db.seatStatus.get(showId);
+  const zonePrices = show.zonePrices || [{ zone: 'C', price: show.price }];
+  const priceByZone = new Map(zonePrices.map((z) => [z.zone, z.price]));
+  const zones = distinctZones(sm.seats);
+  const legend: Record<string, string> = {
+    available: '可选',
+    locked: '锁定',
+    sold: '已售',
+    unavailable: '不可选',
+    couple: '情侣座',
+  };
+  for (const z of zones) legend[z] = zoneLabel(z);
   const seats = sm.seats.map((s) => ({
     ...s,
-    status: statusMap?.get(s.seatId) || 'available',
+    status: statusMap?.get(s.seatId) || ('available' as const),
+    price: priceByZone.get(s.zone) ?? show.price,
   }));
   return {
     ...sm,
     showId,
     price: show.price,
+    zonePrices,
+    zones,
     seats,
-    legend: {
-      available: '可选',
-      locked: '锁定',
-      sold: '已售',
-      golden: '黄金区',
-      couple: '情侣座',
-    },
+    legend,
   };
+}
+
+function resolveZonePrices(
+  seatMap: SeatMapVO,
+  bodyZonePrices?: ZonePrice[],
+  fallbackPrice?: number,
+): { zonePrices: ZonePrice[]; error?: string } {
+  const mapZones = seatMap.zones?.length ? seatMap.zones : distinctZones(seatMap.seats);
+  if (mapZones.length === 0) return { zonePrices: [], error: '座位图无分区' };
+  if (!bodyZonePrices || bodyZonePrices.length === 0) {
+    if (fallbackPrice != null && fallbackPrice > 0) {
+      return { zonePrices: mapZones.map((z) => ({ zone: z, price: fallbackPrice })) };
+    }
+    return { zonePrices: [], error: '请提供 zonePrices' };
+  }
+  const bodyZones = bodyZonePrices.map((z) => z.zone).sort();
+  const expected = [...mapZones].sort();
+  if (bodyZones.length !== expected.length || bodyZones.some((z, i) => z !== expected[i])) {
+    return { zonePrices: [], error: `区价须覆盖座位图全部区：${expected.join(',')}` };
+  }
+  if (bodyZonePrices.some((z) => !(z.price > 0))) {
+    return { zonePrices: [], error: '区价须大于 0' };
+  }
+  return { zonePrices: bodyZonePrices };
 }
 
 function dateOfShow(show: { startTime: string }) {
@@ -378,8 +434,13 @@ function handleShows(req: MockRequest): ApiEnvelope<unknown> | null {
       startTime: string;
       endTime: string;
       price: number;
+      zonePrices: ZonePrice[];
     }>;
     const hall = hallById(body.hallId);
+    const sm = db.seatMaps.find((x) => x.seatMapId === hall?.seatMapId) || db.seatMaps[0];
+    const resolved = resolveZonePrices(sm, body.zonePrices, body.price);
+    if (resolved.error) return fail(resolved.error, 'VALIDATION_ERROR');
+    const minPrice = Math.min(...resolved.zonePrices.map((z) => z.price));
     const show = {
       showId: uid('s'),
       movieId: body.movieId!,
@@ -388,13 +449,14 @@ function handleShows(req: MockRequest): ApiEnvelope<unknown> | null {
       hallName: hall?.name || '厅',
       startTime: body.startTime!,
       endTime: body.endTime!,
-      price: body.price || 45,
-      seatRemain: 80,
+      price: minPrice,
+      zonePrices: resolved.zonePrices,
+      seatRemain: sm.seats.filter((s) => s.defaultStatus !== 'unavailable').length,
       seatRemainLevel: 'ample' as const,
       status: 'on_sale' as const,
     };
     db.shows.push(show);
-    const sm = db.seatMaps.find((x) => x.seatMapId === hall?.seatMapId) || db.seatMaps[0];
+    sm.mutable = false;
     const seats = new Map<string, 'available' | 'unavailable' | 'locked' | 'sold'>();
     for (const s of sm.seats) {
       seats.set(s.seatId, s.defaultStatus === 'unavailable' ? 'unavailable' : 'available');
@@ -409,7 +471,22 @@ function handleShows(req: MockRequest): ApiEnvelope<unknown> | null {
     if (error) return error;
     const s = showById(adminShow[1]);
     if (!s) return fail('场次不存在', 'NOT_FOUND');
-    Object.assign(s, req.body);
+    const body = (req.body || {}) as Partial<{
+      startTime: string;
+      endTime: string;
+      price: number;
+      zonePrices: ZonePrice[];
+    }>;
+    if (body.zonePrices) {
+      const hall = hallById(s.hallId);
+      const sm = db.seatMaps.find((x) => x.seatMapId === hall?.seatMapId) || db.seatMaps[0];
+      const resolved = resolveZonePrices(sm, body.zonePrices);
+      if (resolved.error) return fail(resolved.error, 'VALIDATION_ERROR');
+      s.zonePrices = resolved.zonePrices;
+      s.price = Math.min(...resolved.zonePrices.map((z) => z.price));
+    }
+    if (body.startTime) s.startTime = body.startTime;
+    if (body.endTime) s.endTime = body.endTime;
     return ok(s);
   }
   const cancel = req.path.match(/^\/admin\/shows\/([^/]+)\/cancel$/);
@@ -533,18 +610,39 @@ function handleDrafts(req: MockRequest): ApiEnvelope<unknown> | null {
     if (body.version !== draft.version) {
       return fail('Draft 版本冲突', 'DRAFT_CONFLICT', { serverDraft: draft });
     }
-    const next = {
+    const patch = body.patch || {};
+    const next: BookingDraft = {
       ...draft,
-      ...body.patch,
+      ...patch,
       sessionId: draft.sessionId,
       version: draft.version + 1,
       updatedAt: nowIso(),
-      lockId: draft.lockId,
-      orderId: draft.orderId,
-      expireAt: draft.expireAt,
-      userId: draft.userId,
+      // 锁/单由服务端权威字段写；客户端 patch 不含则保留
+      lockId: patch.lockId !== undefined ? patch.lockId : draft.lockId,
+      orderId: patch.orderId !== undefined ? patch.orderId : draft.orderId,
+      expireAt: patch.expireAt !== undefined ? patch.expireAt : draft.expireAt,
+      userId: patch.userId !== undefined ? patch.userId : draft.userId,
     };
-    if (body.patch?.movieId) next.filmTitle = movieById(body.patch.movieId)?.title;
+    if (patch.movieId) next.filmTitle = movieById(patch.movieId)?.title || next.filmTitle;
+    // 回退清空：改片清院及以下；改院清场及以下
+    if (patch.movieId && patch.movieId !== draft.movieId) {
+      if (patch.cinemaId === undefined) {
+        next.cinemaId = undefined;
+        next.showId = undefined;
+        next.seatIds = [];
+        next.lockId = undefined;
+        next.orderId = undefined;
+        next.expireAt = undefined;
+      }
+    } else if (patch.cinemaId && patch.cinemaId !== draft.cinemaId) {
+      next.showId = undefined;
+      next.seatIds = [];
+      next.lockId = undefined;
+      next.orderId = undefined;
+      next.expireAt = undefined;
+    }
+    // state 以字段完备度为准（保护已选步骤）
+    next.state = progressFromDraft(next).state;
     db.drafts.set(sid, next);
     return ok(next);
   }
@@ -632,6 +730,19 @@ function handleLocksOrders(req: MockRequest): ApiEnvelope<unknown> | null {
     const show = showById(lock.showId)!;
     const movie = movieById(show.movieId)!;
     const cinema = cinemaById(show.cinemaId)!;
+    const sm = seatMapForShow(show.showId);
+    const seatById = new Map(sm?.seats.map((x) => [x.seatId, x]) || []);
+    const zonePrices = show.zonePrices || [{ zone: 'C', price: show.price }];
+    const priceByZone = new Map(zonePrices.map((z) => [z.zone, z.price]));
+    const seatPrices: SeatPriceSnapshot[] = lock.seatIds.map((sid) => {
+      const seat = seatById.get(sid);
+      const zone = seat?.zone || 'C';
+      const price = priceByZone.get(zone) ?? show.price;
+      return { seatId: sid, zone, price, seatName: seat?.seatName };
+    });
+    const amount = seatPrices.reduce((sum, p) => sum + p.price, 0);
+    const unitPrice =
+      seatPrices.length > 0 ? Math.round((amount / seatPrices.length) * 100) / 100 : show.price;
     const order: OrderVO = {
       orderId: uid('o'),
       userId: user!.userId,
@@ -641,8 +752,9 @@ function handleLocksOrders(req: MockRequest): ApiEnvelope<unknown> | null {
       hallName: show.hallName,
       startTime: show.startTime,
       seatIds: lock.seatIds,
-      unitPrice: show.price,
-      amount: show.price * lock.seatIds.length,
+      unitPrice,
+      amount,
+      seatPrices,
       status: 'pending_pay',
       ticketCode: null,
       qrPayload: null,
@@ -800,18 +912,23 @@ function handleSeatMapsHalls(req: MockRequest): ApiEnvelope<unknown> | null {
   if (req.method === 'GET' && one) {
     const sm = db.seatMaps.find((x) => x.seatMapId === one[1]);
     if (!sm) return fail('座位图不存在', 'NOT_FOUND');
-    return ok(sm);
+    return ok({
+      ...sm,
+      zones: sm.zones?.length ? sm.zones : distinctZones(sm.seats),
+    });
   }
   if (req.method === 'POST' && req.path === '/seat-maps') {
     const { error } = requireStaff(req);
     if (error) return error;
     const body = req.body as SeatMapVO;
+    const seats = body.seats || [];
     const sm: SeatMapVO = {
       seatMapId: body.seatMapId || uid('sm'),
       rows: body.rows,
       cols: body.cols,
       screenLabel: body.screenLabel || '银幕',
-      seats: body.seats || [],
+      seats,
+      zones: body.zones?.length ? body.zones : distinctZones(seats),
       mutable: true,
     };
     db.seatMaps.push(sm);
@@ -823,7 +940,15 @@ function handleSeatMapsHalls(req: MockRequest): ApiEnvelope<unknown> | null {
     const idx = db.seatMaps.findIndex((x) => x.seatMapId === one[1]);
     if (idx < 0) return fail('座位图不存在', 'NOT_FOUND');
     if (db.seatMaps[idx].mutable === false) return fail('座位图不可修改', 'CONFLICT');
-    db.seatMaps[idx] = { ...db.seatMaps[idx], ...(req.body as SeatMapVO), seatMapId: one[1] };
+    const body = req.body as SeatMapVO;
+    const seats = body.seats ?? db.seatMaps[idx].seats;
+    db.seatMaps[idx] = {
+      ...db.seatMaps[idx],
+      ...body,
+      seatMapId: one[1],
+      seats,
+      zones: body.zones?.length ? body.zones : distinctZones(seats),
+    };
     return ok(db.seatMaps[idx]);
   }
   if (req.method === 'DELETE' && one) {
@@ -1048,7 +1173,7 @@ function handleAgent(req: MockRequest): ApiEnvelope<unknown> | null {
             replyText,
             draft,
             cards: [],
-            progress: progressFromState(draft.state),
+            progress: progressFromDraft(draft),
             needLogin: true,
           } satisfies AgentTurnResponse);
         }
@@ -1090,7 +1215,7 @@ function handleAgent(req: MockRequest): ApiEnvelope<unknown> | null {
             replyText: '下单需要登录',
             draft,
             cards: [],
-            progress: progressFromState(draft.state),
+            progress: progressFromDraft(draft),
             needLogin: true,
           } satisfies AgentTurnResponse);
         }
@@ -1133,6 +1258,19 @@ function handleAgent(req: MockRequest): ApiEnvelope<unknown> | null {
           const show = showById(draft.showId!)!;
           const movie = movieById(show.movieId)!;
           const cinema = cinemaById(show.cinemaId)!;
+          const sm2 = seatMapForShow(show.showId);
+          const seatById = new Map(sm2?.seats.map((x) => [x.seatId, x]) || []);
+          const zonePrices = show.zonePrices || [{ zone: 'C', price: show.price }];
+          const priceByZone = new Map(zonePrices.map((z) => [z.zone, z.price]));
+          const seatPrices: SeatPriceSnapshot[] = seats.map((sid) => {
+            const seat = seatById.get(sid);
+            const zone = seat?.zone || 'C';
+            const price = priceByZone.get(zone) ?? show.price;
+            return { seatId: sid, zone, price, seatName: seat?.seatName };
+          });
+          const amount = seatPrices.reduce((sum, p) => sum + p.price, 0);
+          const unitPrice =
+            seatPrices.length > 0 ? Math.round((amount / seatPrices.length) * 100) / 100 : show.price;
           const order: OrderVO = {
             orderId: uid('o'),
             userId: user.userId,
@@ -1142,8 +1280,9 @@ function handleAgent(req: MockRequest): ApiEnvelope<unknown> | null {
             hallName: show.hallName,
             startTime: show.startTime,
             seatIds: seats,
-            unitPrice: show.price,
-            amount: show.price * seats.length,
+            unitPrice,
+            amount,
+            seatPrices,
             status: 'pending_pay',
             ticketCode: null,
             qrPayload: null,
@@ -1197,7 +1336,81 @@ function handleAgent(req: MockRequest): ApiEnvelope<unknown> | null {
     }
   } else if (body.message) {
     const msg = body.message;
-    if (/喜剧/.test(msg)) {
+
+    // 草稿已有影片：跳过选片，继续影院/场次（系分 SKIP / 模式切换保护）
+    const continueFromDraftMovie = () => {
+      const title = draft.filmTitle || movieById(draft.movieId)?.title || '已选影片';
+      if (!draft.cinemaId) {
+        const cinemas = db.cinemas.slice(0, 3);
+        replyText = `《${title}》已在草稿里，不用重选片。这些影院有场次：`;
+        cards.push({
+          cardId: uid('card'),
+          type: 'cinema_list',
+          title: '选择影院',
+          payload: { cinemas },
+          actions: cinemas.map((c) => ({
+            actionId: 'select',
+            label: '选这家',
+            itemId: c.cinemaId,
+          })),
+        });
+        applyPatch({
+          intent: msg,
+          state: 'SelectCinema',
+          source: draft.source === 'manual' ? 'hybrid' : draft.source,
+          listContext: { type: 'cinema', ids: cinemas.map((c) => c.cinemaId) },
+        });
+        return;
+      }
+      if (!draft.showId) {
+        const date =
+          draft.date ||
+          (() => {
+            const d = new Date();
+            return d.toISOString().slice(0, 10);
+          })();
+        const shows = db.shows
+          .filter((s) => s.movieId === draft.movieId && s.cinemaId === draft.cinemaId)
+          .slice(0, 6);
+        replyText = `《${title}》影院已选，看看这些场次：`;
+        cards.push({
+          cardId: uid('card'),
+          type: 'show_list',
+          title: '选择场次',
+          payload: { shows, date },
+          actions: shows.map((s) => ({
+            actionId: 'select',
+            label: '选这场',
+            itemId: s.showId,
+          })),
+        });
+        applyPatch({
+          intent: msg,
+          date,
+          state: 'SelectShow',
+          source: draft.source === 'manual' ? 'hybrid' : draft.source,
+        });
+        return;
+      }
+      replyText = `草稿已推进到选座。《${title}》可以说「帮我选座」或转手动。`;
+      applyPatch({
+        intent: msg,
+        state: 'SelectSeat',
+        source: draft.source === 'manual' ? 'hybrid' : draft.source,
+      });
+    };
+
+    if (draft.movieId && !/换一部|重选|别的片|换片/.test(msg)) {
+      // 已有 movieId：不追问选片（除非用户明确要换片）
+      if (/附近|影院|IMAX|imax|明天|下午|两张|选座|继续/.test(msg) || msg.length < 40) {
+        continueFromDraftMovie();
+      } else if (/喜剧/.test(msg) && !draft.filmTitle?.includes('喜剧')) {
+        // 想换类型时仍可给电影列表，但不清已有片除非用户点选
+        continueFromDraftMovie();
+      } else {
+        continueFromDraftMovie();
+      }
+    } else if (/喜剧/.test(msg)) {
       const movies = db.movies.filter((m) => m.genres.includes('喜剧') && m.status === 'hot_showing');
       replyText = '好的，这几部喜剧口碑不错：';
       cards.push({
@@ -1309,7 +1522,7 @@ function handleAgent(req: MockRequest): ApiEnvelope<unknown> | null {
     replyText,
     draft: { ...draft },
     cards,
-    progress: progressFromState(draft.state),
+    progress: progressFromDraft(draft),
     needLogin: false,
     events: ['turn'],
   };

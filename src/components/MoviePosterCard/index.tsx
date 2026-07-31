@@ -1,6 +1,7 @@
 import React from 'react';
 import { history } from 'umi';
 import type { MovieVO } from '@/types';
+import { useBookingStore } from '@/stores/booking';
 import styles from './MoviePosterCard.less';
 
 interface Props {
@@ -20,14 +21,19 @@ const MoviePosterCard: React.FC<Props> = ({
   showBuy = true,
   compact,
 }) => {
+  const patchLocal = useBookingStore((s) => s.patchLocal);
   const goDetail = () => history.push(`/movies/${movie.movieId}`);
-  const goBuy = (e: React.MouseEvent) => {
+  const goBuy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (movie.status === 'coming_soon') {
       history.push(`/movies/${movie.movieId}`);
-    } else {
-      history.push(`/booking/cinemas?movieId=${movie.movieId}`);
+      return;
     }
+    await patchLocal(
+      { movieId: movie.movieId, filmTitle: movie.title, state: 'SelectCinema' },
+      { debounce: false },
+    );
+    history.push(`/booking/cinemas?movieId=${movie.movieId}`);
   };
 
   return (

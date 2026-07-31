@@ -21,12 +21,12 @@ const MePage: React.FC = () => {
   };
 
   const menu: Array<[string, string]> = [
-    ['/me/orders', '📋 我的订单'],
-    ['/me/want-see', '♡ 想看列表'],
-    ['/agent', '🤖 Agent 助手'],
+    ['/me/orders', '我的票夹'],
+    ['/me/want-see', '想看列表'],
+    ['/agent', '妙语助手'],
   ];
   if (isOps) {
-    menu.push(['/admin', '⚙ 运营后台']);
+    menu.push(['/admin', '运营后台']);
   }
 
   return (

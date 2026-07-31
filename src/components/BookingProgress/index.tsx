@@ -1,29 +1,45 @@
 import React from 'react';
+import { useBookingStore } from '@/stores/booking';
+import { completedStepFlags, progressFromDraft } from '@/utils/bookingProgress';
 import styles from './BookingProgress.less';
 
-const STEPS = ['选片', '选影院', '选场次', '选座', '支付'];
+const STEPS = ['选片', '影院', '场次', '选座', '支付'];
 
 interface Props {
-  step: number; // 1-5
+  /** 1–5；不传则按 BookingDraft 完备度推导 */
+  step?: number;
 }
 
 const BookingProgress: React.FC<Props> = ({ step }) => {
+  const draft = useBookingStore((s) => s.draft);
+  const derived = progressFromDraft(draft);
+  const currentIndex = step != null ? Math.max(0, step - 1) : derived.currentIndex;
+  const doneFlags = completedStepFlags(
+    draft || {
+      movieId: undefined,
+      cinemaId: undefined,
+      showId: undefined,
+      lockId: undefined,
+      orderId: undefined,
+      state: 'Idle',
+    },
+  );
+
   return (
-    <div className={styles.bar}>
+    <div className={styles.bar} aria-label="购票进度">
       {STEPS.map((label, i) => {
-        const n = i + 1;
-        const done = n < step;
-        const current = n === step;
+        // 字段已完备 → done；当前焦点 → current；二者可并存时优先 current 样式
+        const fieldDone = doneFlags[i] || i < currentIndex;
+        const current = i === currentIndex && currentIndex < 5;
+        const done = fieldDone && !current;
         return (
-          <React.Fragment key={label}>
-            {i > 0 ? <div className={`${styles.line} ${done || current ? styles.lineActive : ''}`} /> : null}
-            <div className={styles.item}>
-              <div
-                className={`${styles.dot} ${done ? styles.done : ''} ${current ? styles.current : ''}`}
-              />
-              <span className={current || done ? styles.labelActive : styles.label}>{label}</span>
-            </div>
-          </React.Fragment>
+          <div
+            key={label}
+            className={`${styles.step} ${done ? styles.done : ''} ${current ? styles.current : ''}`}
+          >
+            <i>{String(i + 1).padStart(2, '0')}</i>
+            <span>{label}</span>
+          </div>
         );
       })}
     </div>

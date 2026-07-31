@@ -16,10 +16,23 @@ export type MovieStatus = 'hot_showing' | 'coming_soon' | 'off';
 
 export type SeatStatus = 'available' | 'locked' | 'sold' | 'unavailable';
 export type SeatType = 'normal' | 'couple' | 'disabled';
-export type SeatZone = 'normal' | 'golden';
+/** 座位分区 code：座位图自定义，无枚举/正则限制（如 A/B/C、VIP） */
+export type SeatZone = string;
 export type SeatRemainLevel = 'ample' | 'tight' | 'almost_full';
 export type OrderStatus = 'pending_pay' | 'issued' | 'cancelled';
 export type LockStatus = 'active' | 'expired' | 'consumed' | 'released';
+
+export interface ZonePrice {
+  zone: string;
+  price: number;
+}
+
+export interface SeatPriceSnapshot {
+  seatId: string;
+  zone: string;
+  price: number;
+  seatName?: string;
+}
 
 export interface PageResult<T> {
   items: T[];
@@ -112,7 +125,10 @@ export interface ShowVO {
   hallName: string;
   startTime: string;
   endTime: string;
+  /** 最低区价（列表「¥xx起」） */
   price: number;
+  /** 本场各区单价 */
+  zonePrices?: ZonePrice[];
   seatRemain: number;
   seatRemainLevel: SeatRemainLevel;
   status?: 'on_sale' | 'cancelled';
@@ -130,6 +146,8 @@ export interface SeatVO {
   status?: SeatStatus;
   defaultStatus?: 'available' | 'unavailable';
   couplePairId: string | null;
+  /** 本场座位图冗余：所属区单价 */
+  price?: number;
 }
 
 export interface SeatMapVO {
@@ -140,7 +158,11 @@ export interface SeatMapVO {
   seats: SeatVO[];
   mutable?: boolean;
   legend?: Record<string, string>;
+  /** 最低区价（兼容） */
   price?: number;
+  zonePrices?: ZonePrice[];
+  /** 模板/辅助：本图出现的区 */
+  zones?: string[];
   showId?: string;
 }
 
@@ -177,8 +199,10 @@ export interface OrderVO {
   hallName: string;
   startTime: string;
   seatIds: string[];
+  /** @deprecated 所选座均价；新 UI 读 seatPrices */
   unitPrice: number;
   amount: number;
+  seatPrices?: SeatPriceSnapshot[];
   status: OrderStatus;
   ticketCode: string | null;
   qrPayload: string | null;

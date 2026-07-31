@@ -1,10 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { history } from 'umi';
 import { useAgentStore } from '@/stores/agent';
+import { useBookingStore } from '@/stores/booking';
+import { completedStepFlags, progressFromDraft } from '@/utils/bookingProgress';
 import CardRenderer from './CardRenderer';
 import styles from './AgentDrawer.less';
 
-const CHIPS = ['周末看喜剧', '两张票', '黄金区', '带对象看IMAX'];
+const CHIPS = ['明天下午', '两张', '坐中间', '周末看喜剧'];
 
 const AgentDrawer: React.FC = () => {
   const open = useAgentStore((s) => s.open);
@@ -14,6 +16,7 @@ const AgentDrawer: React.FC = () => {
   const closeDrawer = useAgentStore((s) => s.closeDrawer);
   const sendMessage = useAgentStore((s) => s.sendMessage);
   const clickCardAction = useAgentStore((s) => s.clickCardAction);
+  const draft = useBookingStore((s) => s.draft);
   const inputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [text, setText] = React.useState('');
@@ -31,26 +34,91 @@ const AgentDrawer: React.FC = () => {
     void sendMessage(v);
   };
 
-  const stepIndex = progress?.currentIndex ?? 0;
+  const derived = progressFromDraft(draft);
+  const steps = progress?.steps?.length ? progress.steps : derived.steps;
+  const stepIndex = progress?.currentIndex ?? derived.currentIndex;
+  const doneFlags = completedStepFlags(
+    draft || {
+      movieId: undefined,
+      cinemaId: undefined,
+      showId: undefined,
+      lockId: undefined,
+      orderId: undefined,
+      state: 'Idle',
+    },
+  );
+
+  const draftTitle = draft?.filmTitle
+    ? draft.cinemaId
+      ? `《${draft.filmTitle}》· 草稿已同步`
+      : `已选《${draft.filmTitle}》· 下一步选影院`
+    : steps[stepIndex]
+      ? `当前步骤 · ${steps[stepIndex]}`
+      : '正在读取购票草稿';
+  const draftMeta = draft?.movieId
+    ? '已完备步骤不会因打开助手而回退'
+    : '偏好会与手动页面实时同步';
 
   return (
-    <div className={styles.mask}>
-      <aside className={styles.drawer}>
+    <>
+      <div className={styles.backdrop} onClick={closeDrawer} aria-hidden />
+      <aside className={`${styles.drawer} ${styles.open}`} aria-label="妙语助手">
         <header className={styles.head}>
-          <strong>妙语助手</strong>
-          <div className={styles.progress}>
-            {(progress?.steps || ['选片', '影院', '场次', '选座', '支付']).map((s, i) => (
-              <span key={s} className={i <= stepIndex ? styles.dotOn : styles.dot} title={s} />
-            ))}
+          <div>
+            <span className={styles.eyebrow}>✦ MIU AGENT</span>
+            <h2>妙语助手</h2>
           </div>
-          <button type="button" className={styles.manualBtn} onClick={() => { closeDrawer(); history.push('/booking/cinemas'); }}>
-            转手动
-          </button>
-          <button type="button" className={styles.close} onClick={closeDrawer}>
-            ×
-          </button>
+          <div className={styles.headActions}>
+            <button
+              type="button"
+              className={styles.manualBtn}
+              onClick={() => {
+                closeDrawer();
+                if (draft?.movieId && draft?.cinemaId) {
+                  history.push(
+                    `/booking/shows?movieId=${draft.movieId}&cinemaId=${draft.cinemaId}`,
+                  );
+                } else if (draft?.movieId) {
+                  history.push(`/booking/cinemas?movieId=${draft.movieId}`);
+                } else {
+                  history.push('/booking/cinemas');
+                }
+              }}
+            >
+              转手动
+            </button>
+            <button type="button" className={styles.close} onClick={closeDrawer} aria-label="关闭">
+              ×
+            </button>
+          </div>
         </header>
-        <div className={styles.timeline}>
+
+        <div className={styles.agentProgress} aria-label="购票进度">
+          {steps.map((s, i) => {
+            const fieldDone = doneFlags[i] || i < stepIndex;
+            const current = i === stepIndex && stepIndex < 5;
+            const done = fieldDone && !current;
+            return (
+              <div
+                key={s}
+                className={`${styles.progressStep} ${done ? styles.done : ''} ${current ? styles.current : ''}`}
+              >
+                <i>{String(i + 1).padStart(2, '0')}</i>
+                <span>{s}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className={styles.draftGlance}>
+          <span className={styles.syncDot} />
+          <div>
+            <b>{draftTitle}</b>
+            <small>{draftMeta}</small>
+          </div>
+        </div>
+
+        <div className={styles.chat}>
           {messages.map((m) => (
             <div key={m.id} className={`${styles.bubble} ${styles[m.role]}`}>
               <div className={m.loading ? styles.loading : undefined}>{m.text}</div>
@@ -70,7 +138,9 @@ const AgentDrawer: React.FC = () => {
                       return;
                     }
                     if (actionId === 'fill_slot') {
-                      void sendMessage(itemId || c.actions.find((a) => a.actionId === actionId)?.label || '');
+                      void sendMessage(
+                        itemId || c.actions.find((a) => a.actionId === actionId)?.label || '',
+                      );
                       return;
                     }
                     if (actionId === 'view_order' && itemId) {
@@ -91,27 +161,39 @@ const AgentDrawer: React.FC = () => {
           ))}
           <div ref={bottomRef} />
         </div>
-        <div className={styles.chips}>
-          {CHIPS.map((c) => (
-            <button key={c} type="button" onClick={() => sendMessage(c)} disabled={sending}>
-              {c}
+
+        <footer className={styles.compose}>
+          <div className={styles.quickPrompts}>
+            {CHIPS.map((c) => (
+              <button key={c} type="button" onClick={() => sendMessage(c)} disabled={sending}>
+                {c}
+              </button>
+            ))}
+          </div>
+          <form
+            className={styles.form}
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSend();
+            }}
+          >
+            <input
+              ref={inputRef}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              aria-label="给妙语助手发消息"
+              placeholder="说说你想看什么…"
+              autoComplete="off"
+              disabled={sending}
+            />
+            <button type="submit" aria-label="发送" disabled={sending}>
+              ↗
             </button>
-          ))}
-        </div>
-        <div className={styles.inputBar}>
-          <input
-            ref={inputRef}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="输入消息…"
-            onKeyDown={(e) => e.key === 'Enter' && onSend()}
-          />
-          <button type="button" className="miaoyu-btn-primary" onClick={onSend} disabled={sending}>
-            发送
-          </button>
-        </div>
+          </form>
+          <small>Agent 可以选片、选影院与选座；支付必须由你完成</small>
+        </footer>
       </aside>
-    </div>
+    </>
   );
 };
 

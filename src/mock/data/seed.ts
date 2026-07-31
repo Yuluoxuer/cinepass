@@ -166,9 +166,11 @@ function buildConvexSeats(seatMapId: string, rows: number, cols: number): SeatVO
     for (let c = startCol; c <= endCol; c++) {
       colNo += 1;
       const isCouple = r === 5 && (c === 4 || c === 5);
-      const pairId = isCouple ? `cp_${coupleSeq}` : null;
       if (isCouple && c === 5) coupleSeq += 1;
-      const zone: SeatVO['zone'] = r >= 3 && r <= 5 && c >= 3 && c <= cols - 2 ? 'golden' : 'normal';
+      // A=前排偏贵区，B=中排，C=后排/边角
+      let zone: SeatVO['zone'] = 'C';
+      if (r >= 3 && r <= 5 && c >= 3 && c <= cols - 2) zone = 'A';
+      else if (r >= 2 && r <= 6) zone = 'B';
       seats.push({
         seatId: `${seatMapId}:${r}:${c}`,
         seatName: `${r}排${colNo}座`,
@@ -194,6 +196,7 @@ export const MOCK_SEAT_MAPS: SeatMapVO[] = [
     screenLabel: '银幕',
     mutable: true,
     seats: buildConvexSeats('sm1', 8, 12),
+    zones: ['A', 'B', 'C'],
   },
 ];
 
@@ -245,7 +248,13 @@ export function buildMockShows(): ShowVO[] {
             [19, 0],
           ] as const) {
             const start = isoAt(date, slot[0], slot[1]);
-            const price = hall.name.includes('IMAX') ? 88 : cinema.minPrice || 45;
+            const base = hall.name.includes('IMAX') ? 88 : cinema.minPrice || 45;
+            const zonePrices = [
+              { zone: 'A', price: base + 20 },
+              { zone: 'B', price: base + 10 },
+              { zone: 'C', price: base },
+            ];
+            const price = Math.min(...zonePrices.map((z) => z.price));
             const remain = 40 + ((n * 7) % 60);
             const ratio = remain / 96;
             shows.push({
@@ -257,6 +266,7 @@ export function buildMockShows(): ShowVO[] {
               startTime: start,
               endTime: endIso(start, movie.durationMin),
               price,
+              zonePrices,
               seatRemain: remain,
               seatRemainLevel:
                 ratio >= 0.4 ? 'ample' : ratio >= 0.15 ? 'tight' : 'almost_full',
