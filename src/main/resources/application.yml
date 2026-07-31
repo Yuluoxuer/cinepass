@@ -1,0 +1,44 @@
+# ============ Spring Boot 公共配置 ============
+spring:
+  profiles:
+    active: dev
+
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+
+  redis:
+    timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: 3000ms
+
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+
+# ============ MyBatis 配置 ============
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.minihr.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+# ============ JWT 配置 ============
+jwt:
+  secret: ${JWT_SECRET:mini-hr-jwt-secret-key-2026-please-change-in-prod}
+
+# ============ Knife4j 配置 ============
+knife4j:
+  enable: true
+  setting:
+    language: zh-CN
+
+server:
+  port: 8080
