@@ -1,0 +1,117 @@
+.h1 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  margin: 4px 0 14px;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0;
+}
+
+.tabs button {
+  background: none;
+  border: none;
+  padding: 10px 4px 14px;
+  margin-right: 20px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  letter-spacing: 0.04em;
+  transition: color 0.15s;
+}
+
+.tabs .active {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-tungsten);
+  font-weight: 750;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-card);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.row:hover     { background: rgba(15, 143, 132, 0.04); }
+.row:last-child { border-bottom: none; }
+
+.row img {
+  width: 64px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(12, 16, 24, 0.12);
+}
+
+.info         { flex: 1; min-width: 0; }
+.info h3      { margin: 0 0 5px; font-size: 15px; font-weight: 650; color: var(--color-text-primary); }
+.info p       { margin: 0 0 2px; color: var(--color-text-secondary); font-size: 12px; }
+
+.desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted) !important;
+}
+
+.loading {
+  padding: 28px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.pager button {
+  padding: 6px 16px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.pager button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.pager button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

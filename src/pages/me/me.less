@@ -1,0 +1,72 @@
+.card {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background:
+    radial-gradient(ellipse 80% 120% at 90% 10%, rgba(212, 160, 23, 0.22), transparent 55%),
+    linear-gradient(135deg, #0b0d11 0%, #15201f 100%);
+  color: var(--color-text-on-ink);
+  padding: 22px 20px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+}
+
+.avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.card h2 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  color: #fff;
+}
+
+.card p  { margin: 0; color: rgba(242, 240, 235, 0.55); font-size: 12px; }
+
+.roleTag {
+  margin-top: 6px !important;
+  color: var(--color-tungsten) !important;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  font-weight: 650;
+}
+
+.menu {
+  margin-top: 14px;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--color-text-primary);
+  transition: background 0.12s, color 0.12s;
+}
+
+.item:last-child { border-bottom: none; }
+.item:hover      {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}

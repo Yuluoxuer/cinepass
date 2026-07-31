@@ -1,0 +1,195 @@
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 13, 17, 0.55);
+  z-index: 200;
+  display: flex;
+  justify-content: flex-end;
+  animation: miaoyu-fade-up 0.25s ease;
+  backdrop-filter: blur(2px);
+}
+
+.drawer {
+  width: var(--drawer-width);
+  max-width: 100vw;
+  height: 100%;
+  background: var(--color-bg-card);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 40px rgba(11, 13, 17, 0.28);
+}
+
+.head {
+  height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(242, 240, 235, 0.08);
+  background: var(--color-bg-header);
+  color: var(--color-text-on-ink);
+  flex-shrink: 0;
+}
+
+.head strong {
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.progress {
+  display: flex;
+  gap: 5px;
+  flex: 1;
+}
+
+.dot,
+.dotOn {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(242, 240, 235, 0.18);
+}
+
+.dotOn { background: var(--color-tungsten); }
+
+.close {
+  border: none;
+  background: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: rgba(242, 240, 235, 0.4);
+  transition: color 0.15s;
+  line-height: 1;
+}
+
+.close:hover { color: #fff; }
+
+.timeline {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background:
+    radial-gradient(ellipse 70% 40% at 100% 0%, rgba(15, 143, 132, 0.06), transparent 50%),
+    var(--color-bg-page);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.bubble {
+  margin-bottom: 12px;
+  max-width: 86%;
+}
+
+.user { margin-left: auto; }
+
+.user > div:first-child {
+  background: var(--color-primary);
+  color: #fff;
+  padding: 11px 15px;
+  border-radius: 12px 12px 3px 12px;
+  font-size: 14px;
+  line-height: 1.55;
+  box-shadow: 0 4px 14px var(--color-primary-glow);
+}
+
+.assistant > div:first-child {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  padding: 11px 15px;
+  border-radius: 12px 12px 12px 3px;
+  font-size: 14px;
+  line-height: 1.55;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 8px rgba(12, 16, 24, 0.04);
+}
+
+.system {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  max-width: 100%;
+}
+
+.loading { opacity: 0.65; }
+
+.chips {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px;
+  overflow-x: auto;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+
+.chips::-webkit-scrollbar { display: none; }
+
+.chips button {
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.chips button:hover {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+.inputBar {
+  display: flex;
+  gap: 8px;
+  padding: 14px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  flex-shrink: 0;
+}
+
+.inputBar input {
+  flex: 1;
+  height: 42px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0 14px;
+  outline: none;
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.inputBar input::placeholder { color: var(--color-text-muted); }
+
+.inputBar input:focus {
+  border-color: var(--color-primary);
+  background: #fff;
+}
+
+.manualBtn {
+  background: transparent;
+  border: 1px solid rgba(242, 240, 235, 0.25);
+  color: rgba(242, 240, 235, 0.7);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.manualBtn:hover {
+  border-color: var(--color-tungsten);
+  color: var(--color-tungsten);
+}

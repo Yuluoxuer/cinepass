@@ -1,0 +1,208 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&display=swap');
+
+:root {
+  /* ── Surfaces: cool mist lobby ── */
+  --color-bg-page:     #e4e7eb;
+  --color-bg-header:   #0b0d11;
+  --color-bg-card:     #f6f7f9;
+  --color-bg-surface:  #eceef1;
+  --color-bg-elevated: #ffffff;
+  --color-bg-ink:      #0b0d11;
+  --color-bg-ink-soft: #151820;
+
+  /* ── Brand: teal voice + tungsten light ── */
+  --color-primary:        #0f8f84;
+  --color-primary-hover:  #0c7a71;
+  --color-primary-soft:   #e4f5f3;
+  --color-primary-glow:   rgba(15, 143, 132, 0.22);
+  --color-tungsten:       #d4a017;
+  --color-tungsten-soft:  rgba(212, 160, 23, 0.16);
+  --color-agent:          #0f8f84;
+  --color-agent-soft:     #d8f3ef;
+
+  /* ── Text ── */
+  --color-text-primary:   #12151c;
+  --color-text-secondary: #5a6170;
+  --color-text-muted:     #8b93a3;
+  --color-text-on-ink:    #f2f0eb;
+
+  /* ── Borders ── */
+  --color-border:        #d5d9e0;
+  --color-border-strong: #b8bfcb;
+
+  /* ── Semantic ── */
+  --color-success: #1a9b5c;
+  --color-warning: #d4a017;
+  --color-danger:  #c43c2e;
+  --color-gold:    #d4a017;
+  --color-score:   #d4a017;
+  --color-accent:  #d4a017;
+
+  /* ── Radius ── */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+  --radius-xl: 20px;
+
+  /* ── Shadows ── */
+  --shadow-card:   0 1px 2px rgba(12, 16, 24, 0.04), 0 8px 24px rgba(12, 16, 24, 0.06);
+  --shadow-hover:  0 4px 12px rgba(12, 16, 24, 0.1), 0 16px 40px rgba(12, 16, 24, 0.08);
+  --shadow-poster: 0 6px 20px rgba(12, 16, 24, 0.18);
+
+  /* ── Typography ── */
+  --font-display: 'Instrument Serif', 'Noto Serif SC', Georgia, serif;
+  --font-family:  'Manrope', 'Noto Sans SC', 'PingFang SC', sans-serif;
+  --font-size-h1:      40px;
+  --font-size-h2:      22px;
+  --font-size-body:    14px;
+  --font-size-caption: 12px;
+
+  /* ── Layout ── */
+  --spacing-page-x:      20px;
+  --spacing-section:     28px;
+  --header-height:       60px;
+  --booking-bar-height:  60px;
+  --drawer-width:        420px;
+  --content-max:         1160px;
+  --admin-sidebar-width: 220px;
+  --admin-bg:            #eef0f3;
+  --admin-sidebar-bg:    #0b0d11;
+  --admin-primary:       #0f8f84;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-family);
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(15, 143, 132, 0.07), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(212, 160, 23, 0.06), transparent 45%),
+    var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Film grain atmosphere */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 180px;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; }
+img { max-width: 100%; }
+
+.miaoyu-container {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 16px var(--spacing-page-x) 32px;
+}
+
+/* ── Buttons ── */
+.miaoyu-btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  padding: 0 22px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  height: 40px;
+  transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
+}
+
+.miaoyu-btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  box-shadow: 0 6px 20px var(--color-primary-glow);
+}
+
+.miaoyu-btn-primary:active:not(:disabled) { transform: scale(0.98); }
+
+.miaoyu-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.miaoyu-btn-secondary {
+  background: transparent;
+  color: var(--color-primary);
+  border: 1.5px solid var(--color-primary);
+  padding: 0 22px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  height: 40px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.miaoyu-btn-secondary:hover { background: var(--color-primary-soft); }
+
+.miaoyu-btn-ghost {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.miaoyu-btn-text {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ── Skeleton ── */
+.miaoyu-skeleton {
+  background: linear-gradient(90deg, #dde1e6 25%, #eef0f3 37%, #dde1e6 63%);
+  background-size: 400% 100%;
+  animation: miaoyu-shimmer 1.3s ease infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes miaoyu-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+@keyframes miaoyu-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes miaoyu-reveal {
+  from { opacity: 0; transform: translateY(20px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes miaoyu-marquee-glow {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 0.85; }
+}
+
+.miaoyu-fade-up {
+  animation: miaoyu-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}

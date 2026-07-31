@@ -1,0 +1,205 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1785378390956,
+  "projectRoot": "/media/rei/Data/Code/movie/leijieming_frontend",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "playwright",
+        "version": "1.61.1",
+        "category": "testing"
+      }
+    ],
+    "packageManager": "pnpm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "pnpm build",
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": "pnpm dev",
+    "scripts": {
+      "dev": "umi dev",
+      "build": "umi build",
+      "postinstall": "umi setup",
+      "setup": "umi setup",
+      "start": "npm run dev"
+    }
+  },
+  "conventions": {
+    "namingStyle": "camelCase",
+    "importStyle": "ES modules",
+    "testPattern": null,
+    "fileOrganization": "type-based"
+  },
+  "structure": {
+    "isMonorepo": true,
+    "workspaces": [],
+    "mainDirectories": [
+      "public",
+      "src"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 44,
+      "lastAccessed": 1785378390923,
+      "keyFiles": [
+        "158.async.js",
+        "285.async.js",
+        "323.async.js",
+        "341.async.js",
+        "422.async.js"
+      ]
+    },
+    "public": {
+      "path": "public",
+      "purpose": "Public files",
+      "fileCount": 2,
+      "lastAccessed": 1785378390929,
+      "keyFiles": [
+        "banner.png"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 3,
+      "lastAccessed": 1785378390934,
+      "keyFiles": [
+        "access.ts",
+        "app.tsx"
+      ]
+    },
+    "src/components": {
+      "path": "src/components",
+      "purpose": "UI components",
+      "fileCount": 1,
+      "lastAccessed": 1785378390941,
+      "keyFiles": []
+    },
+    "src/pages": {
+      "path": "src/pages",
+      "purpose": "Page components",
+      "fileCount": 2,
+      "lastAccessed": 1785378390944,
+      "keyFiles": [
+        "_placeholder.tsx"
+      ]
+    },
+    "src/services": {
+      "path": "src/services",
+      "purpose": "Business logic services",
+      "fileCount": 7,
+      "lastAccessed": 1785378390947,
+      "keyFiles": [
+        "audit.ts",
+        "auth.ts",
+        "profile.ts"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785378918214,
+      "type": "file"
+    },
+    {
+      "path": "public/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785378918469,
+      "type": "file"
+    },
+    {
+      "path": "src/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785378918710,
+      "type": "file"
+    },
+    {
+      "path": "src/components/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785379034748,
+      "type": "file"
+    },
+    {
+      "path": "src/constants/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785379036212,
+      "type": "file"
+    },
+    {
+      "path": "src/layouts/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785379043219,
+      "type": "file"
+    },
+    {
+      "path": "src/pages/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785379048498,
+      "type": "file"
+    },
+    {
+      "path": "src/services/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785379063595,
+      "type": "file"
+    },
+    {
+      "path": "src/stores/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785379078803,
+      "type": "file"
+    },
+    {
+      "path": "src/utils/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785379092387,
+      "type": "file"
+    },
+    {
+      "path": "src/components/StatusTag/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785379173777,
+      "type": "file"
+    },
+    {
+      "path": "src/components/FilterBar/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785379181243,
+      "type": "file"
+    },
+    {
+      "path": "src/components/PageHeader/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785379184438,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}
