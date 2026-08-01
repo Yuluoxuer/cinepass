@@ -1,0 +1,190 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1785511489479,
+  "projectRoot": "/media/rei/Data/Code/movie/cinepass_leijieming_aiagent",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "requirements.txt"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "pip",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": "snake_case",
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "app",
+      "docs"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "app": {
+      "path": "app",
+      "purpose": "Application code",
+      "fileCount": 3,
+      "lastAccessed": 1785511489468,
+      "keyFiles": [
+        "__init__.py",
+        "config.py",
+        "main.py"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 0,
+      "lastAccessed": 1785511489470,
+      "keyFiles": []
+    },
+    "storage": {
+      "path": "storage",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1785511489471,
+      "keyFiles": []
+    },
+    "app/api": {
+      "path": "app/api",
+      "purpose": "API routes",
+      "fileCount": 2,
+      "lastAccessed": 1785511489474,
+      "keyFiles": [
+        "__init__.py",
+        "deps.py"
+      ]
+    },
+    "app/models": {
+      "path": "app/models",
+      "purpose": "Data models",
+      "fileCount": 3,
+      "lastAccessed": 1785511489476,
+      "keyFiles": [
+        "__init__.py",
+        "response.py",
+        "turn.py"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "app/main.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511595055,
+      "type": "file"
+    },
+    {
+      "path": "app/config.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511595468,
+      "type": "file"
+    },
+    {
+      "path": "requirements.txt",
+      "accessCount": 1,
+      "lastAccessed": 1785511595759,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 1,
+      "lastAccessed": 1785511596224,
+      "type": "file"
+    },
+    {
+      "path": "app/api/v1/agent.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511606750,
+      "type": "file"
+    },
+    {
+      "path": "app/models/turn.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511607088,
+      "type": "file"
+    },
+    {
+      "path": "app/models/response.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511607480,
+      "type": "file"
+    },
+    {
+      "path": "app/clients/ticket_api.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511608263,
+      "type": "file"
+    },
+    {
+      "path": "app/langchain/turn/process_turn.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511619121,
+      "type": "file"
+    },
+    {
+      "path": "app/langchain/graph/booking_graph.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511619668,
+      "type": "file"
+    },
+    {
+      "path": "app/langchain/graph/state.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511620097,
+      "type": "file"
+    },
+    {
+      "path": "app/langchain/nlp/langchain_nlp.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511620719,
+      "type": "file"
+    },
+    {
+      "path": "app/langchain/planner/planner.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511631306,
+      "type": "file"
+    },
+    {
+      "path": "app/langchain/composer/card_composer.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511631593,
+      "type": "file"
+    },
+    {
+      "path": "app/langchain/rag/retriever.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511632092,
+      "type": "file"
+    },
+    {
+      "path": "app/langchain/tools/context.py",
+      "accessCount": 1,
+      "lastAccessed": 1785511632754,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}
