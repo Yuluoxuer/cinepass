@@ -24,7 +24,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
- * Spring Security 配置
+ * Spring Security 总配置（系分 §10）。
+ * Agent 对话消息落在 ticket-agent 自有库，中台不再提供 X-Internal-Api-Key / AppendMessages。
  */
 @Configuration
 @EnableWebSecurity
@@ -75,10 +76,28 @@ public class SecurityConfig {
                         }))
                 .authorizeHttpRequests(auth -> auth
                         .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .antMatchers("/api/auth/login", "/api/auth/refresh").permitAll()
-                        .antMatchers("/doc.html", "/webjars/**", "/v2/api-docs/**",
-                                "/v3/api-docs/**", "/swagger-resources/**", "/swagger-ui/**",
-                                "/favicon.ico").permitAll()
+                        .antMatchers(
+                                "/api/v1/auth/login",
+                                "/api/auth/login",
+                                "/doc.html", "/webjars/**",
+                                "/v2/api-docs/**", "/v3/api-docs/**",
+                                "/swagger-resources/**", "/swagger-ui/**",
+                                "/favicon.ico"
+                        ).permitAll()
+                        .antMatchers(HttpMethod.GET,
+                                "/api/v1/movies", "/api/v1/movies/**",
+                                "/api/v1/cinemas", "/api/v1/cinemas/**",
+                                "/api/v1/shows", "/api/v1/shows/**",
+                                "/api/v1/reco/**",
+                                "/api/v1/tickets/verify"
+                        ).permitAll()
+                        .antMatchers(HttpMethod.GET, "/api/v1/orders/*/pay-session").permitAll()
+                        .antMatchers(HttpMethod.GET, "/api/v1/orders/*/pay-qrcode").permitAll()
+                        .antMatchers("/api/v1/admin/**").hasAnyRole(Roles.STAFF, Roles.ADMIN)
+                        .antMatchers("/api/v1/seat-maps", "/api/v1/seat-maps/**")
+                        .hasAnyRole(Roles.STAFF, Roles.ADMIN)
+                        .antMatchers(HttpMethod.POST, "/api/v1/halls")
+                        .hasAnyRole(Roles.STAFF, Roles.ADMIN)
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthFilter(jwtUtil),
                         UsernamePasswordAuthenticationFilter.class);

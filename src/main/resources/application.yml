@@ -30,9 +30,10 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
 
-# ============ JWT 配置 ============
+# ============ JWT 配置（系分：Access TTL 3600s，claim role/sid/jti） ============
 jwt:
   secret: ${JWT_SECRET:mini-hr-jwt-secret-key-2026-please-change-in-prod}
+  access-token-expire-seconds: ${JWT_ACCESS_EXPIRE_SECONDS:3600}
 
 # ============ Knife4j 配置 ============
 knife4j:
