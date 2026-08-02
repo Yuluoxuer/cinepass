@@ -1,9 +1,6 @@
 from functools import lru_cache
-from pathlib import Path
 
 from pydantic_settings import BaseSettings
-
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -15,8 +12,8 @@ class Settings(BaseSettings):
     ticket_api_base_url: str = "http://localhost:8080"
     ticket_api_timeout_s: float = 8.0
 
-    # Agent 自有库（SQLAlchemy）；默认本地 SQLite，生产可改 PostgreSQL
-    database_url: str = f"sqlite:///{BASE_DIR / 'storage' / 'agent.db'}"
+    # Agent 自有库（SQLAlchemy）；会话/消息落 PostgreSQL，与中台库分离
+    database_url: str = "postgresql+psycopg2://agent:pass@8.134.24.207:5432/ticket_agent"
 
     # LLM（可选；MVP 规则 NLP 可不配）
     openai_api_key: str = ""
@@ -24,9 +21,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     llm_timeout_s: float = 1.5
 
-    # RAG 本地语料 / 向量库
-    rag_documents_dir: str = str(BASE_DIR / "storage" / "documents")
-    rag_vectorstore_dir: str = str(BASE_DIR / "storage" / "vectorstore")
+    # RAG：向量库由远端 Chroma 提供；chunk 参数供日后接入检索用
     chunk_size: int = 1000
     chunk_overlap: int = 200
 
