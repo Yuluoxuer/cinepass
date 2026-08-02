@@ -103,7 +103,17 @@ export interface MovieVO {
   status: MovieStatus;
   description: string;
   cast: string;
+  /** 导演，详情页可选展示字段 */
+  director?: string;
+  /** 结构化演职人员，缺失时可由 cast 字段降级生成 */
+  castMembers?: CastMemberVO[];
   wantSeeCount: number;
+}
+
+export interface CastMemberVO {
+  name: string;
+  role: string;
+  avatarUrl: string | null;
 }
 
 export interface CinemaVO {
@@ -115,6 +125,8 @@ export interface CinemaVO {
   lng?: number;
   distanceMeters: number | null;
   minPrice: number | null;
+  /** 影院特色厅标签，例如 IMAX、杜比全景声 */
+  features?: string[];
 }
 
 export interface ShowVO {
