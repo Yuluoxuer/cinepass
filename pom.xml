@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.minihr</groupId>
+    <groupId>com.cinepass</groupId>
     <artifactId>app-backend</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <name>app-backend</name>
@@ -53,6 +53,17 @@
             <artifactId>mysql-connector-j</artifactId>
             <version>${mysql-connector.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.f4b6a3</groupId>
+            <artifactId>uuid-creator</artifactId>
+            <version>5.3.7</version>
         </dependency>
 
         <dependency>

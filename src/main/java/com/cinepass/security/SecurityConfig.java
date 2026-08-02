@@ -1,8 +1,10 @@
-package com.minihr.security;
+package com.cinepass.security;
 
 import cn.hutool.json.JSONUtil;
-import com.minihr.common.Result;
-import com.minihr.common.ResultCode;
+import com.cinepass.common.Result;
+import com.cinepass.common.ResultCode;
+import com.cinepass.mapper.UserAccountMapper;
+import com.cinepass.service.AuthSessionService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -23,19 +25,25 @@ import javax.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
-/**
- * Spring Security 总配置（系分 §10）。
- * Agent 对话消息落在 ticket-agent 自有库，中台不再提供 X-Internal-Api-Key / AppendMessages。
- */
 @Configuration
 @EnableWebSecurity
 @EnableGlobalMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
+    private final AuthSessionService authSessionService;
+    private final UserAccountMapper userAccountMapper;
 
-    public SecurityConfig(JwtUtil jwtUtil) {
+    public SecurityConfig(JwtUtil jwtUtil, AuthSessionService authSessionService,
+                          UserAccountMapper userAccountMapper) {
         this.jwtUtil = jwtUtil;
+        this.authSessionService = authSessionService;
+        this.userAccountMapper = userAccountMapper;
+    }
+
+    @Bean
+    public JwtAuthFilter jwtAuthFilter() {
+        return new JwtAuthFilter(jwtUtil, authSessionService, userAccountMapper);
     }
 
     @Bean
@@ -46,7 +54,6 @@ public class SecurityConfig {
         config.setAllowedHeaders(Arrays.asList("*"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
@@ -78,6 +85,8 @@ public class SecurityConfig {
                         .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .antMatchers(
                                 "/api/v1/auth/login",
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/password/change",
                                 "/api/auth/login",
                                 "/doc.html", "/webjars/**",
                                 "/v2/api-docs/**", "/v3/api-docs/**",
@@ -99,8 +108,7 @@ public class SecurityConfig {
                         .antMatchers(HttpMethod.POST, "/api/v1/halls")
                         .hasAnyRole(Roles.STAFF, Roles.ADMIN)
                         .anyRequest().authenticated())
-                .addFilterBefore(new JwtAuthFilter(jwtUtil),
-                        UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

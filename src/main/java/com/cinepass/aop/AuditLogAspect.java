@@ -1,6 +1,6 @@
-package com.minihr.aop;
+package com.cinepass.aop;
 
-import com.minihr.security.SecurityContext;
+import com.cinepass.security.SecurityContext;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;

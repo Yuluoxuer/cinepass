@@ -1,4 +1,4 @@
-package com.minihr.serializer;
+package com.cinepass.serializer;
 
 import lombok.extern.slf4j.Slf4j;
 

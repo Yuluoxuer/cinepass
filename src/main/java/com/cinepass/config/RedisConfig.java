@@ -1,4 +1,4 @@
-package com.minihr.config;
+package com.cinepass.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;

@@ -1,6 +1,6 @@
-package com.minihr.config;
+package com.cinepass.config;
 
-import com.minihr.serializer.FieldPermissionSerializer;
+import com.cinepass.serializer.FieldPermissionSerializer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 

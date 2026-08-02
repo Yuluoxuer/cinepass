@@ -135,7 +135,7 @@ Contract 现已拥有完整的四层架构：`ContractController` + `ContractSer
 
 - **JwtAuthFilter**：`OncePerRequestFilter`，在 `UsernamePasswordAuthenticationFilter` 之前执行
 - **JwtUtil**：jjwt 0.11.5，HS256 签名，Access Token 30 分钟，Refresh Token 7 天
-- **SecurityContext**（`com.minihr.security.SecurityContext`）：`@Component("securityContext")`，ThreadLocal + Bean 双模式。
+- **SecurityContext**（`com.cinepass.security.SecurityContext`）：`@Component("securityContext")`，ThreadLocal + Bean 双模式。
   静态方法供 Java 代码调用；Bean 引用供 SpEL 表达式（`@PreAuthorize("... @securityContext.currentEmployeeId == #id")`）。
   提供 `getCurrentUserId()`、`getCurrentUsername()`、`getCurrentEmployeeId()`、`getCurrentDepartmentId()`、`getCurrentRoles()`、`hasPermission(permission)`
 - **角色映射**：JWT 中的角色 `"admin"` → Spring Security 的 `ROLE_admin` → `@PreAuthorize("hasRole('admin')")` 生效
@@ -143,8 +143,8 @@ Contract 现已拥有完整的四层架构：`ContractController` + `ContractSer
 
 ### SecurityConfig
 
-仅保留一个 `com.minihr.security.SecurityConfig`（组件式，Spring Security 5.7+ 推荐写法）。
-旧版 `com.minihr.config.SecurityConfig` 已删除。
+仅保留一个 `com.cinepass.security.SecurityConfig`（组件式，Spring Security 5.7+ 推荐写法）。
+旧版 `com.cinepass.config.SecurityConfig` 已删除。
 
 ### Spring Security 公开路径
 
@@ -163,7 +163,7 @@ Contract 现已拥有完整的四层架构：`ContractController` + `ContractSer
 
 ### 数据权限（行级过滤）— ✅ 已实现
 
-`DataPermissionInterceptor`（`com.minihr.config.DataPermissionInterceptor`）在 MyBatis Executor.query 层面动态注入 WHERE 条件：
+`DataPermissionInterceptor`（`com.cinepass.config.DataPermissionInterceptor`）在 MyBatis Executor.query 层面动态注入 WHERE 条件：
 
 | 角色 | 过滤规则 |
 |---|---|
@@ -174,7 +174,7 @@ Contract 现已拥有完整的四层架构：`ContractController` + `ContractSer
 - 仅拦截 employee 表相关查询（通过 MappedStatement ID 匹配）
 - 白名单表（sys_*、department、position 等）直接放行
 - 部门子部门 ID 列表从 Redis 缓存 `dept:tree` 中获取
-- 旧版 `DataScopeInterceptor`（`com.minihr.interceptor.DataScopeInterceptor`）已废弃，pass-through 仅保留注册以兼容
+- 旧版 `DataScopeInterceptor`（`com.cinepass.interceptor.DataScopeInterceptor`）已废弃，pass-through 仅保留注册以兼容
 
 ### 字段脱敏 — 应用层按角色分级实现
 
@@ -198,7 +198,7 @@ Contract 现已拥有完整的四层架构：`ContractController` + `ContractSer
 | 拦截器 | 拦截点 | 状态 |
 |---|---|---|
 | `AutoFillInterceptor` | `Executor.update` | ✅ 自动填充 `@AutoFill` 字段 |
-| `DataPermissionInterceptor` | `Executor.query` | ✅ 行级数据权限 SQL 改写（`com.minihr.config`） |
+| `DataPermissionInterceptor` | `Executor.query` | ✅ 行级数据权限 SQL 改写（`com.cinepass.config`） |
 | `DataScopeInterceptor` | `StatementHandler.prepare` | 🔧 已废弃，pass-through（功能已迁移到 DataPermissionInterceptor） |
 
 由 `MyBatisConfig` 中 `@PostConstruct` 统一注册。

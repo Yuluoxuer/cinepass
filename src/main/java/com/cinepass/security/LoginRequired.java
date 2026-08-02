@@ -1,4 +1,4 @@
-package com.minihr.security; // 权限包
+package com.cinepass.security; // 权限包
 
 import org.springframework.security.access.prepost.PreAuthorize; // 方法级鉴权
 

@@ -1,7 +1,7 @@
-package com.minihr.config;
+package com.cinepass.config;
 
-import com.minihr.common.AutoFill;
-import com.minihr.common.AutoFill.FillType;
+import com.cinepass.common.AutoFill;
+import com.cinepass.common.AutoFill.FillType;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.mapping.MappedStatement;

@@ -27,4 +27,4 @@ mybatis:
 
 logging:
   level:
-    com.minihr: debug
+    com.cinepass: debug

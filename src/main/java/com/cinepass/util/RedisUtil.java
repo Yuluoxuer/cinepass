@@ -1,4 +1,4 @@
-package com.minihr.util;
+package com.cinepass.util;
 
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;

@@ -1,4 +1,4 @@
-package com.minihr.util;
+package com.cinepass.util;
 
 /**
  * Redis key naming helpers — extend with your own domain prefixes.

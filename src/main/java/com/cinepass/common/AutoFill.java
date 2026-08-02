@@ -1,4 +1,4 @@
-package com.minihr.common;
+package com.cinepass.common;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

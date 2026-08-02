@@ -1,7 +1,7 @@
 # RBAC 权限模块说明与 Controller 用法
 
 > 对应系分：`docs/01-后端系分-票务中台与Agent.md` §10（角色 `user` / `staff` / `admin`）  
-> 代码目录：`src/main/java/com/cinepass/security/`（包名 `com.minihr.security`）  
+> 代码目录：`src/main/java/com/cinepass/security/`（包名 `com.cinepass.security`）  
 >
 > 本文档供开发者阅读（非运行时被代码调用）。Glob 确认仓库内尚无同名 RBAC 指南。  
 > 用户指令：「写一个md告诉我每个代码文件的作用，并告诉我我怎么在controller中使用」
@@ -66,8 +66,8 @@ jwt:
 ### 3.1 运营接口（staff / admin）
 
 ```java
-import com.minihr.common.Result;
-import com.minihr.security.Staff;
+import com.cinepass.common.Result;
+import com.cinepass.security.Staff;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -92,7 +92,7 @@ public class AdminMovieController {
 ### 3.2 仅管理员（账号 CRUD）
 
 ```java
-import com.minihr.security.Admin;
+import com.cinepass.security.Admin;
 
 @RestController
 @RequestMapping("/api/v1/admin/users")
@@ -115,8 +115,8 @@ public class AdminUserController {
 ### 3.3 C 端需登录（锁座 / 下单）
 
 ```java
-import com.minihr.security.LoginRequired;
-import com.minihr.security.SecurityContext;
+import com.cinepass.security.LoginRequired;
+import com.cinepass.security.SecurityContext;
 
 @RestController
 @RequestMapping("/api/v1/locks")
@@ -176,8 +176,8 @@ public Result<?> myOrders(@PathVariable Long userId) { ... }
 在登录 Service 里：
 
 ```java
-import com.minihr.security.JwtUtil;
-import com.minihr.security.Roles;
+import com.cinepass.security.JwtUtil;
+import com.cinepass.security.Roles;
 import java.util.UUID;
 
 String sid = UUID.randomUUID().toString().replace("-", "");
@@ -217,3 +217,22 @@ Authorization: Bearer <accessToken>
 2. **只配路径不够**：`/admin/users` 路径允许 staff，方法上必须再加 `@Admin`。
 3. **新增公开 GET**：改 `SecurityConfig` 的 `permitAll`，不必再改 Filter。
 4. **取用户用 `SecurityContext`**，不要自己再解析一遍 JWT。
+
+
+---
+
+## 用户管理 Auth API（实现备忘）
+
+| 方法 | 路径 | 权限 |
+|------|------|------|
+| POST | `/api/v1/auth/login` | 公开 |
+| POST | `/api/v1/auth/register` | 公开（nickname + phone + password，无短信） |
+| POST | `/api/v1/auth/password/change` | 登录（旧密码 + 新密码） |
+| POST | `/api/v1/auth/logout` | 登录 |
+| GET | `/api/v1/auth/me` | 登录 |
+| GET/PUT | `/api/v1/me/profile` | 登录 |
+| GET | `/api/v1/me/want-see` | 登录 |
+| POST/DELETE | `/api/v1/movies/{id}/want-see` | 登录 |
+| GET/POST/PUT | `/api/v1/admin/users` | **仅 admin**（`@Admin`） |
+
+`userId` 格式：`u` + UUID7（无连字符）。当前未接短信网关；忘记密码需后续接真实 SMS/邮件后再开放。

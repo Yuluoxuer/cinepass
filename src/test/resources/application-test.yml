@@ -14,6 +14,7 @@ spring:
       initial-size: 2
       min-idle: 2
       max-active: 5
+      test-while-idle: false
 
   sql:
     init:
@@ -32,6 +33,8 @@ spring:
 
 jwt:
   secret: test-secret-key-for-unit-tests-only!!
+  access-token-expire-seconds: 3600
+  refresh-expire-seconds: 604800
 
 mybatis:
   configuration:
@@ -39,5 +42,5 @@ mybatis:
 
 logging:
   level:
-    com.minihr: warn
+    com.cinepass: warn
     org.springframework: warn

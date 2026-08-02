@@ -1,4 +1,4 @@
-package com.minihr.config;
+package com.cinepass.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.format.FormatterRegistry;

@@ -1,4 +1,4 @@
-package com.minihr.config;
+package com.cinepass.config;
 
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer;
@@ -7,8 +7,8 @@ import com.fasterxml.jackson.datatype.jsr310.deser.LocalTimeDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalTimeSerializer;
-import com.minihr.serializer.FieldPermissionAnnotationIntrospector;
-import com.minihr.serializer.FieldPermissionPropertyFilter;
+import com.cinepass.serializer.FieldPermissionAnnotationIntrospector;
+import com.cinepass.serializer.FieldPermissionPropertyFilter;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

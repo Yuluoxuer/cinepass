@@ -8,7 +8,7 @@
 
 -- 1. 账号与鉴权
 CREATE TABLE IF NOT EXISTS user_account (
-  user_id        VARCHAR(32)    NOT NULL,
+  user_id        VARCHAR(40)    NOT NULL,
   nickname       VARCHAR(64)    NOT NULL,
   phone          VARCHAR(20)    NULL,
   password_hash  VARCHAR(128)   NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS user_account (
 );
 
 CREATE TABLE IF NOT EXISTS user_profile (
-  user_id             VARCHAR(32)    NOT NULL,
+  user_id             VARCHAR(40)    NOT NULL,
   prefer_genres_json  JSONB          NOT NULL,
   prefer_row          VARCHAR(16)    NULL,
   prefer_side         VARCHAR(16)    NULL,
@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS seat_status (
   seat_id     VARCHAR(64)    NOT NULL,
   status      VARCHAR(16)    NOT NULL,
   lock_id     VARCHAR(32)    NULL,
-  user_id     VARCHAR(32)    NULL,
+  user_id     VARCHAR(40)    NULL,
   expire_at   TIMESTAMPTZ(3) NULL,
   updated_at  TIMESTAMPTZ(3) NOT NULL,
   PRIMARY KEY (show_id, seat_id),
@@ -158,7 +158,7 @@ CREATE INDEX IF NOT EXISTS idx_seat_status_user ON seat_status (user_id, status)
 CREATE TABLE IF NOT EXISTS seat_lock (
   lock_id         VARCHAR(32)    NOT NULL,
   show_id         VARCHAR(32)    NOT NULL,
-  user_id         VARCHAR(32)    NOT NULL,
+  user_id         VARCHAR(40)    NOT NULL,
   seat_ids_json   JSONB          NOT NULL,
   status          VARCHAR(16)    NOT NULL,
   ttl_seconds     INT            NOT NULL,
@@ -177,7 +177,7 @@ CREATE INDEX IF NOT EXISTS idx_lock_expire ON seat_lock (status, expire_at);
 -- 5. 订单
 CREATE TABLE IF NOT EXISTS order_ticket (
   order_id              VARCHAR(32)    NOT NULL,
-  user_id               VARCHAR(32)    NOT NULL,
+  user_id               VARCHAR(40)    NOT NULL,
   show_id               VARCHAR(32)    NOT NULL,
   lock_id               VARCHAR(32)    NOT NULL,
   movie_title           VARCHAR(128)   NOT NULL,
@@ -211,7 +211,7 @@ CREATE INDEX IF NOT EXISTS idx_order_expire ON order_ticket (status, expire_at);
 
 -- 6. 推荐 / 想看
 CREATE TABLE IF NOT EXISTS want_see (
-  user_id     VARCHAR(32)    NOT NULL,
+  user_id     VARCHAR(40)    NOT NULL,
   movie_id    VARCHAR(32)    NOT NULL,
   created_at  TIMESTAMPTZ(3) NOT NULL,
   PRIMARY KEY (user_id, movie_id)
@@ -245,7 +245,7 @@ CREATE TABLE IF NOT EXISTS reco_weight (
 -- 7. BookingDraft（中台 /booking-drafts → agent_session.draft_json）
 CREATE TABLE IF NOT EXISTS agent_session (
   session_id   VARCHAR(64)    NOT NULL,
-  user_id      VARCHAR(32)    NULL,
+  user_id      VARCHAR(40)    NULL,
   source       VARCHAR(16)    NOT NULL,
   state        VARCHAR(32)    NOT NULL,
   draft_json   JSONB          NOT NULL,

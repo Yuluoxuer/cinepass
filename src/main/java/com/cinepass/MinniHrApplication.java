@@ -1,4 +1,4 @@
-package com.minihr;
+package com.cinepass;
 
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * Spring Boot Admin Template — add business packages under controller/service/entity.
  */
 @SpringBootApplication
-@MapperScan("com.minihr.mapper")
+@MapperScan("com.cinepass.mapper")
 @EnableAsync
 public class MinniHrApplication {
 

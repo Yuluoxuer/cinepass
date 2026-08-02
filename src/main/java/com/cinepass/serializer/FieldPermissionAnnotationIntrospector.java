@@ -1,4 +1,4 @@
-package com.minihr.serializer;
+package com.cinepass.serializer;
 
 import com.fasterxml.jackson.databind.AnnotationIntrospector;
 import com.fasterxml.jackson.databind.introspect.Annotated;

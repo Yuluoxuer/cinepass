@@ -1,4 +1,4 @@
-package com.minihr.aop;
+package com.cinepass.aop;
 
 import java.lang.annotation.*;
 

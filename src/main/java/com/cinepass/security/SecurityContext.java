@@ -1,40 +1,31 @@
-package com.minihr.security; // 权限包
+package com.cinepass.security;
 
-import org.springframework.stereotype.Component; // Bean 名 securityContext 供 SpEL
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * 当前请求登录用户（ThreadLocal）。
- * 静态方法供 Java；Bean {@code securityContext} 供 @PreAuthorize SpEL。
- * <p>
- * 调用方：JwtAuthFilter 写入；Controller/Service/AuditLogAspect 读取。
- * Glob：已有 SecurityContext.java，覆盖加注释。无数据文件。
- * 用户指令：「给代码每行加上详细的注释」
+ * 当前请求登录用户（ThreadLocal）。userId 为字符串（u+uuid7）。
  */
 @Component("securityContext")
 public final class SecurityContext {
 
-    /** 禁止 new，只用静态方法 */
     private SecurityContext() {
     }
 
-    /** 每线程一份；请求结束必须 clear */
-    private static final ThreadLocal<Context> CONTEXT = new ThreadLocal<>();
+    private static final ThreadLocal<Context> CONTEXT = new ThreadLocal<Context>();
 
-    /** Filter 写入用户基本信息；票务可把 employeeId/departmentId/permissions 传 null */
-    public static void set(Long userId, String username, Long employeeId,
+    public static void set(String userId, String username, Long employeeId,
                            Long departmentId, List<String> roles, List<String> permissions) {
-        Context existing = CONTEXT.get(); // 可能已有 sid/jti
+        Context existing = CONTEXT.get();
         String sid = existing != null ? existing.sid : null;
         String jti = existing != null ? existing.jti : null;
         String role = resolvePrimaryRole(roles);
         CONTEXT.set(new Context(userId, username, employeeId, departmentId, role, roles, permissions, sid, jti));
     }
 
-    /** Filter 补写会话 sid/jti/role */
     public static void setSession(String sid, String jti, String role) {
         Context existing = CONTEXT.get();
         if (existing == null) {
@@ -47,13 +38,11 @@ public final class SecurityContext {
                 existing.roles, existing.permissions, sid, jti));
     }
 
-    /** 请求结束清理，防线程池串号 */
     public static void clear() {
         CONTEXT.remove();
     }
 
-    /** 取 JWT 里的 userId；未登录为 null */
-    public static Long getCurrentUserId() {
+    public static String getCurrentUserId() {
         Context ctx = CONTEXT.get();
         return ctx != null ? ctx.userId : null;
     }
@@ -63,13 +52,11 @@ public final class SecurityContext {
         return ctx != null ? ctx.username : null;
     }
 
-    /** HR 遗留字段 */
     public static Long getCurrentEmployeeId() {
         Context ctx = CONTEXT.get();
         return ctx != null ? ctx.employeeId : null;
     }
 
-    /** HR 遗留字段 */
     public static Long getCurrentDepartmentId() {
         Context ctx = CONTEXT.get();
         return ctx != null ? ctx.departmentId : null;
@@ -100,7 +87,6 @@ public final class SecurityContext {
         return ctx != null ? ctx.permissions : new ArrayList<String>();
     }
 
-    /** 权限码判断；admin 默认 true */
     public static boolean hasPermission(String permission) {
         List<String> perms = getCurrentPermissions();
         return perms.contains(permission) || Roles.ADMIN.equals(getCurrentRole());
@@ -130,9 +116,8 @@ public final class SecurityContext {
         return role != null ? Collections.singletonList(role) : Collections.<String>emptyList();
     }
 
-    /** ThreadLocal 快照 */
     private static class Context {
-        final Long userId;
+        final String userId;
         final String username;
         final Long employeeId;
         final Long departmentId;
@@ -142,7 +127,7 @@ public final class SecurityContext {
         final String sid;
         final String jti;
 
-        Context(Long userId, String username, Long employeeId,
+        Context(String userId, String username, Long employeeId,
                 Long departmentId, String role, List<String> roles, List<String> permissions,
                 String sid, String jti) {
             this.userId = userId;

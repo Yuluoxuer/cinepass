@@ -6,7 +6,7 @@
 ## Purpose
 应用根包。包含 Spring Boot 应用入口（`MinniHrApplication.java`）和所有业务功能模块（安全、配置、AOP、工具类、业务逻辑层等）。
 
-> **注意**：目录名为 `com/cinepass/`，但现有 Java 源文件的 `package` 声明仍为 `com.minihr.*`（历史遗留不一致）。
+> **注意**：目录名为 `com/cinepass/`，但现有 Java 源文件的 `package` 声明仍为 `com.cinepass.*`（历史遗留不一致）。
 
 ## Key Files
 
@@ -24,8 +24,7 @@
 | `constant/` | 常量定义（`CacheKeys`/`ScopeType`，见 `constant/AGENTS.md`） |
 | `controller/` | REST API 控制器（见 `controller/AGENTS.md`） |
 | `dto/` | 数据传输对象（见 `dto/AGENTS.md`） |
-| `entity/` | JPA/MyBatis 实体类（见 `entity/AGENTS.md`） |
-| `interceptor/` | MyBatis 拦截器（见 `interceptor/AGENTS.md`） |
+| `model/` | MyBatis 表行 DO（普通 JavaBean，非 JPA Entity） |
 | `mapper/` | MyBatis Mapper 接口（见 `mapper/AGENTS.md`） |
 | `mq/` | RocketMQ 相关（**已全局禁用**，见 `mq/AGENTS.md`） |
 | `security/` | Spring Security + JWT（见 `security/AGENTS.md`） |

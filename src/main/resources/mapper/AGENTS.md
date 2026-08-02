@@ -18,14 +18,12 @@ MyBatis XML Mapper 映射文件目录。复杂多表 JOIN、动态 SQL 写在此
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.minihr.mapper.UserMapper">
-    <select id="selectByConditions" resultType="com.minihr.entity.SysUser">
-        SELECT u.*, d.dept_name
-        FROM sys_user u
-        LEFT JOIN department d ON u.dept_id = d.id
-        <where>
-            <if test="username != null">AND u.username LIKE #{username}</if>
-        </where>
+<mapper namespace="com.cinepass.mapper.UserMapper">
+    <select id="findById" resultType="com.cinepass.model.UserAccount">
+        SELECT user_id, nickname, phone, password_hash, role, avatar_url, status,
+               created_at, updated_at
+        FROM user_account
+        WHERE user_id = #{userId}
     </select>
 </mapper>
 ```

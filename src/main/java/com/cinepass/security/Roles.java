@@ -1,4 +1,4 @@
-package com.minihr.security; // 权限包
+package com.cinepass.security; // 权限包
 
 /**
  * 票务中台角色常量（系分 §10.0）。

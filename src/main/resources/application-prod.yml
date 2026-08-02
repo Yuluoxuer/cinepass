@@ -23,7 +23,7 @@ spring:
 
 logging:
   level:
-    com.minihr: info
+    com.cinepass: info
     org.springframework: warn
 
 knife4j:

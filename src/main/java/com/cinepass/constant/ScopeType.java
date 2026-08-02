@@ -1,4 +1,4 @@
-package com.minihr.constant;
+package com.cinepass.constant;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

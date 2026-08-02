@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.MovieMapper">
+    <select id="exists" resultType="boolean">
+        SELECT COUNT(1) > 0 FROM movie WHERE movie_id = #{movieId}
+    </select>
+
+    <select id="selectByIds" databaseId="postgresql" resultType="com.cinepass.model.Movie">
+        SELECT movie_id AS movieId, title, poster_url AS posterUrl,
+               genres_json::text AS genresJson, rating, duration_min AS durationMin,
+               release_date AS releaseDate, status, description,
+               cast_text AS castText, want_see_count AS wantSeeCount
+        FROM movie
+        WHERE movie_id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+    <select id="selectByIds" resultType="com.cinepass.model.Movie">
+        SELECT movie_id AS movieId, title, poster_url AS posterUrl,
+               genres_json AS genresJson, rating, duration_min AS durationMin,
+               release_date AS releaseDate, status, description,
+               cast_text AS castText, want_see_count AS wantSeeCount
+        FROM movie
+        WHERE movie_id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
+    <update id="incrWantSeeCount" databaseId="postgresql">
+        UPDATE movie SET want_see_count = GREATEST(want_see_count + #{delta}, 0), updated_at = NOW()
+        WHERE movie_id = #{movieId}
+    </update>
+    <update id="incrWantSeeCount">
+        UPDATE movie
+        SET want_see_count = CASE
+                WHEN want_see_count + #{delta} &lt; 0 THEN 0
+                ELSE want_see_count + #{delta}
+            END,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE movie_id = #{movieId}
+    </update>
+</mapper>
