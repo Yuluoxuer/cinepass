@@ -4,6 +4,12 @@ import { history } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { MovieVO } from '@/types';
 
+const movieStatusMeta: Record<MovieVO['status'], { label: string; color: string }> = {
+  hot_showing: { label: '热映', color: 'red' },
+  coming_soon: { label: '待映', color: 'blue' },
+  off: { label: '已下架', color: 'default' },
+};
+
 const AdminMoviesPage: React.FC = () => {
   const [data, setData] = useState<MovieVO[]>([]);
   const [q, setQ] = useState('');
@@ -46,7 +52,10 @@ const AdminMoviesPage: React.FC = () => {
           {
             title: '状态',
             dataIndex: 'status',
-            render: (s: string) => <Tag>{s}</Tag>,
+            render: (status: MovieVO['status']) => {
+              const meta = movieStatusMeta[status] || { label: '未知状态', color: 'default' };
+              return <Tag color={meta.color}>{meta.label}</Tag>;
+            },
           },
           { title: '上映日', dataIndex: 'releaseDate' },
           {

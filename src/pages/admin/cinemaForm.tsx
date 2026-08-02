@@ -24,8 +24,7 @@ const CinemaFormPage: React.FC = () => {
 
   return (
     <div>
-      <h2>{isNew ? '新建影院' : '编辑影院'}</h2>
-      <Form form={form} layout="vertical" style={{ maxWidth: 520, marginTop: 16 }} onFinish={onFinish}>
+      <Form form={form} layout="vertical" style={{ maxWidth: 640 }} onFinish={onFinish}>
         <Form.Item name="name" label="名称" rules={[{ required: true }]}>
           <Input />
         </Form.Item>
@@ -35,12 +34,14 @@ const CinemaFormPage: React.FC = () => {
         <Form.Item name="cityId" label="城市" initialValue="city_sh">
           <Input />
         </Form.Item>
-        <Form.Item name="lat" label="纬度">
-          <InputNumber style={{ width: '100%' }} />
-        </Form.Item>
-        <Form.Item name="lng" label="经度">
-          <InputNumber style={{ width: '100%' }} />
-        </Form.Item>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16 }}>
+          <Form.Item name="lat" label="纬度">
+            <InputNumber style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="lng" label="经度">
+            <InputNumber style={{ width: '100%' }} />
+          </Form.Item>
+        </div>
         <Button onClick={() => history.push('/admin/cinemas')} style={{ marginRight: 8 }}>
           取消
         </Button>
