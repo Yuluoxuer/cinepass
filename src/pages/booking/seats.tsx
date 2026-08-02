@@ -8,6 +8,7 @@ import { ApiError } from '@/types';
 import BookingProgress from '@/components/BookingProgress';
 import SeatMap from '@/features/seatmap/SeatMap';
 import { useBookingStore } from '@/stores/booking';
+import { getSessionId } from '@/stores/booking';
 import { useAuthStore } from '@/stores/auth';
 import { useAgentStore } from '@/stores/agent';
 import styles from './booking.less';
@@ -82,6 +83,7 @@ const BookingSeatsPage: React.FC = () => {
       if (!ok) return;
     }
     setLoading(true);
+    let lockId: string | null = null;
     try {
       const session = await ensureSession();
       const lock = await orderApi.lockSeats({
@@ -89,6 +91,7 @@ const BookingSeatsPage: React.FC = () => {
         seatIds: selected.map((s) => s.seatId),
         sessionId: session.sessionId,
       });
+      lockId = lock.lockId;
       const nameMap: Record<string, string> = {};
       selected.forEach((s) => {
         nameMap[s.seatId] = s.seatName;
@@ -100,17 +103,26 @@ const BookingSeatsPage: React.FC = () => {
       });
       history.push(`/booking/confirm?orderId=${order.orderId}`);
     } catch (e) {
+      if (lockId) {
+        try {
+          await orderApi.unlockSeats(lockId, getSessionId() || undefined);
+        } catch {
+          // 锁座由服务端 TTL 兜底释放，不能覆盖原始下单错误。
+        }
+      }
       if (e instanceof ApiError && e.errorCode === 'SEAT_TAKEN') {
         message.error('座位已被抢，请重新选择');
         setSelected([]);
         await refresh();
+      } else {
+        message.error(e instanceof Error ? e.message : '下单失败，请稍后重试');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const total = (map?.price || 0) * selected.length;
+  const total = selected.reduce((sum, seat) => sum + (seat.price ?? map?.price ?? 0), 0);
 
   return (
     <div>

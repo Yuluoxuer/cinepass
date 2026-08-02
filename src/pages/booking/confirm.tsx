@@ -16,6 +16,8 @@ const ConfirmPage: React.FC = () => {
     '';
   const [order, setOrder] = useState<OrderVO | null>(null);
   const seatNameById = useBookingStore((s) => s.seatNameById);
+  const patchLocal = useBookingStore((s) => s.patchLocal);
+  const rollbackDependent = useBookingStore((s) => s.rollbackDependent);
   const { text, warning, expired } = useLockCountdown(order?.expireAt);
 
   useEffect(() => {
@@ -32,8 +34,10 @@ const ConfirmPage: React.FC = () => {
       title: '确定取消？座位将释放',
       onOk: async () => {
         await orderApi.cancelOrder(order.orderId);
-        message.success('已取消');
-        history.push('/me/orders');
+        rollbackDependent('SelectSeat');
+        await patchLocal({ state: 'SelectSeat', seatIds: [] }, { debounce: false });
+        message.success('座位已释放，请重新选择');
+        history.push(`/booking/seats?showId=${order.showId}`);
       },
     });
   };
@@ -72,7 +76,7 @@ const ConfirmPage: React.FC = () => {
               去支付
             </button>
             <button type="button" className="miaoyu-btn-text" onClick={onCancel}>
-              取消订单
+              取消并重新选座
             </button>
           </div>
         </div>

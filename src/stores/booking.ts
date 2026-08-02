@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BookingDraft, BookingState, SeatNameMap } from '@/types';
+import { ApiError, type BookingDraft, type BookingState, type SeatNameMap } from '@/types';
 import * as draftApi from '@/api/draft';
 import { firstIncompleteStep, progressFromDraft } from '@/utils/bookingProgress';
 import { useAgentStore } from '@/stores/agent';
@@ -126,10 +126,27 @@ export const useBookingStore = create<BookingStateStore>((set, get) => ({
       if (bodyPatch.state == null) {
         bodyPatch.state = firstIncompleteStep({ ...current, ...p } as BookingDraft);
       }
-      const updated = await draftApi.updateDraft(current.sessionId, {
-        version: current.version,
-        patch: bodyPatch,
-      });
+      let updated: BookingDraft;
+      try {
+        updated = await draftApi.updateDraft(current.sessionId, {
+          version: current.version,
+          patch: bodyPatch,
+        });
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.errorCode !== 'DRAFT_CONFLICT') {
+          throw error;
+        }
+        // Draft 使用 CAS。冲突后先以服务端完整状态为准，再重放本次用户操作。
+        const serverDraft = await draftApi.getDraft(current.sessionId);
+        const retryPatch = { ...bodyPatch };
+        if (retryPatch.state == null) {
+          retryPatch.state = firstIncompleteStep({ ...serverDraft, ...retryPatch } as BookingDraft);
+        }
+        updated = await draftApi.updateDraft(serverDraft.sessionId, {
+          version: serverDraft.version,
+          patch: retryPatch,
+        });
+      }
       set({ draft: updated });
       syncAgentProgress(updated);
       return updated;

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { history, useLocation } from 'umi';
-import { message } from 'antd';
+import { message, QRCode } from 'antd';
 import * as orderApi from '@/api/order';
 import type { OrderVO, PayQrVO } from '@/types';
 import BookingProgress from '@/components/BookingProgress';
@@ -79,14 +79,17 @@ const PayPage: React.FC = () => {
             ) : qr ? (
               <>
                 <div className={styles.qr}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>支付二维码</div>
-                    <a href={qr.payUrl} target="_blank" rel="noreferrer">
-                      打开 H5 支付页
-                    </a>
-                    <div style={{ marginTop: 8, color: '#999' }}>{qr.payUrl}</div>
-                  </div>
+                  <QRCode
+                    value={qr.payUrl}
+                    type="svg"
+                    size={224}
+                    errorLevel="M"
+                    bordered={false}
+                  />
                 </div>
+                <a href={qr.payUrl} target="_blank" rel="noreferrer">
+                  在手机上打开支付页
+                </a>
                 <p>请使用手机扫码完成支付 · 等待确认中…</p>
                 <p>⏱ 锁座剩余 {text}</p>
                 <button type="button" className="miaoyu-btn-ghost" onClick={desktopPay}>

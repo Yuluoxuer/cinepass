@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useLocation } from 'umi';
-import { message } from 'antd';
+import { message, QRCode } from 'antd';
 import * as orderApi from '@/api/order';
 import type { OrderVO, PaySessionVO } from '@/types';
 import { ApiError } from '@/types';
@@ -69,7 +69,7 @@ const MobilePayPage: React.FC = () => {
         <header>妙语购票 · 支付成功</header>
         <div className={styles.box}>
           <h2>✓ 支付成功</h2>
-          <div className={styles.qr}>{order.qrPayload}</div>
+          {order.qrPayload ? <QRCode value={order.qrPayload} size={180} bordered={false} /> : null}
           <p>
             取票码 {order.ticketCode}{' '}
             <button

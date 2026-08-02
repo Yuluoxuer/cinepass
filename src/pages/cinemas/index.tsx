@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { history } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { CinemaVO, MovieVO } from '@/types';
+import { useBookingStore } from '@/stores/booking';
 import styles from './cinemas.less';
 
 const CinemasPage: React.FC = () => {
@@ -9,6 +10,7 @@ const CinemasPage: React.FC = () => {
   const [selected, setSelected] = useState<CinemaVO | null>(null);
   const [movies, setMovies] = useState<MovieVO[]>([]);
   const [loadingMovies, setLoadingMovies] = useState(false);
+  const patchLocal = useBookingStore((s) => s.patchLocal);
 
   useEffect(() => {
     void catalogApi.listCinemas({ page: 1, size: 20 }).then((r) => setCinemas(r.items));
@@ -75,11 +77,22 @@ const CinemasPage: React.FC = () => {
                     type="button"
                     className="miaoyu-btn-primary"
                     style={{ height: 32, marginTop: 8 }}
-                    onClick={() =>
+                    onClick={async () => {
+                      const date = new Date().toISOString().slice(0, 10);
+                      await patchLocal(
+                        {
+                          movieId: m.movieId,
+                          filmTitle: m.title,
+                          cinemaId: selected.cinemaId,
+                          date,
+                          state: 'SelectShow',
+                        },
+                        { debounce: false },
+                      );
                       history.push(
-                        `/booking/shows?movieId=${m.movieId}&cinemaId=${selected.cinemaId}&date=${new Date().toISOString().slice(0, 10)}`,
-                      )
-                    }
+                        `/booking/shows?movieId=${m.movieId}&cinemaId=${selected.cinemaId}&date=${date}`,
+                      );
+                    }}
                   >
                     选场次
                   </button>

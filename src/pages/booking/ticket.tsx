@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { history, useLocation } from 'umi';
-import { message } from 'antd';
+import { message, QRCode } from 'antd';
 import * as orderApi from '@/api/order';
 import type { OrderVO } from '@/types';
 import { useBookingStore } from '@/stores/booking';
@@ -25,9 +25,11 @@ const TicketPage: React.FC = () => {
     <div className="miaoyu-container">
       <div className={styles.ticketOk}>
         <h1>✓ 购票成功</h1>
-        <div className={styles.qr} style={{ margin: '24px auto' }}>
-          {order.qrPayload || '取票码'}
-        </div>
+        {order.qrPayload ? (
+          <div className={styles.qr} style={{ margin: '24px auto' }}>
+            <QRCode value={order.qrPayload} size={180} bordered={false} />
+          </div>
+        ) : null}
         <p>
           取票码 {order.ticketCode}{' '}
           <button

@@ -128,24 +128,39 @@ const AgentDrawer: React.FC = () => {
                   card={c}
                   onAction={(actionId, itemId, draftPatch) => {
                     if (actionId === 'go_pay' && itemId) {
-                      closeDrawer();
-                      history.push(`/booking/pay?orderId=${itemId}`);
+                      void (async () => {
+                        const result = await clickCardAction({ cardId: c.cardId, actionId, itemId, draftPatch });
+                        if (!result) return;
+                        closeDrawer();
+                        history.push(`/booking/pay?orderId=${itemId}`);
+                      })();
                       return;
                     }
                     if (actionId === 'manual') {
-                      closeDrawer();
-                      history.push('/booking/seats');
-                      return;
-                    }
-                    if (actionId === 'fill_slot') {
-                      void sendMessage(
-                        itemId || c.actions.find((a) => a.actionId === actionId)?.label || '',
-                      );
+                      void (async () => {
+                        const result = await clickCardAction({ cardId: c.cardId, actionId, itemId, draftPatch });
+                        if (!result) return;
+                        const latest = result?.draft || useBookingStore.getState().draft;
+                        closeDrawer();
+                        if (latest?.showId) {
+                          history.push(`/booking/seats?showId=${latest.showId}`);
+                        } else if (latest?.movieId && latest.cinemaId) {
+                          history.push(`/booking/shows?movieId=${latest.movieId}&cinemaId=${latest.cinemaId}`);
+                        } else if (latest?.movieId) {
+                          history.push(`/booking/cinemas?movieId=${latest.movieId}`);
+                        } else {
+                          history.push('/');
+                        }
+                      })();
                       return;
                     }
                     if (actionId === 'view_order' && itemId) {
-                      closeDrawer();
-                      history.push(`/me/orders/${itemId}`);
+                      void (async () => {
+                        const result = await clickCardAction({ cardId: c.cardId, actionId, itemId, draftPatch });
+                        if (!result) return;
+                        closeDrawer();
+                        history.push(`/me/orders/${itemId}`);
+                      })();
                       return;
                     }
                     void clickCardAction({
