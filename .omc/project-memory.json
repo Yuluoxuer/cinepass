@@ -90,9 +90,15 @@
       "type": "directory"
     },
     {
+      "path": "AGENTS.md",
+      "accessCount": 3,
+      "lastAccessed": 1785675519091,
+      "type": "file"
+    },
+    {
       "path": "README.md",
-      "accessCount": 2,
-      "lastAccessed": 1785670359621,
+      "accessCount": 3,
+      "lastAccessed": 1785675519409,
       "type": "file"
     },
     {
@@ -168,12 +174,6 @@
       "type": "file"
     },
     {
-      "path": "AGENTS.md",
-      "accessCount": 2,
-      "lastAccessed": 1785670720843,
-      "type": "file"
-    },
-    {
       "path": "app/AGENTS.md",
       "accessCount": 2,
       "lastAccessed": 1785670805543,
@@ -181,8 +181,20 @@
     },
     {
       "path": "requirements.txt",
-      "accessCount": 1,
-      "lastAccessed": 1785511595759,
+      "accessCount": 2,
+      "lastAccessed": 1785675519803,
+      "type": "file"
+    },
+    {
+      "path": ".env.example",
+      "accessCount": 2,
+      "lastAccessed": 1785675520273,
+      "type": "file"
+    },
+    {
+      "path": "fastapi/AGENTS.md",
+      "accessCount": 2,
+      "lastAccessed": 1785675737887,
       "type": "file"
     },
     {
@@ -195,12 +207,6 @@
       "path": "app/langchain/tools/context.py",
       "accessCount": 1,
       "lastAccessed": 1785511632754,
-      "type": "file"
-    },
-    {
-      "path": ".env.example",
-      "accessCount": 1,
-      "lastAccessed": 1785658366644,
       "type": "file"
     },
     {
@@ -225,6 +231,132 @@
       "path": "app/langchain/agents/movie_agent.py",
       "accessCount": 1,
       "lastAccessed": 1785670388516,
+      "type": "file"
+    },
+    {
+      "path": "fastapi/main.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675541603,
+      "type": "file"
+    },
+    {
+      "path": "fastapi/config.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675542049,
+      "type": "file"
+    },
+    {
+      "path": "fastapi/api/chat.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675542447,
+      "type": "file"
+    },
+    {
+      "path": "fastapi/models/chat.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675542871,
+      "type": "file"
+    },
+    {
+      "path": "agent/llm.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675543291,
+      "type": "file"
+    },
+    {
+      "path": "agent/settings.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675543692,
+      "type": "file"
+    },
+    {
+      "path": "agent/langgraph/graph.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675544142,
+      "type": "file"
+    },
+    {
+      "path": "agent/langgraph/state.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675544456,
+      "type": "file"
+    },
+    {
+      "path": "agent/langgraph/runner.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675544911,
+      "type": "file"
+    },
+    {
+      "path": "agent/subagent/base.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675545216,
+      "type": "file"
+    },
+    {
+      "path": "agent/subagent/chat_agent.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675545714,
+      "type": "file"
+    },
+    {
+      "path": "agent/subagent/helper_agent.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675546121,
+      "type": "file"
+    },
+    {
+      "path": "agent/tools/sample_tools.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675546432,
+      "type": "file"
+    },
+    {
+      "path": "agent/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785675547318,
+      "type": "file"
+    },
+    {
+      "path": "agent/langgraph/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785675547695,
+      "type": "file"
+    },
+    {
+      "path": "agent/subagent/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785675548181,
+      "type": "file"
+    },
+    {
+      "path": "fastapi/api/__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675574832,
+      "type": "file"
+    },
+    {
+      "path": "agent/tools/__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1785675575069,
+      "type": "file"
+    },
+    {
+      "path": "fastapi/api/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785675640977,
+      "type": "file"
+    },
+    {
+      "path": "fastapi/models/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785675652189,
+      "type": "file"
+    },
+    {
+      "path": "agent/tools/AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1785675660016,
       "type": "file"
     }
   ],
