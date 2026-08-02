@@ -16,7 +16,7 @@ import {
 } from './seed';
 import type { CinemaVO, HallVO, MovieVO, UserVO } from '@/types';
 
-type AuthUser = UserVO & { password: string; phoneRaw?: string };
+type AuthUser = UserVO & { password: string; phoneRaw?: string; status?: 'active' | 'disabled' };
 
 interface MockDb {
   movies: MovieVO[];

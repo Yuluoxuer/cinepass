@@ -42,6 +42,16 @@ function maybeToast(msg: string, silent?: boolean) {
   import('antd').then(({ message }) => message.error(msg)).catch(() => {});
 }
 
+function handleUnauthorized() {
+  useAuthStore.getState().clearAuth();
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+    const redirect = `${window.location.pathname}${window.location.search}`;
+    window.location.replace(`/admin/login?redirect=${encodeURIComponent(redirect)}`);
+    return;
+  }
+  void useAuthStore.getState().openLoginModal();
+}
+
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = (options.method || 'GET').toUpperCase();
   const headers: Record<string, string> = {
@@ -92,8 +102,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     const status = ax.response?.status;
     const body = ax.response?.data;
     if (status === 401) {
-      useAuthStore.getState().clearAuth();
-      void useAuthStore.getState().openLoginModal();
+      handleUnauthorized();
       throw new ApiError('未登录或登录已过期', {
         code: -1,
         errorCode: 'UNAUTHORIZED',
@@ -123,8 +132,7 @@ function unwrap<T>(envelope: ApiEnvelope<T>, silent?: boolean): T {
       : undefined;
   const msg = envelope.message || '请求失败';
   if (errorCode === 'UNAUTHORIZED') {
-    useAuthStore.getState().clearAuth();
-    void useAuthStore.getState().openLoginModal();
+    handleUnauthorized();
   } else {
     maybeToast(msg, silent);
   }

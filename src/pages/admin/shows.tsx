@@ -33,6 +33,13 @@ const AdminShowsPage: React.FC = () => {
   const [editZones, setEditZones] = useState<string[]>([]);
   const [seatMapCache, setSeatMapCache] = useState<Record<string, SeatMapVO>>({});
 
+  const startTimeValid = (value: dayjs.Dayjs) => value.isAfter(dayjs());
+  const localScheduleConflict = (hallId: string, start: dayjs.Dayjs, end: dayjs.Dayjs, excludeShowId?: string) =>
+    shows.some((show) => {
+      if (show.showId === excludeShowId || show.hallId !== hallId || show.status === 'cancelled') return false;
+      return start.isBefore(dayjs(show.endTime).add(20, 'minute')) && end.add(20, 'minute').isAfter(dayjs(show.startTime));
+    });
+
   useEffect(() => {
     void catalogApi.listCinemas({ page: 1, size: 50 }).then((r) => setCinemas(r.items));
     void catalogApi.listMovies({ page: 1, size: 50 }).then((r) => setMovies(r.items));
@@ -73,7 +80,7 @@ const AdminShowsPage: React.FC = () => {
       message.warning('请先选齐影院、影片、日期');
       return;
     }
-    const res = await catalogApi.listShows({ cinemaId, movieId, date });
+    const res = await adminApi.adminListShows({ cinemaId, movieId, date });
     setShows(res.items);
   };
 
@@ -114,7 +121,7 @@ const AdminShowsPage: React.FC = () => {
       const hit = show.zonePrices?.find((p) => p.zone === z);
       priceMap[z] = hit?.price ?? show.price;
     }
-    editForm.setFieldsValue({ zonePriceMap: priceMap });
+    editForm.setFieldsValue({ zonePriceMap: priceMap, startTime: dayjs(show.startTime) });
   };
 
   return (
@@ -159,19 +166,51 @@ const AdminShowsPage: React.FC = () => {
           },
           { title: '余座', dataIndex: 'seatRemain' },
           {
+            title: '状态',
+            dataIndex: 'status',
+            render: (status: ShowVO['status']) =>
+              status === 'off_sale' ? '已停售' : status === 'cancelled' ? '已取消' : '售票中',
+          },
+          {
             title: '操作',
             render: (_, r) => (
               <Space>
-                <Button type="link" onClick={() => void openEdit(r)}>
+                <Button type="link" disabled={r.status !== 'on_sale'} onClick={() => void openEdit(r)}>
                   编辑区价
                 </Button>
                 <Button
                   type="link"
+                  disabled={r.status !== 'on_sale'}
+                  onClick={() => {
+                    Modal.confirm({
+                      title: '确认停售？',
+                      content: '停售后将关闭该场次购票，并取消所有未支付订单；已出票订单不受影响。',
+                      onOk: async () => {
+                        await adminApi.closeShowSale(r.showId);
+                        message.success('该场次已停售');
+                        await query();
+                      },
+                    });
+                  }}
+                >
+                  停售
+                </Button>
+                <Button
+                  type="link"
                   danger
+                  disabled={r.status === 'cancelled'}
                   onClick={async () => {
-                    await adminApi.cancelShow(r.showId);
-                    message.success('已取消');
-                    void query();
+                    const impact = await adminApi.getShowImpact(r.showId);
+                    Modal.confirm({
+                      title: '确认取消场次？',
+                      content: `将取消 ${impact.pendingPayCount} 笔待支付订单，并使 ${impact.issuedCount} 张未核销票券失效；已核销 ${impact.usedCount} 笔仅保留记录。`,
+                      okButtonProps: { danger: true },
+                      onOk: async () => {
+                        await adminApi.cancelShow(r.showId);
+                        message.success('场次已取消，关联订单已按规则处理');
+                        await query();
+                      },
+                    });
                   }}
                 >
                   取消
@@ -207,11 +246,19 @@ const AdminShowsPage: React.FC = () => {
               message.error('请为每个分区填写有效价格');
               return;
             }
-            const start = dayjs(v.startTime).format('YYYY-MM-DDTHH:mm:ss+08:00');
             const movie = movies.find((m) => m.movieId === v.movieId);
-            const end = dayjs(v.startTime)
-              .add(movie?.durationMin || 120, 'minute')
-              .format('YYYY-MM-DDTHH:mm:ss+08:00');
+            const startMoment = dayjs(v.startTime);
+            const endMoment = startMoment.add(movie?.durationMin || 120, 'minute');
+            if (!startTimeValid(startMoment)) {
+              message.error('开场时间必须晚于当前时间');
+              return;
+            }
+            if (localScheduleConflict(v.hallId, startMoment, endMoment)) {
+              message.error('与当前列表中的同影厅场次冲突，前后需预留 20 分钟缓冲');
+              return;
+            }
+            const start = startMoment.format('YYYY-MM-DDTHH:mm:ss+08:00');
+            const end = endMoment.format('YYYY-MM-DDTHH:mm:ss+08:00');
             await adminApi.createShow({
               movieId: v.movieId,
               cinemaId: v.cinemaId,
@@ -251,7 +298,11 @@ const AdminShowsPage: React.FC = () => {
             />
           </Form.Item>
           <Form.Item name="startTime" label="开场时间" rules={[{ required: true }]}>
-            <DatePicker showTime style={{ width: '100%' }} />
+            <DatePicker
+              showTime
+              disabledDate={(d) => !!d && d.endOf('day').isBefore(dayjs().startOf('day'))}
+              style={{ width: '100%' }}
+            />
           </Form.Item>
           {formZones.length === 0 ? (
             <p style={{ color: '#999' }}>选择影厅后，将按该座位图分区填写各区价格</p>
@@ -288,12 +339,34 @@ const AdminShowsPage: React.FC = () => {
               message.error('请为每个分区填写有效价格');
               return;
             }
-            await adminApi.updateShow(editShow.showId, { zonePrices });
+            const startMoment = dayjs(v.startTime);
+            const movie = movies.find((m) => m.movieId === editShow.movieId);
+            const endMoment = startMoment.add(movie?.durationMin || 120, 'minute');
+            if (!startTimeValid(startMoment)) {
+              message.error('开场时间必须晚于当前时间');
+              return;
+            }
+            if (localScheduleConflict(editShow.hallId, startMoment, endMoment, editShow.showId)) {
+              message.error('与当前列表中的同影厅场次冲突，前后需预留 20 分钟缓冲');
+              return;
+            }
+            await adminApi.updateShow(editShow.showId, {
+              zonePrices,
+              startTime: startMoment.format('YYYY-MM-DDTHH:mm:ss+08:00'),
+              endTime: endMoment.format('YYYY-MM-DDTHH:mm:ss+08:00'),
+            });
             message.success('区价已更新');
             setEditShow(null);
             void query();
           }}
         >
+          <Form.Item name="startTime" label="开场时间" rules={[{ required: true }]}>
+            <DatePicker
+              showTime
+              disabledDate={(d) => !!d && d.endOf('day').isBefore(dayjs().startOf('day'))}
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
           {editZones.map((z) => (
             <Form.Item
               key={z}

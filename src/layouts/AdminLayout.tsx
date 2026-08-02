@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, history, useLocation } from 'umi';
 import { Layout, Menu, Dropdown } from 'antd';
 import {
@@ -34,8 +34,11 @@ const AdminLayout: React.FC = () => {
   const loc = useLocation();
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
+  const setUser = useAuthStore((s) => s.setUser);
+  const [verified, setVerified] = useState(false);
 
   useEffect(() => {
+    let disposed = false;
     const restored = restoreLoginState();
     if (restored.accessToken) {
       useAuthStore.setState({
@@ -44,12 +47,41 @@ const AdminLayout: React.FC = () => {
         user: restored.user,
       });
     }
-    const u = restored.user || useAuthStore.getState().user;
     const token = restored.accessToken || useAuthStore.getState().accessToken;
-    if (!token || !u || !isStaffOrAdmin(u.role)) {
+    if (!token) {
+      clearAuth();
       history.replace(`/admin/login?redirect=${encodeURIComponent(loc.pathname)}`);
+      return () => {
+        disposed = true;
+      };
     }
-  }, []);
+
+    void authApi
+      .me()
+      .then((serverUser) => {
+        if (disposed) return;
+        if (!isStaffOrAdmin(serverUser.role)) {
+          clearAuth();
+          history.replace(`/admin/login?redirect=${encodeURIComponent(loc.pathname)}`);
+          return;
+        }
+        if (loc.pathname.startsWith('/admin/users') && serverUser.role !== 'admin') {
+          history.replace('/admin');
+          return;
+        }
+        setUser(serverUser);
+        setVerified(true);
+      })
+      .catch(() => {
+        if (disposed) return;
+        clearAuth();
+        history.replace(`/admin/login?redirect=${encodeURIComponent(loc.pathname)}`);
+      });
+
+    return () => {
+      disposed = true;
+    };
+  }, [clearAuth, loc.pathname, setUser]);
 
   const items = [
     { key: '/admin', icon: <DashboardOutlined />, label: '运营概览' },
@@ -78,6 +110,8 @@ const AdminLayout: React.FC = () => {
     Object.entries(CRUMB).find(([path]) => loc.pathname === path)?.[1] ||
     Object.entries(CRUMB).find(([path]) => path !== '/admin' && loc.pathname.startsWith(path))?.[1] ||
     '工作台';
+
+  if (!verified) return null;
 
   return (
     <Layout style={{ minHeight: '100vh', background: 'var(--admin-bg)' }}>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Popconfirm, Space, Table, message } from 'antd';
+import { Button, Modal, Space, Table, message } from 'antd';
 import { history } from 'umi';
 import * as adminApi from '@/api/admin';
 import type { SeatMapVO } from '@/types';
@@ -12,6 +12,26 @@ const SeatMapsPage: React.FC = () => {
   useEffect(() => {
     load();
   }, []);
+
+  const requestDelete = async (seatMapId: string) => {
+    const usage = await adminApi.getSeatMapUsage(seatMapId);
+    if (usage.hallCount || usage.showCount) {
+      message.warning(
+        `该座位图正被 ${usage.hallCount} 个影厅、${usage.showCount} 个场次引用，不能删除。`,
+      );
+      return;
+    }
+    Modal.confirm({
+      title: '确认删除座位图？',
+      content: '删除后不可恢复。',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        await adminApi.deleteSeatMap(seatMapId);
+        message.success('已删除');
+        load();
+      },
+    });
+  };
 
   return (
     <div>
@@ -37,18 +57,9 @@ const SeatMapsPage: React.FC = () => {
                 <Button type="link" onClick={() => history.push(`/admin/seat-maps/${r.seatMapId}`)}>
                   打开
                 </Button>
-                <Popconfirm
-                  title="确认删除？"
-                  onConfirm={async () => {
-                    await adminApi.deleteSeatMap(r.seatMapId);
-                    message.success('已删除');
-                    load();
-                  }}
-                >
-                  <Button type="link" danger>
-                    删除
-                  </Button>
-                </Popconfirm>
+                <Button type="link" danger onClick={() => void requestDelete(r.seatMapId)}>
+                  删除
+                </Button>
               </Space>
             ),
           },

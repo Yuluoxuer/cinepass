@@ -5,9 +5,13 @@ import type {
   HallVO,
   SeatMapVO,
   ShowVO,
+  ShowListResult,
   OrderVO,
   PageResult,
   AdminUserVO,
+  SeatMapUsageVO,
+  AdminShowImpactVO,
+  AdminDashboardStatsVO,
   TicketVerifyVO,
   ZonePrice,
 } from '@/types';
@@ -60,6 +64,10 @@ export function deleteSeatMap(id: string) {
   return del<{ deleted: boolean }>(`/seat-maps/${id}`);
 }
 
+export function getSeatMapUsage(id: string) {
+  return get<SeatMapUsageVO>(`/seat-maps/${id}/usage`);
+}
+
 export function createShow(body: {
   movieId: string;
   cinemaId: string;
@@ -71,6 +79,10 @@ export function createShow(body: {
   price?: number;
 }) {
   return post<ShowVO>('/admin/shows', body);
+}
+
+export function adminListShows(params: { cinemaId: string; movieId: string; date: string }) {
+  return get<ShowListResult>('/admin/shows', params);
 }
 
 export function updateShow(
@@ -86,6 +98,19 @@ export function cancelShow(showId: string) {
   return post<ShowVO>(`/admin/shows/${showId}/cancel`);
 }
 
+export function closeShowSale(showId: string) {
+  return post<ShowVO>(`/admin/shows/${showId}/close-sale`);
+}
+
+export function getShowImpact(showId: string) {
+  return get<AdminShowImpactVO>(`/admin/shows/${showId}/impact`);
+}
+
+/** 获取运营看板汇总，场次数量按指定日期统计全部在售场次。 */
+export function getDashboardStats(date: string) {
+  return get<AdminDashboardStatsVO>('/admin/dashboard/stats', { date });
+}
+
 export function adminListOrders(params?: {
   orderId?: string;
   userId?: string;
@@ -94,6 +119,16 @@ export function adminListOrders(params?: {
   size?: number;
 }) {
   return get<PageResult<OrderVO>>('/admin/orders', params);
+}
+
+/** 运营人员关闭待支付订单。 */
+export function adminCancelOrder(orderId: string, reason = 'admin_closed') {
+  return post<OrderVO>(`/admin/orders/${orderId}/cancel`, { reason });
+}
+
+/** 运营人员现场核销已出票订单。 */
+export function consumeTicket(orderId: string) {
+  return post<OrderVO>(`/admin/orders/${orderId}/consume`);
 }
 
 export function listUsers(params?: { page?: number; size?: number }) {
@@ -109,7 +144,10 @@ export function createUser(body: {
   return post<AdminUserVO>('/admin/users', body);
 }
 
-export function updateUser(userId: string, body: Partial<AdminUserVO>) {
+export function updateUser(
+  userId: string,
+  body: Partial<Pick<AdminUserVO, 'role' | 'status'>>,
+) {
   return put<AdminUserVO>(`/admin/users/${userId}`, body);
 }
 

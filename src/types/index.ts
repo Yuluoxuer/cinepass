@@ -19,7 +19,7 @@ export type SeatType = 'normal' | 'couple' | 'disabled';
 /** 座位分区 code：座位图自定义，无枚举/正则限制（如 A/B/C、VIP） */
 export type SeatZone = string;
 export type SeatRemainLevel = 'ample' | 'tight' | 'almost_full';
-export type OrderStatus = 'pending_pay' | 'issued' | 'cancelled';
+export type OrderStatus = 'pending_pay' | 'issued' | 'used' | 'cancelled';
 export type LockStatus = 'active' | 'expired' | 'consumed' | 'released';
 
 export interface ZonePrice {
@@ -131,7 +131,7 @@ export interface ShowVO {
   zonePrices?: ZonePrice[];
   seatRemain: number;
   seatRemainLevel: SeatRemainLevel;
-  status?: 'on_sale' | 'cancelled';
+  status?: 'on_sale' | 'off_sale' | 'cancelled';
 }
 
 export interface SeatVO {
@@ -164,6 +164,14 @@ export interface SeatMapVO {
   /** 模板/辅助：本图出现的区 */
   zones?: string[];
   showId?: string;
+}
+
+/** 座位图被影厅、场次使用时的引用摘要，用于删除前治理提示。 */
+export interface SeatMapUsageVO {
+  seatMapId: string;
+  hallCount: number;
+  showCount: number;
+  hallNames: string[];
 }
 
 export interface SeatPlanVO {
@@ -211,6 +219,26 @@ export interface OrderVO {
   expireAt: string | null;
   createdAt: string;
   payAt: string | null;
+  /** 取消来源，例如场次取消。用于运营端和用户端说明订单变化原因。 */
+  cancelReason?: string | null;
+  /** 入场核销时间；仅已检票订单存在。 */
+  verifiedAt?: string | null;
+}
+
+export interface AdminShowImpactVO {
+  showId: string;
+  pendingPayCount: number;
+  issuedCount: number;
+  usedCount: number;
+}
+
+/** 运营看板聚合数据，场次数量按指定日期的在售场次统计。 */
+export interface AdminDashboardStatsVO {
+  date: string;
+  totalOrderCount: number;
+  pendingPayOrderCount: number;
+  issuedOrderCount: number;
+  onSaleShowCount: number;
 }
 
 export interface PayQrVO {
