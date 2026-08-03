@@ -1,77 +1,40 @@
 package com.cinepass.service;
 
-import com.alibaba.fastjson2.JSON;
-import com.cinepass.constant.CacheKeys;
 import lombok.Data;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Service;
 
 import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
-@Service
-public class AuthSessionService {
+/**
+ * 登录会话管理：Refresh 会话落 Redis、Access jti 黑名单（登出/吊销）。
+ */
+public interface AuthSessionService {
 
-    private final StringRedisTemplate redis;
-    private final long refreshExpireSeconds;
+    /** 保存 Refresh 会话（含 userId、role），TTL 由配置决定 */
+    void saveRefresh(String sid, String userId, String role);
 
-    public AuthSessionService(StringRedisTemplate redis,
-                              @Value("${jwt.refresh-expire-seconds:604800}") long refreshExpireSeconds) {
-        this.redis = redis;
-        this.refreshExpireSeconds = refreshExpireSeconds;
-    }
+    /** 按 sid 读取 Refresh 会话；不存在返回 empty */
+    Optional<RefreshSession> getRefresh(String sid);
 
-    public void saveRefresh(String sid, String userId, String role) {
-        RefreshSession session = new RefreshSession();
-        session.setUserId(userId);
-        session.setRole(role);
-        session.setRefreshJti(UUID.randomUUID().toString().replace("-", ""));
-        redis.opsForValue().set(CacheKeys.refreshTokenKey(sid), JSON.toJSONString(session),
-                refreshExpireSeconds, TimeUnit.SECONDS);
-    }
+    /** 删除 Refresh 会话（登出） */
+    void deleteRefresh(String sid);
 
-    public Optional<RefreshSession> getRefresh(String sid) {
-        if (sid == null) {
-            return Optional.empty();
-        }
-        String json = redis.opsForValue().get(CacheKeys.refreshTokenKey(sid));
-        if (json == null || json.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(JSON.parseObject(json, RefreshSession.class));
-    }
+    /** 将 Access Token 的 jti 加入黑名单，TTL 覆盖剩余有效期 */
+    void denyJti(String jti, long ttlSeconds);
 
-    public void deleteRefresh(String sid) {
-        if (sid != null) {
-            redis.delete(CacheKeys.refreshTokenKey(sid));
-        }
-    }
+    /** 判断 jti 是否已被吊销 */
+    boolean isDenied(String jti);
 
-    public void denyJti(String jti, long ttlSeconds) {
-        if (jti == null || ttlSeconds <= 0) {
-            return;
-        }
-        redis.opsForValue().set(CacheKeys.denyJtiKey(jti), "1", ttlSeconds, TimeUnit.SECONDS);
-    }
+    /** 返回 Refresh 会话默认过期秒数 */
+    long getRefreshExpireSeconds();
 
-    public boolean isDenied(String jti) {
-        if (jti == null) {
-            return false;
-        }
-        Boolean has = redis.hasKey(CacheKeys.denyJtiKey(jti));
-        return Boolean.TRUE.equals(has);
-    }
-
-    public long getRefreshExpireSeconds() {
-        return refreshExpireSeconds;
-    }
-
+    /** Redis 中存储的 Refresh 会话结构 */
     @Data
-    public static class RefreshSession {
+    class RefreshSession {
+        /** 用户 ID */
         private String userId;
+        /** 登录时角色快照 */
         private String role;
+        /** Refresh 自身的 jti */
         private String refreshJti;
     }
 }

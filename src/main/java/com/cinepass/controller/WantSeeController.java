@@ -1,7 +1,7 @@
 package com.cinepass.controller;
 
 import com.cinepass.common.Result;
-import com.cinepass.security.LoginRequired;
+import com.cinepass.security.LoginUser;
 import com.cinepass.security.SecurityContext;
 import com.cinepass.service.WantSeeService;
 import com.cinepass.vo.WantSeeVO;
@@ -11,6 +11,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 影片「想看」接口：加入 / 取消（需登录）。
+ * <pre>
+ * POST   /api/v1/movies/{movieId}/want-see
+ * DELETE /api/v1/movies/{movieId}/want-see
+ * </pre>
+ */
 @RestController
 @RequestMapping("/api/v1/movies")
 public class WantSeeController {
@@ -21,14 +28,16 @@ public class WantSeeController {
         this.wantSeeService = wantSeeService;
     }
 
+    /** 将影片加入当前用户想看列表 */
     @PostMapping("/{movieId}/want-see")
-    @LoginRequired
+    @LoginUser
     public Result<WantSeeVO> add(@PathVariable String movieId) {
         return Result.success(wantSeeService.add(SecurityContext.getCurrentUserId(), movieId));
     }
 
+    /** 取消当前用户对该影片的想看 */
     @DeleteMapping("/{movieId}/want-see")
-    @LoginRequired
+    @LoginUser
     public Result<WantSeeVO> remove(@PathVariable String movieId) {
         return Result.success(wantSeeService.remove(SecurityContext.getCurrentUserId(), movieId));
     }

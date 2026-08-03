@@ -1,6 +1,6 @@
 # RBAC 权限模块说明与 Controller 用法
 
-> 对应系分：`docs/01-后端系分-票务中台与Agent.md` §10（角色 `user` / `staff` / `admin`）  
+> 对应系分：`docs/01-后端系分-票务中台与Agent.md` §10（角色 `user` / `staff` / `admin`；**v4.8 staff 影院隔离**）  
 > 代码目录：`src/main/java/com/cinepass/security/`（包名 `com.cinepass.security`）  
 >
 > 本文档供开发者阅读（非运行时被代码调用）。Glob 确认仓库内尚无同名 RBAC 指南。  
@@ -31,9 +31,9 @@ HTTP 请求
 | **`Admin.java`** | 方法/类注解。仅 **admin** 可进。等价 `@PreAuthorize("hasRole('admin')")`。用于账号管理 `/admin/users`。 |
 | **`Staff.java`** | 方法/类注解。**staff 或 admin** 可进。等价 `@PreAuthorize("hasAnyRole('staff','admin')")`。用于运营 CRUD、座位图。 |
 | **`LoginRequired.java`** | 方法/类注解。任意**已登录**用户可进。等价 `@PreAuthorize("isAuthenticated()")`。用于锁座、下单等 C 端写接口。 |
-| **`JwtUtil.java`** | 签发 / 解析 Access Token。Claims：`sub`(userId)、`role`、`sid`、`jti`、`exp`；默认 TTL 3600 秒。登录成功后调用。 |
+| **`JwtUtil.java`** | 签发 / 解析 Access Token。Claims：`sub`(userId)、`role`、`cinemaId`（staff）、`sid`、`jti`、`exp`；默认 TTL 3600 秒。登录成功后调用。 |
 | **`JwtAuthFilter.java`** | 每个请求取 `Authorization: Bearer …`。合法则注入 Spring Authentication（`ROLE_xxx`）和 `SecurityContext`；无 Token **不拦**（交给路径规则）；非法 Token → 401。 |
-| **`SecurityContext.java`** | 当前请求用户信息（ThreadLocal）。在 Service/Controller 里取 `userId`、`role` 等；也可在 SpEL 里用 `@securityContext`。 |
+| **`SecurityContext.java`** | 当前请求用户信息（ThreadLocal）。在 Service/Controller 里取 `userId`、`role`、`cinemaId` 等；也可在 SpEL 里用 `@securityContext`。 |
 | **`SecurityConfig.java`** | Spring Security 总配置：CORS、无 Session、401/403 JSON、**路径级**放行/角色规则、注册两个 Filter、开启方法级 `@PreAuthorize`。 |
 | **`AGENTS.md`** | 给 AI/协作者看的包内约定（可忽略）。 |
 | **`JwtUtilTest.java`**（test） | 校验 Token 能带上 `role` / `sid` / `jti`。 |
@@ -58,6 +58,25 @@ jwt:
 | 其余 | 需登录 |
 
 路径是**兜底**；账号管理等仍要在方法上加 `@Admin`，否则 staff 也能打到该路径。
+
+### 2.1 影院范围隔离（v4.8）
+
+| 规则 | 说明 |
+|------|------|
+| `user_account.cinema_id` | **staff 必填**；user/admin 必须为 NULL |
+| JWT Claim `cinemaId` | 登录/静默续期写入；`SecurityContext.getCurrentCinemaId()` 可读 |
+| `POST /admin/cinemas` | **仅 `@Admin`**（staff 禁止新建影院） |
+| 厅 / 座位图 / 场次 / 协助查单 | staff 仅本影院；Service 内 `assertCinemaScope` |
+| 影片目录 | staff 可 CRUD（全平台目录，不做影院隔离） |
+
+```java
+// 运营写接口示例（实现 Controllers 时）
+String cinemaId = show.getCinemaId();
+if (Roles.STAFF.equals(SecurityContext.getCurrentRole())
+        && !cinemaId.equals(SecurityContext.getCurrentCinemaId())) {
+    throw new BusinessException(ResultCode.FORBIDDEN, "无权操作其他影院数据");
+}
+```
 
 ---
 
@@ -115,14 +134,14 @@ public class AdminUserController {
 ### 3.3 C 端需登录（锁座 / 下单）
 
 ```java
-import com.cinepass.security.LoginRequired;
+import com.cinepass.security.LoginUser;
 import com.cinepass.security.SecurityContext;
 
 @RestController
 @RequestMapping("/api/v1/locks")
 public class LockController {
 
-    @LoginRequired
+    @LoginUser
     @PostMapping
     public Result<?> lockSeats(@RequestBody LockSeatsDTO dto) {
         Long userId = SecurityContext.getCurrentUserId();

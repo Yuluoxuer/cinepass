@@ -1,14 +1,11 @@
 package com.cinepass.config;
 
-import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalTimeDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalTimeSerializer;
-import com.cinepass.serializer.FieldPermissionAnnotationIntrospector;
-import com.cinepass.serializer.FieldPermissionPropertyFilter;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 import java.time.format.DateTimeFormatter;
 
 /**
- * 全局 Jackson 配置（仅影响 HTTP 接口 JSON，不影响 Redis）
+ * 全局 Jackson 配置（仅影响 HTTP 接口 JSON，不影响 Redis）。
  */
 @Configuration
 public class JacksonConfig {
@@ -34,11 +31,6 @@ public class JacksonConfig {
             builder.deserializers(new LocalDateDeserializer(DATE_FORMATTER));
             builder.serializers(new LocalTimeSerializer(TIME_FORMATTER));
             builder.deserializers(new LocalTimeDeserializer(TIME_FORMATTER));
-
-            builder.annotationIntrospector(new FieldPermissionAnnotationIntrospector());
-            builder.filters(new SimpleFilterProvider()
-                    .addFilter(FieldPermissionAnnotationIntrospector.FIELD_PERMISSION_FILTER_ID,
-                            new FieldPermissionPropertyFilter()));
         };
     }
 }

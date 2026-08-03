@@ -1,9 +1,8 @@
 -- =============================================================================
 -- 妙语购票票务中台 — 表结构 DDL（PostgreSQL 16）
 -- 来源：docs/01-后端系分-票务中台与Agent.md §6
--- 前置：数据库 miaoyu_ticket 已存在
---       CREATE DATABASE miaoyu_ticket OWNER ticket;
--- 完整一键脚本见：docs/sql/init-database.sql
+-- 前置：数据库 miaoyu 已存在（CREATE DATABASE miaoyu;）
+-- 一键脚本：docs/sql/init-miaoyu.sql
 -- =============================================================================
 
 -- 1. 账号与鉴权
@@ -13,6 +12,7 @@ CREATE TABLE IF NOT EXISTS user_account (
   phone          VARCHAR(20)    NULL,
   password_hash  VARCHAR(128)   NOT NULL,
   role           VARCHAR(16)    NOT NULL,
+  cinema_id      VARCHAR(32)    NULL,
   avatar_url     VARCHAR(512)   NULL,
   status         SMALLINT       NOT NULL DEFAULT 1,
   created_at     TIMESTAMPTZ(3) NOT NULL,
@@ -20,8 +20,13 @@ CREATE TABLE IF NOT EXISTS user_account (
   PRIMARY KEY (user_id),
   CONSTRAINT uk_user_nickname UNIQUE (nickname),
   CONSTRAINT uk_user_phone UNIQUE (phone),
-  CONSTRAINT chk_user_role CHECK (role IN ('user', 'staff', 'admin'))
+  CONSTRAINT chk_user_role CHECK (role IN ('user', 'staff', 'admin')),
+  CONSTRAINT chk_staff_cinema CHECK (
+    (role = 'staff' AND cinema_id IS NOT NULL)
+    OR (role IN ('user', 'admin') AND cinema_id IS NULL)
+  )
 );
+CREATE INDEX IF NOT EXISTS idx_user_cinema ON user_account (cinema_id);
 
 CREATE TABLE IF NOT EXISTS user_profile (
   user_id             VARCHAR(40)    NOT NULL,
@@ -70,11 +75,13 @@ CREATE INDEX IF NOT EXISTS idx_cinema_city ON cinema (city_id);
 
 CREATE TABLE IF NOT EXISTS seat_map (
   seat_map_id   VARCHAR(32) NOT NULL,
+  cinema_id     VARCHAR(32) NOT NULL,
   rows_n        INT         NOT NULL,
   cols_n        INT         NOT NULL,
   screen_label  VARCHAR(32) NOT NULL DEFAULT '银幕',
   PRIMARY KEY (seat_map_id)
 );
+CREATE INDEX IF NOT EXISTS idx_seat_map_cinema ON seat_map (cinema_id);
 
 CREATE TABLE IF NOT EXISTS hall (
   hall_id      VARCHAR(32) NOT NULL,
@@ -176,7 +183,7 @@ CREATE INDEX IF NOT EXISTS idx_lock_expire ON seat_lock (status, expire_at);
 
 -- 5. 订单
 CREATE TABLE IF NOT EXISTS order_ticket (
-  order_id              VARCHAR(32)    NOT NULL,
+  order_id              VARCHAR(40)    NOT NULL,
   user_id               VARCHAR(40)    NOT NULL,
   show_id               VARCHAR(32)    NOT NULL,
   lock_id               VARCHAR(32)    NOT NULL,
