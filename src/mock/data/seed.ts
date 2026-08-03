@@ -11,6 +11,8 @@ import type {
 const poster = (id: string, title: string) =>
   `https://picsum.photos/seed/${id}/400/600`;
 
+const avatar = (id: string) => `https://picsum.photos/seed/${id}/160/160`;
+
 export const MOCK_USERS: Array<UserVO & { password: string; phoneRaw?: string }> = [
   {
     userId: 'u1',
@@ -54,6 +56,13 @@ export const MOCK_MOVIES: MovieVO[] = [
     description:
       '太阳危机再临，联合政府启动流浪地球最终计划。刘培强的故事仍在延续，人类文明再次面临抉择。',
     cast: '吴京 / 刘德华 / 李雪健',
+    director: '郭帆',
+    castMembers: [
+      { name: '郭帆', role: '导演', avatarUrl: avatar('m100-director') },
+      { name: '吴京', role: '主演', avatarUrl: avatar('m100-wujing') },
+      { name: '刘德华', role: '主演', avatarUrl: avatar('m100-andy') },
+      { name: '李雪健', role: '主演', avatarUrl: avatar('m100-lixuejian') },
+    ],
     wantSeeCount: 12890,
   },
   {
@@ -67,6 +76,12 @@ export const MOCK_MOVIES: MovieVO[] = [
     status: 'hot_showing',
     description: '一个普通人的自我突破与热血成长故事。',
     cast: '贾玲 / 雷佳音',
+    director: '贾玲',
+    castMembers: [
+      { name: '贾玲', role: '导演 / 主演', avatarUrl: avatar('m101-jialing') },
+      { name: '雷佳音', role: '主演', avatarUrl: avatar('m101-leijiayin') },
+      { name: '张小斐', role: '主演', avatarUrl: avatar('m101-zhangxiaofei') },
+    ],
     wantSeeCount: 9800,
   },
   {
@@ -80,6 +95,13 @@ export const MOCK_MOVIES: MovieVO[] = [
     status: 'hot_showing',
     description: '殷商战场再起烽烟，哪吒与杨戬踏上新征途。',
     cast: '于适 / 费翔 / 那尔那茜',
+    director: '乌尔善',
+    castMembers: [
+      { name: '乌尔善', role: '导演', avatarUrl: avatar('m102-wuershan') },
+      { name: '于适', role: '主演', avatarUrl: avatar('m102-yushi') },
+      { name: '费翔', role: '主演', avatarUrl: avatar('m102-feixiang') },
+      { name: '那尔那茜', role: '主演', avatarUrl: avatar('m102-naernaxi') },
+    ],
     wantSeeCount: 15200,
   },
   {
@@ -93,7 +115,33 @@ export const MOCK_MOVIES: MovieVO[] = [
     status: 'hot_showing',
     description: '小人物的大梦想，在舞台上绽放光芒。',
     cast: '王宝强 / 黄渤',
+    director: '宁浩',
+    castMembers: [
+      { name: '宁浩', role: '导演', avatarUrl: avatar('m103-ninghao') },
+      { name: '王宝强', role: '主演', avatarUrl: avatar('m103-wangbaoqiang') },
+      { name: '黄渤', role: '主演', avatarUrl: avatar('m103-huangbo') },
+    ],
     wantSeeCount: 6400,
+  },
+  {
+    movieId: 'm104',
+    title: '深海回响',
+    posterUrl: poster('m104', '深海回响'),
+    genres: ['悬疑', '剧情'],
+    rating: 8.7,
+    durationMin: 126,
+    releaseDate: '2026-07-18',
+    status: 'hot_showing',
+    description: '一支深海科考队收到来自失联潜艇的求救信号，在幽暗海沟中揭开尘封多年的秘密。',
+    cast: '张新成 / 周也 / 王传君',
+    director: '陈思诚',
+    castMembers: [
+      { name: '陈思诚', role: '导演', avatarUrl: avatar('m104-chensicheng') },
+      { name: '张新成', role: '主演', avatarUrl: avatar('m104-zhangxincheng') },
+      { name: '周也', role: '主演', avatarUrl: avatar('m104-zhouye') },
+      { name: '王传君', role: '主演', avatarUrl: avatar('m104-wangchuanjun') },
+    ],
+    wantSeeCount: 11600,
   },
   {
     movieId: 'm201',
@@ -106,6 +154,12 @@ export const MOCK_MOVIES: MovieVO[] = [
     status: 'coming_soon',
     description: '东海再起波澜，哪吒与敖丙再度联手。',
     cast: '吕艳婷 / 囧森瑟夫',
+    director: '饺子',
+    castMembers: [
+      { name: '饺子', role: '导演', avatarUrl: avatar('m201-jiaozi') },
+      { name: '吕艳婷', role: '配音主演', avatarUrl: avatar('m201-luyanting') },
+      { name: '囧森瑟夫', role: '配音主演', avatarUrl: avatar('m201-jiongsensefu') },
+    ],
     wantSeeCount: 22000,
   },
   {
@@ -119,6 +173,12 @@ export const MOCK_MOVIES: MovieVO[] = [
     status: 'coming_soon',
     description: '跨越虫洞的归途，一次关于爱与时间的续章。',
     cast: '待公布',
+    director: '待公布',
+    castMembers: [
+      { name: '主创待公布', role: '导演', avatarUrl: null },
+      { name: '演员待公布', role: '主演', avatarUrl: null },
+      { name: '演员待公布', role: '主演', avatarUrl: null },
+    ],
     wantSeeCount: 8900,
   },
 ];
@@ -133,6 +193,7 @@ export const MOCK_CINEMAS: CinemaVO[] = [
     lng: 121.514,
     distanceMeters: 1200,
     minPrice: 45,
+    features: ['IMAX', '杜比全景声'],
   },
   {
     cinemaId: 'c13',
@@ -143,6 +204,7 @@ export const MOCK_CINEMAS: CinemaVO[] = [
     lng: 121.449,
     distanceMeters: 3500,
     minPrice: 55,
+    features: ['LUXE', '情侣座'],
   },
   {
     cinemaId: 'c14',
@@ -153,6 +215,18 @@ export const MOCK_CINEMAS: CinemaVO[] = [
     lng: 121.45,
     distanceMeters: 5200,
     minPrice: 42,
+    features: ['CGV Gold Class', '4DX'],
+  },
+  {
+    cinemaId: 'c15',
+    name: '耀莱成龙国际影城（陆家嘴店）',
+    address: '浦东新区陆家嘴环路 1000 号',
+    cityId: 'city_sh',
+    lat: 31.2378,
+    lng: 121.5012,
+    distanceMeters: 6800,
+    minPrice: 52,
+    features: ['巨幕厅', '杜比影院'],
   },
 ];
 
@@ -198,6 +272,15 @@ export const MOCK_SEAT_MAPS: SeatMapVO[] = [
     seats: buildConvexSeats('sm1', 8, 12),
     zones: ['A', 'B', 'C'],
   },
+  {
+    seatMapId: 'sm2',
+    rows: 10,
+    cols: 14,
+    screenLabel: '巨幕银幕',
+    mutable: true,
+    seats: buildConvexSeats('sm2', 10, 14),
+    zones: ['A', 'B', 'C'],
+  },
 ];
 
 export const MOCK_HALLS: HallVO[] = [
@@ -205,6 +288,8 @@ export const MOCK_HALLS: HallVO[] = [
   { hallId: 'h2', cinemaId: 'c12', name: 'IMAX厅', seatMapId: 'sm1', showCount: 2 },
   { hallId: 'h3', cinemaId: 'c13', name: '1号厅', seatMapId: 'sm1', showCount: 2 },
   { hallId: 'h4', cinemaId: 'c14', name: '2号厅', seatMapId: 'sm1', showCount: 1 },
+  { hallId: 'h5', cinemaId: 'c15', name: '杜比全景声厅', seatMapId: 'sm2', showCount: 3 },
+  { hallId: 'h6', cinemaId: 'c15', name: '4号厅', seatMapId: 'sm2', showCount: 3 },
 ];
 
 function todayPlus(days: number): string {

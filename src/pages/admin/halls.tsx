@@ -26,7 +26,6 @@ const HallsPage: React.FC = () => {
 
   return (
     <div>
-      <h2>影厅管理</h2>
       <Button type="primary" style={{ margin: '12px 0' }} onClick={() => setOpen(true)}>
         + 新建影厅
       </Button>
