@@ -60,7 +60,6 @@ const BookingShowsPage: React.FC = () => {
 
   return (
     <div className={styles.showWorkspace}>
-      <BookingProgress step={3} />
       <main className={`${styles.showPage} miaoyu-fade-up`}>
         <div className={styles.showHeading}>
           <div>
@@ -69,6 +68,7 @@ const BookingShowsPage: React.FC = () => {
           </div>
           <span className={styles.synced}><i />草稿已同步</span>
         </div>
+        <BookingProgress step={3} />
         <div className={styles.showGrid}>
           <section className={styles.showPanel} aria-label="场次列表">
             <span className={styles.stepLabel}>Step 03</span>

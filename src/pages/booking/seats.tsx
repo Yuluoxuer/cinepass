@@ -126,9 +126,9 @@ const BookingSeatsPage: React.FC = () => {
 
   return (
     <div>
-      <BookingProgress step={4} />
       <div className="miaoyu-container">
         <h2 className={styles.title}>在线选座</h2>
+        <BookingProgress step={4} />
         <div className={styles.seatLayout}>
           <div style={{ background: '#fff', borderRadius: 8 }}>
             {map ? (

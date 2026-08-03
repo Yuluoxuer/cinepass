@@ -43,12 +43,12 @@ const BookingCinemasPage: React.FC = () => {
 
   return (
     <div>
-      <BookingProgress step={2} />
       <div className="miaoyu-container">
         <h2 className={styles.title}>
           {movie?.title || '选影院'} · 选影院
         </h2>
         <p className={styles.hint}>日期请在下一页「选场次」中选择</p>
+        <BookingProgress step={2} />
         <div className={styles.list}>
           {cinemas.map((c) => (
             <div key={c.cinemaId} className={styles.row}>
