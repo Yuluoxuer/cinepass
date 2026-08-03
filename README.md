@@ -29,7 +29,7 @@ Browser/Client
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # 可选：配置 OPENAI_API_KEY
-uvicorn fapi.main:app --reload --port 8001
+uvicorn fastapi.main:app --reload --port 8001
 ```
 
 - 健康检查：`GET /health`

@@ -3,7 +3,7 @@
 # cinepass_leijieming_aiagent（独立 Agent 服务）
 
 ## Purpose
-基于 FastAPI + LangGraph 的独立 Agent 框架服务。HTTP/SSE 在 `fapi/`，编排与子 Agent 在 `agent/`。不调用票务中台。
+基于 FastAPI + LangGraph 的独立 Agent 框架服务。HTTP/SSE 在 `fastapi/`，编排与子 Agent 在 `agent/`。不调用票务中台。
 
 ## Key Files
 
@@ -17,7 +17,7 @@
 
 | Directory | Purpose |
 |-----------|---------|
-| `fapi/` | FastAPI：REST + SSE（见 `fapi/AGENTS.md`） |
+| `fastapi/` | FastAPI：REST + SSE（见 `fastapi/AGENTS.md`） |
 | `agent/` | LangGraph 工作流 + SubAgent + Tools（见 `agent/AGENTS.md`） |
 
 ## For AI Agents
