@@ -1,0 +1,236 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - link "Skip to content" [ref=e4] [cursor=pointer]:
+      - /url: "#start-of-content"
+    - banner [ref=e6]:
+      - heading "Navigation Menu" [level=2] [ref=e7]
+      - generic [ref=e9]:
+        - button "Toggle navigation" [ref=e11] [cursor=pointer]
+        - link "Homepage" [ref=e17] [cursor=pointer]:
+          - /url: /
+        - generic [ref=e20]:
+          - link "Sign in" [ref=e21] [cursor=pointer]:
+            - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Fleijieming%3Ftab%3Drepositories
+          - button "Appearance settings" [ref=e24] [cursor=pointer]
+  - main [ref=e27]:
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - generic:
+          - generic:
+            - generic:
+              - img "@leijieming"
+            - generic:
+              - strong: leijieming
+              - generic:
+                - generic:
+                  - link "Follow":
+                    - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Fleijieming%3Ftab%3Drepositories
+      - generic [ref=e33]:
+        - navigation "User profile" [ref=e34]:
+          - link "Overview" [ref=e35] [cursor=pointer]:
+            - /url: /leijieming
+          - link "Repositories 8" [ref=e38] [cursor=pointer]:
+            - /url: /leijieming?tab=repositories
+            - text: Repositories
+            - generic "8" [ref=e41]
+          - link "Projects" [ref=e42] [cursor=pointer]:
+            - /url: /leijieming?tab=projects
+        - group [ref=e47]:
+          - button "More" [ref=e48] [cursor=pointer]
+    - generic [ref=e54]:
+      - generic [ref=e56]:
+        - generic:
+          - generic:
+            - generic:
+              - img "@leijieming"
+            - generic:
+              - generic:
+                - strong: leijieming
+            - generic:
+              - generic:
+                - generic:
+                  - link "Follow":
+                    - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Fleijieming%3Ftab%3Drepositories
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - link [ref=e60] [cursor=pointer]:
+              - /url: https://avatars.githubusercontent.com/u/49664699?v=4
+              - img "View leijieming's full-sized avatar" [ref=e61]
+            - heading "leijieming leijieming" [level=1] [ref=e63]:
+              - generic [ref=e64]: leijieming
+              - generic [ref=e65]: leijieming
+          - generic [ref=e66]:
+            - link "Follow" [ref=e73] [cursor=pointer]:
+              - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Fleijieming%3Ftab%3Drepositories
+            - generic [ref=e74]:
+              - generic [ref=e76]:
+                - link "2 followers" [ref=e77] [cursor=pointer]:
+                  - /url: https://github.com/leijieming?tab=followers
+                - text: ·
+                - link "1 following" [ref=e80] [cursor=pointer]:
+                  - /url: https://github.com/leijieming?tab=following
+              - list [ref=e81]:
+                - 'listitem "Organization: Sichuan University Jinjiang College" [ref=e82]':
+                  - generic [ref=e85]: Sichuan University Jinjiang College
+          - button "Block or report user" [ref=e88] [cursor=pointer]
+      - generic [ref=e93]:
+        - search "Repositories" [ref=e96]:
+          - generic [ref=e97]:
+            - searchbox "Find a repository…" [ref=e99]
+            - generic [ref=e100]:
+              - group [ref=e101]:
+                - button "Type" [ref=e102] [cursor=pointer]
+              - group [ref=e104]:
+                - button "Language" [ref=e105] [cursor=pointer]
+              - group [ref=e107]:
+                - button "Sort" [ref=e108] [cursor=pointer]
+        - list [ref=e111]:
+          - listitem [ref=e112]:
+            - generic [ref=e113]:
+              - heading "leshan-feiyi-survey Public" [level=3] [ref=e115]:
+                - link "leshan-feiyi-survey" [ref=e116] [cursor=pointer]:
+                  - /url: /leijieming/leshan-feiyi-survey
+                - generic [ref=e117]: Public
+              - generic [ref=e118]:
+                - generic [ref=e119]: HTML
+                - text: Updated Jul 2, 2026on Jul 2
+          - listitem [ref=e122]:
+            - generic [ref=e123]:
+              - heading "game-course-agents Public" [level=3] [ref=e125]:
+                - link "game-course-agents" [ref=e126] [cursor=pointer]:
+                  - /url: /leijieming/game-course-agents
+                - generic [ref=e127]: Public
+              - paragraph [ref=e129]: 这个仓库提供一套面向 Windows 课堂的部署工具，让学生可以快速准备： Claude Code CC Switch Claude-Code-Game-Studios 课程工作区 Unreal Engine 5、Unity、Godot 4、Blender 的 MCP 连接入口
+              - generic [ref=e130]:
+                - generic [ref=e131]: PowerShell
+                - generic [ref=e133]: MIT License
+                - text: Updated May 25, 2026on May 25
+          - listitem [ref=e137]:
+            - generic [ref=e138]:
+              - generic [ref=e139]:
+                - heading "ImmortalWrt-ImageBuilder Public" [level=3] [ref=e140]:
+                  - link "ImmortalWrt-ImageBuilder" [ref=e141] [cursor=pointer]:
+                    - /url: /leijieming/ImmortalWrt-ImageBuilder
+                  - generic [ref=e142]: Public
+                - generic [ref=e143]:
+                  - text: Forked from
+                  - link "wukongdaily/ImmortalWrt-ImageBuilder" [ref=e144] [cursor=pointer]:
+                    - /url: /wukongdaily/ImmortalWrt-ImageBuilder
+              - paragraph [ref=e146]: 它是一个工作流。可快速构建 可选docker、可选自定义固件大小的 immortalWrt。它相当于一个云端的ImageBuilder,属于构建的范畴,不算是编译。目前也支持第三方插件的按需集成。
+              - generic [ref=e147]:
+                - generic [ref=e148]: Shell
+                - generic [ref=e150]: GNU General Public License v3.0
+                - text: Updated May 23, 2026on May 23
+          - listitem [ref=e154]:
+            - generic [ref=e155]:
+              - generic [ref=e156]:
+                - heading "unity-mcp Public" [level=3] [ref=e157]:
+                  - link "unity-mcp" [ref=e158] [cursor=pointer]:
+                    - /url: /leijieming/unity-mcp
+                  - generic [ref=e159]: Public
+                - generic [ref=e160]:
+                  - text: Forked from
+                  - link "CoplayDev/unity-mcp" [ref=e161] [cursor=pointer]:
+                    - /url: /CoplayDev/unity-mcp
+              - paragraph [ref=e163]: Unity MCP acts as a bridge, allowing AI assistants (like Claude, Cursor) to interact directly with your Unity Editor via a local MCP (Model Context Protocol) Client. Give your LLM tools to manage a…
+              - generic [ref=e164]:
+                - generic [ref=e165]: C#
+                - generic [ref=e167]: MIT License
+                - text: Updated May 18, 2026on May 18
+          - listitem [ref=e171]:
+            - generic [ref=e172]:
+              - generic [ref=e173]:
+                - heading "UnrealBridge Public" [level=3] [ref=e174]:
+                  - link "UnrealBridge" [ref=e175] [cursor=pointer]:
+                    - /url: /leijieming/UnrealBridge
+                  - generic [ref=e176]: Public
+                - generic [ref=e177]:
+                  - text: Forked from
+                  - link "TornLux/UnrealBridge" [ref=e178] [cursor=pointer]:
+                    - /url: /TornLux/UnrealBridge
+              - paragraph [ref=e180]: Typed control surface for Unreal Engine that lets AI agents introspect assets, author Blueprints/AnimBPs, and edit levels — with reactive events and undoable writes.
+              - generic [ref=e181]:
+                - generic [ref=e182]: C++
+                - generic [ref=e184]: MIT License
+                - text: Updated May 13, 2026on May 14
+          - listitem [ref=e188]:
+            - generic [ref=e189]:
+              - heading "game-user-research-tool Public" [level=3] [ref=e191]:
+                - link "game-user-research-tool" [ref=e192] [cursor=pointer]:
+                  - /url: /leijieming/game-user-research-tool
+                - generic [ref=e193]: Public
+              - paragraph [ref=e195]: 游戏设计用户研究工具 v2.0 - 面向游戏设计专业学生的用户研究辅助工具
+              - generic [ref=e196]:
+                - generic [ref=e197]: HTML
+                - link [ref=e199] [cursor=pointer]:
+                  - /url: /leijieming/game-user-research-tool/stargazers
+                  - img "star" [ref=e200]
+                  - text: "3"
+                - text: Updated May 8, 2026on May 8
+          - listitem [ref=e203]:
+            - generic [ref=e204]:
+              - generic [ref=e205]:
+                - heading "Claude-Code-Game-Studios Public template" [level=3] [ref=e206]:
+                  - link "Claude-Code-Game-Studios" [ref=e207] [cursor=pointer]:
+                    - /url: /leijieming/Claude-Code-Game-Studios
+                  - generic [ref=e208]: Public template
+                - generic [ref=e209]:
+                  - text: Forked from
+                  - link "Donchitos/Claude-Code-Game-Studios" [ref=e210] [cursor=pointer]:
+                    - /url: /Donchitos/Claude-Code-Game-Studios
+              - paragraph [ref=e212]: Turn Claude Code into a full game dev studio — 49 AI agents, 72 workflow skills, and a complete coordination system mirroring real studio hierarchy.
+              - generic [ref=e213]:
+                - generic [ref=e214]: Shell
+                - generic [ref=e216]: MIT License
+                - text: Updated May 3, 2026on May 3
+          - listitem [ref=e220]:
+            - generic [ref=e221]:
+              - generic [ref=e222]:
+                - heading "RunFilesBuilder Public" [level=3] [ref=e223]:
+                  - link "RunFilesBuilder" [ref=e224] [cursor=pointer]:
+                    - /url: /leijieming/RunFilesBuilder
+                  - generic [ref=e225]: Public
+                - generic [ref=e226]:
+                  - text: Forked from
+                  - link "wukongdaily/RunFilesBuilder" [ref=e227] [cursor=pointer]:
+                    - /url: /wukongdaily/RunFilesBuilder
+              - paragraph [ref=e229]: 这是一个工作流。同步各位大佬项目里最新编译的ipk文件 生成适用于iStoreOS/ImmortalWrt用的run自解压包
+              - generic [ref=e230]:
+                - generic [ref=e231]: Shell
+                - generic [ref=e233]: MIT License
+                - text: Updated Apr 10, 2026on Apr 10
+  - contentinfo [ref=e237]:
+    - heading "Footer" [level=2] [ref=e238]
+    - generic [ref=e239]:
+      - generic [ref=e240]:
+        - link "GitHub Homepage" [ref=e241] [cursor=pointer]:
+          - /url: https://github.com
+        - generic [ref=e244]: © 2026 GitHub, Inc.
+      - navigation "Footer" [ref=e245]:
+        - heading "Footer navigation" [level=3] [ref=e246]
+        - list "Footer navigation" [ref=e247]:
+          - listitem [ref=e248]:
+            - link "Terms" [ref=e249] [cursor=pointer]:
+              - /url: https://docs.github.com/site-policy/github-terms/github-terms-of-service
+          - listitem [ref=e250]:
+            - link "Privacy" [ref=e251] [cursor=pointer]:
+              - /url: https://docs.github.com/site-policy/privacy-policies/github-privacy-statement
+          - listitem [ref=e252]:
+            - link "Security" [ref=e253] [cursor=pointer]:
+              - /url: https://github.com/security
+          - listitem [ref=e254]:
+            - link "Status" [ref=e255] [cursor=pointer]:
+              - /url: https://www.githubstatus.com/
+          - listitem [ref=e256]:
+            - link "Community" [ref=e257] [cursor=pointer]:
+              - /url: https://github.community/
+          - listitem [ref=e258]:
+            - link "Docs" [ref=e259] [cursor=pointer]:
+              - /url: https://docs.github.com/
+          - listitem [ref=e260]:
+            - link "Contact" [ref=e261] [cursor=pointer]:
+              - /url: https://support.github.com?tags=dotcom-footer
+          - listitem [ref=e262]:
+            - button "Manage cookies" [ref=e264] [cursor=pointer]
+          - listitem [ref=e265]:
+            - button "Do not share my personal information" [ref=e267] [cursor=pointer]

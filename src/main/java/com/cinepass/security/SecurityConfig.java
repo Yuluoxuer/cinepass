@@ -25,6 +25,9 @@ import javax.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
+/**
+ * Spring Security 配置：JWT 无状态认证、路径级角色规则、方法级 {@code @PreAuthorize}。
+ */
 @Configuration
 @EnableWebSecurity
 @EnableGlobalMethodSecurity(prePostEnabled = true)
@@ -41,11 +44,13 @@ public class SecurityConfig {
         this.userAccountMapper = userAccountMapper;
     }
 
+    /** 注册 JWT 认证过滤器 Bean */
     @Bean
     public JwtAuthFilter jwtAuthFilter() {
         return new JwtAuthFilter(jwtUtil, authSessionService, userAccountMapper);
     }
 
+    /** 配置跨域：开发期允许任意 Origin，带 Cookie */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -59,6 +64,9 @@ public class SecurityConfig {
         return source;
     }
 
+    /**
+     * 配置过滤器链：公开路径、后台路径角色门槛、401/403 JSON 响应、挂载 JWT Filter。
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -102,6 +110,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .antMatchers(HttpMethod.GET, "/api/v1/orders/*/pay-session").permitAll()
                         .antMatchers(HttpMethod.GET, "/api/v1/orders/*/pay-qrcode").permitAll()
+                        // 后台接口：至少 staff；更细粒度由 @Admin / @Staff 控制
                         .antMatchers("/api/v1/admin/**").hasAnyRole(Roles.STAFF, Roles.ADMIN)
                         .antMatchers("/api/v1/seat-maps", "/api/v1/seat-maps/**")
                         .hasAnyRole(Roles.STAFF, Roles.ADMIN)
@@ -113,6 +122,7 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /** 密码编码器（BCrypt，强度 10） */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(10);
