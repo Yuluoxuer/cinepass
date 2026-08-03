@@ -10,6 +10,7 @@
     "start": "npm run dev"
   },
   "dependencies": {
+    "@amap/amap-jsapi-loader": "^1.0.1",
     "@ant-design/icons": "6.3.2",
     "@antv/g2plot": "2.4.35",
     "@umijs/plugins": "4.6.74",
