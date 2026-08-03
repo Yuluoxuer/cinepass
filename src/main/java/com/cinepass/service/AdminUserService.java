@@ -6,6 +6,7 @@ import com.cinepass.dto.AdminUserCreateDTO;
 import com.cinepass.dto.AdminUserUpdateDTO;
 import com.cinepass.mapper.UserAccountMapper;
 import com.cinepass.mapper.UserProfileMapper;
+import com.cinepass.mapper.CinemaMapper;
 import com.cinepass.model.UserAccount;
 import com.cinepass.model.UserProfile;
 import com.cinepass.security.Roles;
@@ -31,13 +32,16 @@ public class AdminUserService {
 
     private final UserAccountMapper userAccountMapper;
     private final UserProfileMapper userProfileMapper;
+    private final CinemaMapper cinemaMapper;
     private final PasswordEncoder passwordEncoder;
 
     public AdminUserService(UserAccountMapper userAccountMapper,
                             UserProfileMapper userProfileMapper,
+                            CinemaMapper cinemaMapper,
                             PasswordEncoder passwordEncoder) {
         this.userAccountMapper = userAccountMapper;
         this.userProfileMapper = userProfileMapper;
+        this.cinemaMapper = cinemaMapper;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -72,6 +76,7 @@ public class AdminUserService {
         user.setPhone(phone);
         user.setPasswordHash(passwordEncoder.encode(dto.getPassword()));
         user.setRole(dto.getRole());
+        user.setCinemaId(resolveCinemaId(dto.getRole(), dto.getCinemaId(), null));
         user.setStatus(1);
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
@@ -93,6 +98,7 @@ public class AdminUserService {
         String currentUserId = SecurityContext.getCurrentUserId();
         String newRole = dto.getRole() != null ? dto.getRole() : user.getRole();
         Integer newStatus = dto.getStatus() != null ? dto.getStatus() : user.getStatus();
+        String cinemaId = resolveCinemaId(newRole, dto.getCinemaId(), user.getCinemaId());
 
         if (userId.equals(currentUserId)) {
             if (!Roles.ADMIN.equals(newRole) || (newStatus != null && newStatus == 0)) {
@@ -129,6 +135,7 @@ public class AdminUserService {
         if (dto.getRole() != null) {
             user.setRole(dto.getRole());
         }
+        user.setCinemaId(cinemaId);
         if (dto.getStatus() != null) {
             user.setStatus(dto.getStatus());
         }
@@ -146,8 +153,23 @@ public class AdminUserService {
                 .nickname(u.getNickname())
                 .phone(PhoneMask.mask(u.getPhone()))
                 .role(u.getRole())
+                .cinemaId(u.getCinemaId())
                 .status(u.getStatus() == null ? 0 : u.getStatus())
                 .createdAt(u.getCreatedAt() != null ? FMT.format(u.getCreatedAt()) : null)
                 .build();
+    }
+
+    private String resolveCinemaId(String role, String requestedCinemaId, String currentCinemaId) {
+        if (!Roles.STAFF.equals(role)) {
+            return null;
+        }
+        String cinemaId = StringUtils.hasText(requestedCinemaId) ? requestedCinemaId.trim() : currentCinemaId;
+        if (!StringUtils.hasText(cinemaId)) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "员工必须绑定影院");
+        }
+        if (!cinemaMapper.exists(cinemaId)) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
+        }
+        return cinemaId;
     }
 }

@@ -24,7 +24,7 @@ class JwtUtilTest {
     @Test
     void generateAndParse_shouldCarryRoleSidJti() {
         String userId = "u018f3c4e9a7b70c0a1b2c3d4e5f60718";
-        String token = jwtUtil.generateAccessToken(userId, "alice", Roles.STAFF, "sid-001");
+        String token = jwtUtil.generateAccessToken(userId, "alice", Roles.STAFF, "c018f3c4e9a7b70c0a1b2c3d4e5f60718", "sid-001");
         assertTrue(jwtUtil.validateToken(token));
 
         JwtUtil.JwtUserInfo info = jwtUtil.parseAccessToken(token);
@@ -32,6 +32,7 @@ class JwtUtilTest {
         assertEquals(userId, info.getUserId());
         assertEquals("alice", info.getUsername());
         assertEquals(Roles.STAFF, info.getRole());
+        assertEquals("c018f3c4e9a7b70c0a1b2c3d4e5f60718", info.getCinemaId());
         assertEquals("sid-001", info.getSid());
         assertNotNull(info.getJti());
         assertEquals(1, info.getRoles().size());

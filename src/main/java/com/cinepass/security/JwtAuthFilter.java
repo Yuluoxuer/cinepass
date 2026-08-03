@@ -83,7 +83,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 return;
             }
             String newToken = jwtUtil.generateAccessToken(
-                    account.getUserId(), account.getNickname(), account.getRole(), userInfo.getSid());
+                    account.getUserId(), account.getNickname(), account.getRole(), account.getCinemaId(), userInfo.getSid());
             request.setAttribute(AuthTokenAttributes.RENEWED_ACCESS_TOKEN, newToken);
             userInfo = jwtUtil.parseAccessToken(newToken);
             if (userInfo == null) {
@@ -95,7 +95,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         try {
             String role = userInfo.getRole();
             SecurityContext.set(userInfo.getUserId(), userInfo.getUsername(),
-                    null, null, userInfo.getRoles(), null);
+                    null, null, userInfo.getRoles(), null, userInfo.getCinemaId());
             SecurityContext.setSession(userInfo.getSid(), userInfo.getJti(), role);
 
             List<SimpleGrantedAuthority> authorities = Collections.singletonList(

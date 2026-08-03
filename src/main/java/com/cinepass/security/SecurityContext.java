@@ -19,23 +19,28 @@ public final class SecurityContext {
 
     public static void set(String userId, String username, Long employeeId,
                            Long departmentId, List<String> roles, List<String> permissions) {
+        set(userId, username, employeeId, departmentId, roles, permissions, null);
+    }
+
+    public static void set(String userId, String username, Long employeeId,
+                           Long departmentId, List<String> roles, List<String> permissions, String cinemaId) {
         Context existing = CONTEXT.get();
         String sid = existing != null ? existing.sid : null;
         String jti = existing != null ? existing.jti : null;
         String role = resolvePrimaryRole(roles);
-        CONTEXT.set(new Context(userId, username, employeeId, departmentId, role, roles, permissions, sid, jti));
+        CONTEXT.set(new Context(userId, username, employeeId, departmentId, role, roles, permissions, cinemaId, sid, jti));
     }
 
     public static void setSession(String sid, String jti, String role) {
         Context existing = CONTEXT.get();
         if (existing == null) {
-            CONTEXT.set(new Context(null, null, null, null, role, singletonRoleList(role), null, sid, jti));
+            CONTEXT.set(new Context(null, null, null, null, role, singletonRoleList(role), null, null, sid, jti));
             return;
         }
         CONTEXT.set(new Context(
                 existing.userId, existing.username, existing.employeeId, existing.departmentId,
                 role != null ? role : existing.role,
-                existing.roles, existing.permissions, sid, jti));
+                existing.roles, existing.permissions, existing.cinemaId, sid, jti));
     }
 
     public static void clear() {
@@ -65,6 +70,11 @@ public final class SecurityContext {
     public static String getCurrentRole() {
         Context ctx = CONTEXT.get();
         return ctx != null ? ctx.role : null;
+    }
+
+    public static String getCurrentCinemaId() {
+        Context ctx = CONTEXT.get();
+        return ctx != null ? ctx.cinemaId : null;
     }
 
     public static String getCurrentSid() {
@@ -124,12 +134,13 @@ public final class SecurityContext {
         final String role;
         final List<String> roles;
         final List<String> permissions;
+        final String cinemaId;
         final String sid;
         final String jti;
 
         Context(String userId, String username, Long employeeId,
                 Long departmentId, String role, List<String> roles, List<String> permissions,
-                String sid, String jti) {
+                String cinemaId, String sid, String jti) {
             this.userId = userId;
             this.username = username;
             this.employeeId = employeeId;
@@ -137,6 +148,7 @@ public final class SecurityContext {
             this.role = role != null ? role : Roles.USER;
             this.roles = roles != null ? roles : singletonRoleList(this.role);
             this.permissions = permissions != null ? permissions : new ArrayList<String>();
+            this.cinemaId = cinemaId;
             this.sid = sid;
             this.jti = jti;
         }

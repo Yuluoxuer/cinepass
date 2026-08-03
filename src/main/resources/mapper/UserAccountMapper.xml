@@ -9,6 +9,7 @@
         <result property="phone" column="phone"/>
         <result property="passwordHash" column="password_hash"/>
         <result property="role" column="role"/>
+        <result property="cinemaId" column="cinema_id"/>
         <result property="avatarUrl" column="avatar_url"/>
         <result property="status" column="status"/>
         <result property="createdAt" column="created_at"/>
@@ -16,7 +17,7 @@
     </resultMap>
 
     <sql id="cols">
-        user_id, nickname, phone, password_hash, role, avatar_url, status, created_at, updated_at
+        user_id, nickname, phone, password_hash, role, cinema_id, avatar_url, status, created_at, updated_at
     </sql>
 
     <select id="findById" resultMap="UserAccountMap">
@@ -30,8 +31,8 @@
     </select>
 
     <insert id="insert">
-        INSERT INTO user_account(user_id, nickname, phone, password_hash, role, avatar_url, status, created_at, updated_at)
-        VALUES (#{userId}, #{nickname}, #{phone}, #{passwordHash}, #{role}, #{avatarUrl}, #{status}, #{createdAt}, #{updatedAt})
+        INSERT INTO user_account(user_id, nickname, phone, password_hash, role, cinema_id, avatar_url, status, created_at, updated_at)
+        VALUES (#{userId}, #{nickname}, #{phone}, #{passwordHash}, #{role}, #{cinemaId}, #{avatarUrl}, #{status}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="update">
@@ -41,6 +42,7 @@
             <if test="phone != null">phone = #{phone},</if>
             <if test="passwordHash != null">password_hash = #{passwordHash},</if>
             <if test="role != null">role = #{role},</if>
+            cinema_id = #{cinemaId},
             <if test="avatarUrl != null">avatar_url = #{avatarUrl},</if>
             <if test="status != null">status = #{status},</if>
             updated_at = #{updatedAt}

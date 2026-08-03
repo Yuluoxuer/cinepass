@@ -10,6 +10,7 @@ public class AdminUserVO {
     private String nickname;
     private String phone;
     private String role;
+    private String cinemaId;
     private int status;
     private String createdAt;
 }

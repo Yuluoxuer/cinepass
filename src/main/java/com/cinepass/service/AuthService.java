@@ -136,7 +136,7 @@ public class AuthService {
 
     private LoginVO issueLogin(UserAccount user) {
         String sid = UUID.randomUUID().toString().replace("-", "");
-        String token = jwtUtil.generateAccessToken(user.getUserId(), user.getNickname(), user.getRole(), sid);
+        String token = jwtUtil.generateAccessToken(user.getUserId(), user.getNickname(), user.getRole(), user.getCinemaId(), sid);
         authSessionService.saveRefresh(sid, user.getUserId(), user.getRole());
         return LoginVO.builder()
                 .accessToken(token)

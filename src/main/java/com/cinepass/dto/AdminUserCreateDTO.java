@@ -19,4 +19,6 @@ public class AdminUserCreateDTO {
     @NotBlank
     @Pattern(regexp = "user|staff|admin")
     private String role;
+    @Size(max = 32)
+    private String cinemaId;
 }

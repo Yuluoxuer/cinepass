@@ -13,6 +13,8 @@ public class AdminUserUpdateDTO {
     private String phone;
     @Pattern(regexp = "user|staff|admin")
     private String role;
+    @Size(max = 32)
+    private String cinemaId;
     private Integer status;
     @Size(min = 8, max = 64)
     private String password;

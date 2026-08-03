@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.CinemaMapper">
+    <sql id="cinemaColumns">
+        c.cinema_id AS cinemaId, c.city_id AS cityId, c.name, c.address,
+        c.lat, c.lng, c.traffic_note AS trafficNote, c.tags_json AS tagsJson,
+        c.created_at AS createdAt, c.updated_at AS updatedAt
+    </sql>
+
+    <sql id="distanceExpression">
+        6371000 * ACOS(COS(RADIANS(#{lat})) * COS(RADIANS(c.lat))
+        * COS(RADIANS(c.lng) - RADIANS(#{lng})) + SIN(RADIANS(#{lat})) * SIN(RADIANS(c.lat)))
+    </sql>
+
+    <select id="selectById" resultType="com.cinepass.model.Cinema">
+        SELECT <include refid="cinemaColumns" />,
+               (SELECT MIN(s.price) FROM show_schedule s
+                WHERE s.cinema_id = c.cinema_id
+                  AND s.status = 'on_sale'
+                  AND s.start_time &gt;= CURRENT_TIMESTAMP) AS minPrice
+        FROM cinema c
+        WHERE c.cinema_id = #{cinemaId}
+    </select>
+
+    <select id="exists" resultType="boolean">
+        SELECT COUNT(1) &gt; 0 FROM cinema WHERE cinema_id = #{cinemaId}
+    </select>
+
+    <select id="selectNearby" resultType="com.cinepass.model.Cinema">
+        SELECT <include refid="cinemaColumns" />,
+               <include refid="distanceExpression" /> AS distanceMeters,
+               (SELECT MIN(s.price) FROM show_schedule s
+                WHERE s.cinema_id = c.cinema_id
+                  AND s.status = 'on_sale'
+                  AND s.start_time &gt;= CURRENT_TIMESTAMP
+                  <if test="movieId != null and movieId != ''">AND s.movie_id = #{movieId}</if>) AS minPrice
+        FROM cinema c
+        WHERE <include refid="distanceExpression" /> &lt;= #{radiusMeters}
+        <if test="movieId != null and movieId != ''">
+            AND EXISTS (SELECT 1 FROM show_schedule s
+                        WHERE s.cinema_id = c.cinema_id
+                          AND s.movie_id = #{movieId}
+                          AND s.status = 'on_sale'
+                          AND s.start_time &gt;= CURRENT_TIMESTAMP)
+        </if>
+        ORDER BY
+        <choose>
+            <when test="sort == 'price'">minPrice ASC, distanceMeters ASC</when>
+            <otherwise>distanceMeters ASC, minPrice ASC</otherwise>
+        </choose>
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countNearby" resultType="long">
+        SELECT COUNT(1)
+        FROM cinema c
+        WHERE <include refid="distanceExpression" /> &lt;= #{radiusMeters}
+        <if test="movieId != null and movieId != ''">
+            AND EXISTS (SELECT 1 FROM show_schedule s
+                        WHERE s.cinema_id = c.cinema_id
+                          AND s.movie_id = #{movieId}
+                          AND s.status = 'on_sale'
+                          AND s.start_time &gt;= CURRENT_TIMESTAMP)
+        </if>
+    </select>
+
+    <insert id="insert" parameterType="com.cinepass.model.Cinema">
+        INSERT INTO cinema (cinema_id, city_id, name, address, lat, lng, traffic_note, tags_json,
+                            created_at, updated_at)
+        VALUES (#{cinemaId}, #{cityId}, #{name}, #{address}, #{lat}, #{lng}, #{trafficNote}, #{tagsJson},
+                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    </insert>
+
+    <update id="update" parameterType="com.cinepass.model.Cinema">
+        UPDATE cinema
+        <set>
+            <if test="cityId != null">city_id = #{cityId},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="lat != null">lat = #{lat},</if>
+            <if test="lng != null">lng = #{lng},</if>
+            <if test="trafficNote != null">traffic_note = #{trafficNote},</if>
+            <if test="tagsJson != null">tags_json = #{tagsJson},</if>
+            updated_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE cinema_id = #{cinemaId}
+    </update>
+</mapper>

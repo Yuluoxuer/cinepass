@@ -40,6 +40,10 @@ public class JwtUtil {
     }
 
     public String generateAccessToken(String userId, String username, String role, String sid) {
+        return generateAccessToken(userId, username, role, null, sid);
+    }
+
+    public String generateAccessToken(String userId, String username, String role, String cinemaId, String sid) {
         Date now = new Date();
         String jti = UUID.randomUUID().toString().replace("-", "");
         String normalizedRole = role != null ? role : Roles.USER;
@@ -49,6 +53,7 @@ public class JwtUtil {
                 .claim("username", username)
                 .claim("role", normalizedRole)
                 .claim("roles", Collections.singletonList(normalizedRole))
+                .claim("cinemaId", cinemaId)
                 .claim("sid", sid)
                 .setIssuedAt(now)
                 .setExpiration(new Date(now.getTime() + accessTokenExpireSeconds * 1000L))
@@ -58,7 +63,7 @@ public class JwtUtil {
 
     public String generateAccessToken(String userId, String username, List<String> roles) {
         String role = (roles != null && !roles.isEmpty()) ? roles.get(0) : Roles.USER;
-        return generateAccessToken(userId, username, role, UUID.randomUUID().toString().replace("-", ""));
+        return generateAccessToken(userId, username, role, null, UUID.randomUUID().toString().replace("-", ""));
     }
 
     public String parseUserId(String token) {
@@ -169,6 +174,7 @@ public class JwtUtil {
                 claims.getSubject(),
                 claims.get("username", String.class),
                 resolveRole(claims),
+                claims.get("cinemaId", String.class),
                 claims.get("sid", String.class),
                 claims.getId());
     }
@@ -177,13 +183,15 @@ public class JwtUtil {
         private final String userId;
         private final String username;
         private final String role;
+        private final String cinemaId;
         private final String sid;
         private final String jti;
 
-        public JwtUserInfo(String userId, String username, String role, String sid, String jti) {
+        public JwtUserInfo(String userId, String username, String role, String cinemaId, String sid, String jti) {
             this.userId = userId;
             this.username = username;
             this.role = role != null ? role : Roles.USER;
+            this.cinemaId = cinemaId;
             this.sid = sid;
             this.jti = jti;
         }
@@ -198,6 +206,10 @@ public class JwtUtil {
 
         public String getRole() {
             return role;
+        }
+
+        public String getCinemaId() {
+            return cinemaId;
         }
 
         public List<String> getRoles() {

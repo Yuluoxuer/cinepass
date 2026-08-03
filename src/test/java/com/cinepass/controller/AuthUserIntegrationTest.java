@@ -56,6 +56,16 @@ class AuthUserIntegrationTest {
                     "m_test_001", "测试影片", "http://example.com/p.jpg", "[\"剧情\"]", 8.5,
                     120, LocalDate.of(2026, 1, 1), "showing", "desc", "cast", 0, now, now);
         }
+        Integer cinemaCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM cinema WHERE cinema_id = ?", Integer.class, "c_staff_test");
+        if (cinemaCount != null && cinemaCount == 0) {
+            OffsetDateTime now = OffsetDateTime.now();
+            jdbcTemplate.update(
+                    "INSERT INTO cinema(cinema_id, city_id, name, address, lat, lng, traffic_note, tags_json, created_at, updated_at) "
+                            + "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    "c_staff_test", "city_test", "员工测试影院", "测试地址", 31.230400, 121.473700,
+                    null, "[]", now, now);
+        }
     }
 
     @Test
@@ -166,9 +176,10 @@ class AuthUserIntegrationTest {
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"" + nick + "\",\"phone\":\"" + staffPhone + "\","
-                                + "\"password\":\"StaffPass1\",\"role\":\"staff\"}"))
+                                + "\"password\":\"StaffPass1\",\"role\":\"staff\",\"cinemaId\":\"c_staff_test\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.role").value("staff"))
+                .andExpect(jsonPath("$.data.cinemaId").value("c_staff_test"))
                 .andReturn();
         String userId = readData(created).path("userId").asText();
         assertThat(userId).startsWith("u");
