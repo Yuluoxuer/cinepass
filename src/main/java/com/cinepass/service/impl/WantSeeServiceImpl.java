@@ -21,6 +21,7 @@ import java.util.Map;
 
 /**
  * {@link WantSeeService} 实现。
+ * <p>加入/取消幂等维护 movie.want_see_count；列表按想看时间顺序回填影片。
  */
 @Service
 public class WantSeeServiceImpl implements WantSeeService {
@@ -33,6 +34,7 @@ public class WantSeeServiceImpl implements WantSeeService {
         this.movieMapper = movieMapper;
     }
 
+    /** 加入想看；影片须存在；首次加入时 want_see_count +1（幂等） */
     @Override
     @Transactional
     public WantSeeVO add(String userId, String movieId) {
@@ -41,24 +43,29 @@ public class WantSeeServiceImpl implements WantSeeService {
         }
         boolean before = wantSeeMapper.exists(userId, movieId);
         int n = wantSeeMapper.insertIgnore(userId, movieId);
+        // 仅首次写入才 +1，重复点想看不重复计数
         if (!before && n > 0) {
             movieMapper.incrWantSeeCount(movieId, 1);
         }
         return WantSeeVO.builder().movieId(movieId).wanted(true).build();
     }
 
+    /** 取消想看；实际删除成功时 want_see_count -1 */
     @Override
     @Transactional
     public WantSeeVO remove(String userId, String movieId) {
         int n = wantSeeMapper.delete(userId, movieId);
+        // 实际删到行才 -1，避免重复取消把计数打穿
         if (n > 0) {
             movieMapper.incrWantSeeCount(movieId, -1);
         }
         return WantSeeVO.builder().movieId(movieId).wanted(false).build();
     }
 
+    /** 分页查询用户想看电影列表，保持想看时间顺序 */
     @Override
     public PageResult<MovieVO> list(String userId, int page, int size) {
+        // size 上限 50，与其它分页接口一致
         if (page < 1) page = 1;
         if (size < 1) size = 20;
         if (size > 50) size = 50;
@@ -85,6 +92,7 @@ public class WantSeeServiceImpl implements WantSeeService {
         return new PageResult<MovieVO>(items, page, size, total);
     }
 
+    /** Movie → MovieVO；genres_json 解析为列表 */
     private MovieVO toVo(Movie m) {
         List<String> genres = m.getGenresJson() == null
                 ? Collections.<String>emptyList()

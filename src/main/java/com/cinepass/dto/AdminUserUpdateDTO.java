@@ -23,7 +23,7 @@ public class AdminUserUpdateDTO {
     @Pattern(regexp = "user|staff|admin")
     private String role;
 
-    /** staff 所属影院；改为 user/admin 时传空串清空 */
+    /** staff 所属影院；改为 user/admin 时可不传（服务端自动清空），也可传空串 */
     @Size(max = 32)
     private String cinemaId;
 

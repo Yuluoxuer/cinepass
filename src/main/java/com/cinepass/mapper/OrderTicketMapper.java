@@ -8,7 +8,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 订单表 Mapper。
+ * 订单表 {@code order_ticket} Mapper。
  */
 @Mapper
 public interface OrderTicketMapper {

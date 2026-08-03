@@ -44,6 +44,7 @@ import java.util.Set;
 
 /**
  * {@link OrderService} 实现。
+ * <p>下单依赖有效锁座并幂等；取消仅 pending_pay；运营列表 admin 全量、staff 按 cinemaId 收窄。
  */
 @Service
 public class OrderServiceImpl implements OrderService {
@@ -65,6 +66,7 @@ public class OrderServiceImpl implements OrderService {
         this.showScheduleMapper = showScheduleMapper;
     }
 
+    /** 由有效锁座创建订单；同 lockId 幂等返回已有单 */
     @Override
     @Transactional
     public OrderVO create(String userId, CreateOrderDTO dto) {
@@ -165,6 +167,7 @@ public class OrderServiceImpl implements OrderService {
         return toVo(order);
     }
 
+    /** 本人订单详情；非本人拒绝 */
     @Override
     public OrderVO getMine(String userId, String orderId) {
         OrderTicket order = requireOrder(orderId);
@@ -172,6 +175,7 @@ public class OrderServiceImpl implements OrderService {
         return toVo(order);
     }
 
+    /** 本人订单分页；可选 status 过滤 */
     @Override
     public PageResult<OrderVO> listMine(String userId, String status, int page, int size) {
         page = normalizePage(page);
@@ -185,6 +189,7 @@ public class OrderServiceImpl implements OrderService {
         return new PageResult<OrderVO>(toVoList(rows), page, size, total);
     }
 
+    /** 取消待支付订单并释放锁座；已取消幂等返回 */
     @Override
     @Transactional
     public OrderVO cancel(String userId, String orderId, CancelOrderDTO dto) {
@@ -215,6 +220,7 @@ public class OrderServiceImpl implements OrderService {
         return toVo(refreshed);
     }
 
+    /** 运营协助查单：admin 全量；staff 仅本影院场次订单 */
     @Override
     public PageResult<OrderVO> listAdmin(String filterUserId, String status,
                                          LocalDate dateFrom, LocalDate dateTo,
@@ -244,6 +250,7 @@ public class OrderServiceImpl implements OrderService {
         return new PageResult<OrderVO>(toVoList(rows), page, size, total);
     }
 
+    /** 按 ID 取订单，不存在则 404 */
     private OrderTicket requireOrder(String orderId) {
         OrderTicket order = orderTicketMapper.findById(orderId);
         if (order == null) {
@@ -252,12 +259,14 @@ public class OrderServiceImpl implements OrderService {
         return order;
     }
 
+    /** 校验订单归属当前用户 */
     private void assertOwner(String userId, OrderTicket order) {
         if (userId == null || !userId.equals(order.getUserId())) {
             throw new BusinessException(ResultCode.FORBIDDEN_PERMISSION, "无权查看该订单");
         }
     }
 
+    /** 解析座位 ID JSON；去空白、去重并保序 */
     private List<String> parseSeatIds(String json) {
         if (!StringUtils.hasText(json)) {
             return Collections.emptyList();
@@ -275,6 +284,7 @@ public class OrderServiceImpl implements OrderService {
         return new ArrayList<String>(ordered);
     }
 
+    /** 批量转为 OrderVO */
     private List<OrderVO> toVoList(List<OrderTicket> rows) {
         List<OrderVO> items = new ArrayList<OrderVO>();
         if (rows == null) {
@@ -286,6 +296,7 @@ public class OrderServiceImpl implements OrderService {
         return items;
     }
 
+    /** OrderTicket → OrderVO；时间格式化为 ISO-8601 */
     private OrderVO toVo(OrderTicket o) {
         return OrderVO.builder()
                 .orderId(o.getOrderId())
@@ -309,14 +320,17 @@ public class OrderServiceImpl implements OrderService {
                 .build();
     }
 
+    /** OffsetDateTime → ISO-8601 字符串；null 保持 null */
     private String format(OffsetDateTime t) {
         return t == null ? null : ISO.format(t);
     }
 
+    /** page&lt;1 时回落为 1 */
     private int normalizePage(int page) {
         return page < 1 ? 1 : page;
     }
 
+    /** size&lt;1 默认 20；上限 50 */
     private int normalizeSize(int size) {
         // 列表接口硬上限 50，防止一次拉过大页
         if (size < 1) {
@@ -325,6 +339,7 @@ public class OrderServiceImpl implements OrderService {
         return size > 50 ? 50 : size;
     }
 
+    /** 校验并规范化订单状态；空串视为不筛选，非法值抛 PARAM_ERROR */
     private String normalizeStatus(String status) {
         if (!StringUtils.hasText(status)) {
             return null;

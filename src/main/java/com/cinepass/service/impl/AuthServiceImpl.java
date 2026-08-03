@@ -27,6 +27,7 @@ import java.util.UUID;
 
 /**
  * {@link AuthService} 实现。
+ * <p>登录签发 Access + Refresh；注册固定 role=user；改密支持已登录或匿名带 account；登出拉黑 jti。
  */
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -49,6 +50,7 @@ public class AuthServiceImpl implements AuthService {
         this.authSessionService = authSessionService;
     }
 
+    /** 账号（昵称或手机号）+ 密码登录，校验启用状态后签发 Token */
     @Override
     public LoginVO login(LoginDTO dto) {
         String account = dto.getAccount().trim();
@@ -65,6 +67,7 @@ public class AuthServiceImpl implements AuthService {
         return issueLogin(user);
     }
 
+    /** 注册普通用户（角色固定 user），写空偏好档案后直接登录 */
     @Override
     @Transactional
     public LoginVO register(RegisterDTO dto) {
@@ -90,10 +93,12 @@ public class AuthServiceImpl implements AuthService {
         return issueLogin(user);
     }
 
+    /** 旧密码校验后改密；已登录用 userId，未登录须传 account */
     @Override
     @Transactional
     public void changePassword(String currentUserId, PasswordChangeDTO dto) {
         UserAccount user;
+        // 已登录优先用 SecurityContext；未登录须传 account（公开改密入口）
         if (StringUtils.hasText(currentUserId)) {
             user = userAccountMapper.findById(currentUserId);
         } else if (StringUtils.hasText(dto.getAccount())) {
@@ -115,6 +120,7 @@ public class AuthServiceImpl implements AuthService {
         userAccountMapper.update(user);
     }
 
+    /** 登出：删除 Refresh 会话，并将当前 Access jti 拉黑至过期 */
     @Override
     public void logout(String sid, String jti) {
         authSessionService.deleteRefresh(sid);
@@ -122,6 +128,7 @@ public class AuthServiceImpl implements AuthService {
         authSessionService.denyJti(jti, jwtUtil.getExpiresInSeconds());
     }
 
+    /** 查询当前用户资料（手机号脱敏，含角色与 cinemaId） */
     @Override
     public AuthMeVO me(String userId) {
         UserAccount user = userAccountMapper.findById(userId);
@@ -138,13 +145,14 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    /** 按账号形态路由：11 位手机号查 phone，否则查昵称 */
     private UserAccount findByAccount(String account) {
-        // 11 位手机号走 phone，其余按昵称查
         return PhoneMask.isMobile(account)
                 ? userAccountMapper.findByPhone(account)
                 : userAccountMapper.findByNickname(account);
     }
 
+    /** 签发 Access Token + 持久化 Refresh 会话，组装 LoginVO */
     private LoginVO issueLogin(UserAccount user) {
         String sid = UUID.randomUUID().toString().replace("-", "");
         String token = jwtUtil.generateAccessToken(
@@ -162,6 +170,7 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    /** 注册时写入空偏好档案（prefer_genres=[]） */
     private void insertEmptyProfile(String userId, OffsetDateTime now) {
         UserProfile profile = new UserProfile();
         profile.setUserId(userId);

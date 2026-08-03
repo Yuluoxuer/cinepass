@@ -241,6 +241,27 @@ class AdminUserServiceTest {
     }
 
     @Test
+    void update_demoteStaffToUser_withoutCinemaId_shouldClearCinema() {
+        when(userAccountMapper.findById(TARGET_ID))
+                .thenReturn(account(TARGET_ID, "st1", null, Roles.STAFF, "c12", 1))
+                .thenReturn(account(TARGET_ID, "st1", null, Roles.USER, null, 1));
+        when(userAccountMapper.update(any(UserAccount.class))).thenReturn(1);
+
+        AdminUserUpdateDTO dto = new AdminUserUpdateDTO();
+        dto.setRole(Roles.USER);
+        // 不传 cinemaId：应自动清空，而非 400
+        AdminUserVO vo = adminUserService.update(TARGET_ID, dto);
+
+        ArgumentCaptor<UserAccount> cap = ArgumentCaptor.forClass(UserAccount.class);
+        verify(userAccountMapper).update(cap.capture());
+        assertThat(cap.getValue().getRole()).isEqualTo(Roles.USER);
+        assertThat(cap.getValue().getCinemaId()).isNull();
+        assertThat(cap.getValue().getUpdateCinemaId()).isTrue();
+        assertThat(vo.getRole()).isEqualTo(Roles.USER);
+        assertThat(vo.getCinemaId()).isNull();
+    }
+
+    @Test
     void update_duplicateNickname_shouldConflict() {
         when(userAccountMapper.findById(TARGET_ID))
                 .thenReturn(account(TARGET_ID, "old", null, Roles.USER, null, 1));
