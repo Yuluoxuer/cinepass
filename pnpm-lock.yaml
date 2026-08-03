@@ -11,6 +11,9 @@ importers:
 
   .:
     dependencies:
+      '@amap/amap-jsapi-loader':
+        specifier: ^1.0.1
+        version: 1.0.1
       '@ant-design/icons':
         specifier: 6.3.2
         version: 6.3.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -83,6 +86,9 @@ packages:
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
+
+  '@amap/amap-jsapi-loader@1.0.1':
+    resolution: {integrity: sha512-nPyLKt7Ow/ThHLkSvn2etQlUzqxmTVgK7bIgwdBRTg2HK5668oN7xVxkaiRe3YZEzGzfV2XgH5Jmu2T73ljejw==}
 
   '@ant-design/antd-theme-variable@1.0.0':
     resolution: {integrity: sha512-0vr5GCwM7xlAl6NxG1lPbABO+SYioNJL3HVy2FA8wTlsIMoZvQwcwsxTw6eLQCiN9V2UQ8kBtfz8DW8utVVE5w==}
@@ -6478,6 +6484,8 @@ snapshots:
       react: 18.3.1
 
   '@alloc/quick-lru@5.2.0': {}
+
+  '@amap/amap-jsapi-loader@1.0.1': {}
 
   '@ant-design/antd-theme-variable@1.0.0': {}
 
