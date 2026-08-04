@@ -3,6 +3,7 @@
  * C 端公开浏览；管理端单独守卫；401 弹 LoginModal
  */
 import { message } from 'antd';
+import { isApiError, presentApiError, redirectToRequestError } from '@/api/error';
 import { restoreLoginState, useAuthStore, isStaffOrAdmin } from '@/stores/auth';
 import '@/styles/tokens.css';
 
@@ -13,6 +14,17 @@ import '@/styles/tokens.css';
     useAuthStore.setState({ accessToken, tokenExpireAt, user });
   }
 })();
+
+// 页面遗漏 catch 时，仅兜底接口错误：提示原因并转到可恢复错误页，不影响普通运行时错误排查。
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
+    if (!isApiError(event.reason)) return;
+    event.preventDefault();
+    if (event.reason.silent) return;
+    presentApiError(event.reason);
+    redirectToRequestError(event.reason);
+  }, true);
+}
 
 export const request = {
   timeout: 15000,

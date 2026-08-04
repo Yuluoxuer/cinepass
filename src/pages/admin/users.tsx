@@ -12,7 +12,7 @@ const AdminUsersPage: React.FC = () => {
   const [roleForm] = Form.useForm<{ role: AdminUserVO['role'] }>();
   const currentUserId = useAuthStore((s) => s.user?.userId);
 
-  const load = () => void adminApi.listUsers().then((r) => setData(r.items));
+  const load = () => void adminApi.listUsers().then((r) => setData(r.items)).catch(() => setData([]));
 
   useEffect(() => {
     load();
@@ -59,11 +59,15 @@ const AdminUsersPage: React.FC = () => {
                     title={r.status === 'active' ? '确认停用该用户？' : '确认启用该用户？'}
                     description={r.status === 'active' ? '停用后该用户的现有会话会立即失效。' : undefined}
                     onConfirm={async () => {
-                      await adminApi.updateUser(r.userId, {
-                        status: r.status === 'active' ? 'disabled' : 'active',
-                      });
-                      message.success(r.status === 'active' ? '用户已停用' : '用户已启用');
-                      load();
+                      try {
+                        await adminApi.updateUser(r.userId, {
+                          status: r.status === 'active' ? 'disabled' : 'active',
+                        });
+                        message.success(r.status === 'active' ? '用户已停用' : '用户已启用');
+                        load();
+                      } catch {
+                        // 请求层已处理。
+                      }
                     }}
                     disabled={isSelf}
                   >
@@ -83,11 +87,15 @@ const AdminUsersPage: React.FC = () => {
           form={form}
           layout="vertical"
           onFinish={async (v) => {
-            await adminApi.createUser(v);
-            message.success('已创建');
-            setOpen(false);
-            form.resetFields();
-            load();
+            try {
+              await adminApi.createUser(v);
+              message.success('已创建');
+              setOpen(false);
+              form.resetFields();
+              load();
+            } catch {
+              // 请求层已处理。
+            }
           }}
         >
           <Form.Item name="nickname" label="昵称" rules={[{ required: true }]}>
@@ -122,11 +130,15 @@ const AdminUsersPage: React.FC = () => {
           layout="vertical"
           onFinish={async ({ role }) => {
             if (!editingUser) return;
-            await adminApi.updateUser(editingUser.userId, { role });
-            message.success('角色已更新');
-            setEditingUser(null);
-            roleForm.resetFields();
-            load();
+            try {
+              await adminApi.updateUser(editingUser.userId, { role });
+              message.success('角色已更新');
+              setEditingUser(null);
+              roleForm.resetFields();
+              load();
+            } catch {
+              // 请求层已处理。
+            }
           }}
         >
           <Form.Item name="role" label="角色" rules={[{ required: true }]}>

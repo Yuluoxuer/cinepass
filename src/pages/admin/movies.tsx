@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Input, Space, Table, Tag } from 'antd';
+import { Alert, Button, Input, Space, Table, Tag } from 'antd';
 import { history } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { MovieVO } from '@/types';
@@ -14,12 +14,16 @@ const AdminMoviesPage: React.FC = () => {
   const [data, setData] = useState<MovieVO[]>([]);
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await catalogApi.listMovies({ q: q || undefined, page: 1, size: 50 });
       setData(res.items);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : '影片列表加载失败，请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -37,6 +41,16 @@ const AdminMoviesPage: React.FC = () => {
         </Button>
         <Input.Search placeholder="搜索片名" value={q} onChange={(e) => setQ(e.target.value)} onSearch={() => load()} />
       </Space>
+      {loadError && (
+        <Alert
+          type="error"
+          showIcon
+          message="影片列表加载失败"
+          description={loadError}
+          action={<Button size="small" onClick={() => void load()}>重试</Button>}
+          style={{ marginBottom: 16 }}
+        />
+      )}
       <Table
         rowKey="movieId"
         loading={loading}

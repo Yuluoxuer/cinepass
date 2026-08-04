@@ -33,9 +33,11 @@ const MovieFormPage: React.FC = () => {
 
   useEffect(() => {
     if (!isNew && movieId) {
-      void catalogApi.getMovie(movieId).then((m) => {
-        form.setFieldsValue({ ...m, genres: m.genres.join(','), releaseDate: dayjs(m.releaseDate) });
-      });
+      void catalogApi.getMovie(movieId)
+        .then((m) => {
+          form.setFieldsValue({ ...m, genres: m.genres.join(','), releaseDate: dayjs(m.releaseDate) });
+        })
+        .catch(() => {});
     }
   }, [movieId, isNew]);
 
@@ -51,10 +53,14 @@ const MovieFormPage: React.FC = () => {
         cast: String(v.cast || '').trim(),
         description: String(v.description || '').trim(),
       };
-      if (isNew) await adminApi.createMovie(body);
-      else await adminApi.updateMovie(movieId!, body);
-      message.success('已保存');
-      history.push('/admin/movies');
+      try {
+        if (isNew) await adminApi.createMovie(body);
+        else await adminApi.updateMovie(movieId!, body);
+        message.success('已保存');
+        history.push('/admin/movies');
+      } catch {
+        // 请求层已处理。
+      }
     } finally {
       setLoading(false);
     }
