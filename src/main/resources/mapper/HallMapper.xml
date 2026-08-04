@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.HallMapper">
+
+    <select id="selectById" resultType="com.cinepass.model.Hall">
+        SELECT hall_id AS hallId, cinema_id AS cinemaId, name, seat_map_id AS seatMapId
+        FROM hall WHERE hall_id = #{hallId}
+    </select>
+
+    <select id="selectByCinemaId" resultType="com.cinepass.model.Hall">
+        SELECT hall_id AS hallId, cinema_id AS cinemaId, name, seat_map_id AS seatMapId
+        FROM hall WHERE cinema_id = #{cinemaId} ORDER BY name
+    </select>
+
+    <insert id="insert" parameterType="com.cinepass.model.Hall">
+        INSERT INTO hall (hall_id, cinema_id, name, seat_map_id)
+        VALUES (#{hall.hallId}, #{hall.cinemaId}, #{hall.name}, #{hall.seatMapId})
+    </insert>
+</mapper>

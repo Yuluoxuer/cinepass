@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.SeatStatusMapper">
+
+    <insert id="batchInsert" databaseId="postgresql">
+        INSERT INTO seat_status (show_id, seat_id, status, updated_at) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.showId}, #{item.seatId}, #{item.status}, NOW())
+        </foreach>
+    </insert>
+    <insert id="batchInsert">
+        INSERT INTO seat_status (show_id, seat_id, status, updated_at) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.showId}, #{item.seatId}, #{item.status}, CURRENT_TIMESTAMP)
+        </foreach>
+    </insert>
+
+    <select id="countAvailable" databaseId="postgresql" resultType="int">
+        SELECT COUNT(1) FROM seat_status
+        WHERE show_id = #{showId} AND status = 'available'
+    </select>
+    <select id="countAvailable" resultType="int">
+        SELECT COUNT(1) FROM seat_status
+        WHERE show_id = #{showId} AND status = 'available'
+    </select>
+
+    <select id="countTotal" resultType="int">
+        SELECT COUNT(1) FROM seat_status WHERE show_id = #{showId}
+    </select>
+</mapper>

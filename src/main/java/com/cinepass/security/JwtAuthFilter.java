@@ -58,6 +58,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         JwtUtil.JwtUserInfo userInfo = jwtUtil.parseAccessTokenAllowExpired(token);
         if (userInfo == null || !jwtUtil.isSignatureValid(token)) {
+            // 公开路径放行，避免无效 token 阻止公开接口访问
+            if (isPublicPath(request)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
             writeUnauthorized(response);
             return;
         }
@@ -124,6 +129,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return header.substring(BEARER_PREFIX.length());
         }
         return null;
+    }
+
+    private boolean isPublicPath(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        String method = request.getMethod();
+        if ("GET".equalsIgnoreCase(method)) {
+            return uri.startsWith("/api/v1/movies")
+                    || uri.startsWith("/api/v1/cinemas")
+                    || uri.startsWith("/api/v1/shows")
+                    || uri.startsWith("/api/v1/reco/")
+                    || uri.startsWith("/api/v1/tickets/verify")
+                    || uri.contains("/pay-session")
+                    || uri.contains("/pay-qrcode");
+        }
+        return uri.contains("/pay-session") || uri.contains("/pay-qrcode");
     }
 
     private void writeUnauthorized(HttpServletResponse response) throws IOException {

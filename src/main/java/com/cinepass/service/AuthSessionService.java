@@ -3,6 +3,7 @@ package com.cinepass.service;
 import com.alibaba.fastjson2.JSON;
 import com.cinepass.constant.CacheKeys;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 public class AuthSessionService {
 
@@ -24,44 +26,60 @@ public class AuthSessionService {
     }
 
     public void saveRefresh(String sid, String userId, String role) {
-        RefreshSession session = new RefreshSession();
-        session.setUserId(userId);
-        session.setRole(role);
-        session.setRefreshJti(UUID.randomUUID().toString().replace("-", ""));
-        redis.opsForValue().set(CacheKeys.refreshTokenKey(sid), JSON.toJSONString(session),
-                refreshExpireSeconds, TimeUnit.SECONDS);
+        try {
+            RefreshSession session = new RefreshSession();
+            session.setUserId(userId);
+            session.setRole(role);
+            session.setRefreshJti(UUID.randomUUID().toString().replace("-", ""));
+            redis.opsForValue().set(CacheKeys.refreshTokenKey(sid), JSON.toJSONString(session),
+                    refreshExpireSeconds, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("[AuthSession] Redis 不可用，跳过 refresh session 持久化: {}", e.getMessage());
+        }
     }
 
     public Optional<RefreshSession> getRefresh(String sid) {
         if (sid == null) {
             return Optional.empty();
         }
-        String json = redis.opsForValue().get(CacheKeys.refreshTokenKey(sid));
-        if (json == null || json.isEmpty()) {
+        try {
+            String json = redis.opsForValue().get(CacheKeys.refreshTokenKey(sid));
+            if (json == null || json.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.ofNullable(JSON.parseObject(json, RefreshSession.class));
+        } catch (Exception e) {
+            log.warn("[AuthSession] Redis 不可用，无法读取 refresh session: {}", e.getMessage());
             return Optional.empty();
         }
-        return Optional.ofNullable(JSON.parseObject(json, RefreshSession.class));
     }
 
     public void deleteRefresh(String sid) {
-        if (sid != null) {
+        if (sid == null) return;
+        try {
             redis.delete(CacheKeys.refreshTokenKey(sid));
+        } catch (Exception e) {
+            log.warn("[AuthSession] Redis 不可用，跳过删除 refresh session: {}", e.getMessage());
         }
     }
 
     public void denyJti(String jti, long ttlSeconds) {
-        if (jti == null || ttlSeconds <= 0) {
-            return;
+        if (jti == null || ttlSeconds <= 0) return;
+        try {
+            redis.opsForValue().set(CacheKeys.denyJtiKey(jti), "1", ttlSeconds, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("[AuthSession] Redis 不可用，跳过 JTI 黑名单: {}", e.getMessage());
         }
-        redis.opsForValue().set(CacheKeys.denyJtiKey(jti), "1", ttlSeconds, TimeUnit.SECONDS);
     }
 
     public boolean isDenied(String jti) {
-        if (jti == null) {
+        if (jti == null) return false;
+        try {
+            Boolean has = redis.hasKey(CacheKeys.denyJtiKey(jti));
+            return Boolean.TRUE.equals(has);
+        } catch (Exception e) {
             return false;
         }
-        Boolean has = redis.hasKey(CacheKeys.denyJtiKey(jti));
-        return Boolean.TRUE.equals(has);
     }
 
     public long getRefreshExpireSeconds() {

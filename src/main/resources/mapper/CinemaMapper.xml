@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.CinemaMapper">
+
+    <select id="selectById" resultType="com.cinepass.model.Cinema">
+        SELECT cinema_id AS cinemaId, city_id AS cityId, name, address,
+               lat, lng, created_at AS createdAt, updated_at AS updatedAt
+        FROM cinema WHERE cinema_id = #{cinemaId}
+    </select>
+
+    <select id="listAll" resultType="com.cinepass.model.Cinema">
+        SELECT cinema_id AS cinemaId, city_id AS cityId, name, address,
+               lat, lng, created_at AS createdAt, updated_at AS updatedAt
+        FROM cinema ORDER BY name
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <insert id="insert" parameterType="com.cinepass.model.Cinema">
+        INSERT INTO cinema (cinema_id, city_id, name, address, lat, lng, created_at, updated_at)
+        VALUES (#{cinema.cinemaId}, #{cinema.cityId}, #{cinema.name}, #{cinema.address},
+                #{cinema.lat}, #{cinema.lng}, #{cinema.createdAt}, #{cinema.updatedAt})
+    </insert>
+</mapper>

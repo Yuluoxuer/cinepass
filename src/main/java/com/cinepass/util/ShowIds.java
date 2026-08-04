@@ -3,15 +3,15 @@ package com.cinepass.util;
 import com.github.f4b6a3.uuid.UuidCreator;
 
 /**
- * userId = "u" + UUID7（无连字符）。
+ * showId = "s" + UUID7（无连字符）。
  */
-public final class UserIds {
+public final class ShowIds {
 
-    private UserIds() {
+    private ShowIds() {
     }
 
     public static String next() {
         String uuid = UuidCreator.getTimeOrderedEpoch().toString().replace("-", "");
-        return "u" + uuid.substring(0, 31);
+        return "s" + uuid.substring(0, 31);
     }
 }
