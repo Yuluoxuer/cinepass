@@ -81,7 +81,7 @@ export function createShow(body: {
   return post<ShowVO>('/admin/shows', body);
 }
 
-export function adminListShows(params: { cinemaId: string; movieId: string; date: string }) {
+export function adminListShows(params: { cinemaId: string; movieId: string; date?: string }) {
   return get<ShowListResult>('/admin/shows', params);
 }
 
@@ -96,6 +96,10 @@ export function updateShow(
 
 export function cancelShow(showId: string) {
   return post<ShowVO>(`/admin/shows/${showId}/cancel`);
+}
+
+export function resumeShowSale(showId: string) {
+  return post<ShowVO>(`/admin/shows/${showId}/resume-sale`);
 }
 
 export function closeShowSale(showId: string) {
