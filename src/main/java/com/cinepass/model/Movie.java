@@ -5,6 +5,7 @@ import lombok.Data;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 
 /**
  * 电影表 {@code movie} 映射。
@@ -45,4 +46,6 @@ public class Movie implements Serializable {
 
     /** 想看人数计数 */
     private Integer wantSeeCount;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
 }

@@ -15,9 +15,23 @@ public interface MovieMapper {
     /** 判断影片是否存在 */
     boolean exists(@Param("movieId") String movieId);
 
-    /** 按 ID 列表批量查询影片 */
+    Movie selectById(@Param("movieId") String movieId);
+
     List<Movie> selectByIds(@Param("ids") List<String> ids);
 
-    /** 增减想看计数（delta 可为负） */
+    List<Movie> listFiltered(@Param("status") String status,
+                             @Param("q") String q,
+                             @Param("genre") String genre,
+                             @Param("offset") int offset,
+                             @Param("limit") int limit);
+
+    long countFiltered(@Param("status") String status,
+                       @Param("q") String q,
+                       @Param("genre") String genre);
+
+    int insert(@Param("movie") Movie movie);
+
+    int update(@Param("movie") Movie movie);
+
     int incrWantSeeCount(@Param("movieId") String movieId, @Param("delta") int delta);
 }

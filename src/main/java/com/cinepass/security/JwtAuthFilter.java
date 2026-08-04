@@ -64,6 +64,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         JwtUtil.JwtUserInfo userInfo = jwtUtil.parseAccessTokenAllowExpired(token);
         if (userInfo == null || !jwtUtil.isSignatureValid(token)) {
+            // 公开路径放行，避免无效 token 阻止公开接口访问
+            if (isPublicPath(request)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
             writeUnauthorized(response);
             return;
         }

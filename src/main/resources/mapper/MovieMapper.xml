@@ -6,11 +6,54 @@
         SELECT COUNT(1) > 0 FROM movie WHERE movie_id = #{movieId}
     </select>
 
+    <select id="selectById" databaseId="postgresql" resultType="com.cinepass.model.Movie">
+        SELECT movie_id AS movieId, title, poster_url AS posterUrl,
+               genres_json::text AS genresJson, rating, duration_min AS durationMin,
+               release_date AS releaseDate, status, description,
+               cast_text AS castText, want_see_count AS wantSeeCount,
+               created_at AS createdAt, updated_at AS updatedAt
+        FROM movie WHERE movie_id = #{movieId}
+    </select>
+    <select id="selectById" resultType="com.cinepass.model.Movie">
+        SELECT movie_id AS movieId, title, poster_url AS posterUrl,
+               genres_json AS genresJson, rating, duration_min AS durationMin,
+               release_date AS releaseDate, status, description,
+               cast_text AS castText, want_see_count AS wantSeeCount,
+               created_at AS createdAt, updated_at AS updatedAt
+        FROM movie WHERE movie_id = #{movieId}
+    </select>
+
+    <select id="listFiltered" resultType="com.cinepass.model.Movie">
+        SELECT movie_id AS movieId, title, poster_url AS posterUrl,
+               genres_json AS genresJson, rating, duration_min AS durationMin,
+               release_date AS releaseDate, status, description,
+               cast_text AS castText, want_see_count AS wantSeeCount,
+               created_at AS createdAt, updated_at AS updatedAt
+        FROM movie
+        <where>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+            <if test="q != null and q != ''">AND title LIKE '%' || #{q} || '%'</if>
+            <if test="genre != null and genre != ''">AND genres_json::text LIKE '%' || #{genre} || '%'</if>
+        </where>
+        ORDER BY want_see_count DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countFiltered" resultType="long">
+        SELECT COUNT(1) FROM movie
+        <where>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+            <if test="q != null and q != ''">AND title LIKE '%' || #{q} || '%'</if>
+            <if test="genre != null and genre != ''">AND genres_json::text LIKE '%' || #{genre} || '%'</if>
+        </where>
+    </select>
+
     <select id="selectByIds" databaseId="postgresql" resultType="com.cinepass.model.Movie">
         SELECT movie_id AS movieId, title, poster_url AS posterUrl,
                genres_json::text AS genresJson, rating, duration_min AS durationMin,
                release_date AS releaseDate, status, description,
-               cast_text AS castText, want_see_count AS wantSeeCount
+               cast_text AS castText, want_see_count AS wantSeeCount,
+               created_at AS createdAt, updated_at AS updatedAt
         FROM movie
         WHERE movie_id IN
         <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
@@ -19,11 +62,49 @@
         SELECT movie_id AS movieId, title, poster_url AS posterUrl,
                genres_json AS genresJson, rating, duration_min AS durationMin,
                release_date AS releaseDate, status, description,
-               cast_text AS castText, want_see_count AS wantSeeCount
+               cast_text AS castText, want_see_count AS wantSeeCount,
+               created_at AS createdAt, updated_at AS updatedAt
         FROM movie
         WHERE movie_id IN
         <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
     </select>
+
+    <insert id="insert" databaseId="postgresql" parameterType="com.cinepass.model.Movie">
+        INSERT INTO movie (movie_id, title, poster_url, genres_json, rating,
+            duration_min, release_date, status, description, cast_text,
+            want_see_count, created_at, updated_at)
+        VALUES (#{movie.movieId}, #{movie.title}, #{movie.posterUrl},
+            CAST(#{movie.genresJson} AS jsonb), #{movie.rating},
+            #{movie.durationMin}, #{movie.releaseDate}, #{movie.status},
+            #{movie.description}, #{movie.castText}, #{movie.wantSeeCount},
+            NOW(), NOW())
+    </insert>
+    <insert id="insert" parameterType="com.cinepass.model.Movie">
+        INSERT INTO movie (movie_id, title, poster_url, genres_json, rating,
+            duration_min, release_date, status, description, cast_text,
+            want_see_count, created_at, updated_at)
+        VALUES (#{movie.movieId}, #{movie.title}, #{movie.posterUrl},
+            #{movie.genresJson} FORMAT JSON, #{movie.rating},
+            #{movie.durationMin}, #{movie.releaseDate}, #{movie.status},
+            #{movie.description}, #{movie.castText}, #{movie.wantSeeCount},
+            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    </insert>
+
+    <update id="update" parameterType="com.cinepass.model.Movie">
+        UPDATE movie SET
+            title = #{movie.title},
+            poster_url = #{movie.posterUrl},
+            genres_json = CAST(#{movie.genresJson} AS jsonb),
+            rating = #{movie.rating},
+            duration_min = #{movie.durationMin},
+            release_date = #{movie.releaseDate},
+            status = #{movie.status},
+            description = #{movie.description},
+            cast_text = #{movie.castText},
+            want_see_count = #{movie.wantSeeCount},
+            updated_at = NOW()
+        WHERE movie_id = #{movie.movieId}
+    </update>
 
     <update id="incrWantSeeCount" databaseId="postgresql">
         UPDATE movie SET want_see_count = GREATEST(want_see_count + #{delta}, 0), updated_at = NOW()

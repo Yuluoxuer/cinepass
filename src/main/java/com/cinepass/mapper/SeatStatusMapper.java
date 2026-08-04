@@ -1,14 +1,16 @@
 package com.cinepass.mapper;
 
+import com.cinepass.model.SeatStatus;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-/**
- * 座位库存 Mapper（取消订单释放锁座）。
- */
+import java.util.List;
+
 @Mapper
 public interface SeatStatusMapper {
+    int batchInsert(@Param("list") List<SeatStatus> statuses);
 
-    /** 按 lockId 释放座位占用，返回影响行数 */
-    int releaseByLockId(@Param("lockId") String lockId);
+    int countAvailable(@Param("showId") String showId);
+
+    int countTotal(@Param("showId") String showId);
 }
