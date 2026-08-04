@@ -54,6 +54,11 @@ export default defineConfig({
       target: 'http://localhost:8080',
       changeOrigin: true,
     },
+    '/amap-api': {
+      target: 'https://restapi.amap.com',
+      changeOrigin: true,
+      pathRewrite: { '^/amap-api': '' },
+    },
   },
   request: {},
   antd: {
