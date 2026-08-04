@@ -52,6 +52,11 @@ export function getCinema(cinemaId: string) {
   return get<CinemaVO>(`/cinemas/${cinemaId}`);
 }
 
+/** 院→片：当前时刻之后该院仍有在售场次的影片 */
+export function listCinemaMovies(cinemaId: string) {
+  return get<PageResult<MovieVO>>(`/cinemas/${cinemaId}/movies`);
+}
+
 export function listShows(params: { cinemaId: string; movieId: string; date: string }) {
   return get<ShowListResult>('/shows', params);
 }

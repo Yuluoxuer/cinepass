@@ -1,0 +1,54 @@
+.wrap {
+  width: 100%;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.item {
+  display: block;
+}
+
+.poster {
+  aspect-ratio: 2 / 3;
+  width: 100%;
+  max-width: 160px;
+  border-radius: var(--radius-md, 8px);
+}
+
+.grid .poster {
+  max-width: none;
+}
+
+.card {
+  height: 96px;
+  width: 100%;
+  border-radius: var(--radius-md, 8px);
+}
+
+.row {
+  height: 48px;
+  width: 100%;
+  margin-bottom: 10px;
+  border-radius: var(--radius-sm, 6px);
+}
+
+.row:last-child {
+  margin-bottom: 0;
+}
+
+.block {
+  min-height: 180px;
+  width: 100%;
+  border-radius: var(--radius-md, 8px);
+}
+
+.grid {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.grid .card {
+  height: 120px;
+}

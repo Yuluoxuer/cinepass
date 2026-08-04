@@ -5,11 +5,57 @@
 import { message } from 'antd';
 import { isApiError, presentApiError, redirectToRequestError } from '@/api/error';
 import { restoreLoginState, useAuthStore, isStaffOrAdmin } from '@/stores/auth';
+import { ApiError } from '@/types';
 import '@/styles/tokens.css';
+
+function isApiErrorReason(reason: unknown): reason is ApiError {
+  return (
+    reason instanceof ApiError ||
+    (Boolean(reason) &&
+      typeof reason === 'object' &&
+      (reason as { name?: string }).name === 'ApiError')
+  );
+}
+
+function dismissDevOverlay() {
+  try {
+    const overlay = (window as unknown as {
+      __react_refresh_error_overlay__?: { clearRuntimeErrors?: (dismiss?: boolean) => void };
+    }).__react_refresh_error_overlay__;
+    overlay?.clearRuntimeErrors?.(true);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 尽早拦截未处理 ApiError：react-refresh overlay 不尊重 preventDefault */
+(function installApiRejectionGuard() {
+  if (typeof window === 'undefined') return;
+  const w = window as unknown as { __miaoyuApiRejectionGuard?: boolean };
+  if (w.__miaoyuApiRejectionGuard) return;
+  w.__miaoyuApiRejectionGuard = true;
+
+  window.addEventListener('unhandledrejection', (ev) => {
+    if (!isApiErrorReason(ev.reason)) return;
+    ev.preventDefault();
+    // overlay 已在同轮监听里挂上，下一帧清掉（react-refresh 不尊重 preventDefault）
+    requestAnimationFrame(() => dismissDevOverlay());
+  });
+})();
 
 (function bootstrap() {
   if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem('miaoyu_use_mock');
+  } catch {
+    /* ignore */
+  }
   const { accessToken, tokenExpireAt, user } = restoreLoginState();
+  // 旧 Mock 签发的假 token（非 JWT 三段式）不可打真实后端，启动时清掉
+  if (accessToken && accessToken.split('.').length !== 3) {
+    useAuthStore.getState().clearAuth();
+    return;
+  }
   if (accessToken) {
     useAuthStore.setState({ accessToken, tokenExpireAt, user });
   }

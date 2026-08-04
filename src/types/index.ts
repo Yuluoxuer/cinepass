@@ -96,6 +96,7 @@ export interface LoginResult {
   nickname: string;
   phone: string | null;
   role: UserRole;
+  /** staff 所属影院；user/admin 为 null */
   cinemaId?: string | null;
 }
 
@@ -115,6 +116,8 @@ export interface MovieVO {
   /** 结构化演职人员，缺失时可由 cast 字段降级生成 */
   castMembers?: CastMemberVO[];
   wantSeeCount: number;
+  /** 院→片：该影院下一场本地日历日 yyyy-MM-dd */
+  nextShowDate?: string | null;
 }
 
 export interface CastMemberVO {
@@ -462,7 +465,10 @@ export interface AdminUserVO {
   nickname: string;
   phone: string | null;
   role: UserRole;
-  status: 'active' | 'disabled';
+  /** staff 所属影院；user/admin 为 null */
+  cinemaId?: string | null;
+  /** 后端为 0|1；展示层兼容 active/disabled */
+  status: 'active' | 'disabled' | 0 | 1;
 }
 
 export type SeatNameMap = Record<string, string>;

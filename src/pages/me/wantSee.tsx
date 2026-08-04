@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { history } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { MovieVO } from '@/types';
+import BlankPlaceholder from '@/components/BlankPlaceholder';
 import MoviePosterCard from '@/components/MoviePosterCard';
 import { useAuthStore } from '@/stores/auth';
 import styles from './wantSee.less';
@@ -11,9 +11,8 @@ const SKELETON_COUNT = 6;
 const WantSeePage: React.FC = () => {
   const [movies, setMovies] = useState<MovieVO[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [failed, setFailed] = useState(false);
   const [loginCancelled, setLoginCancelled] = useState(false);
-  const [reloadVersion, setReloadVersion] = useState(0);
   const user = useAuthStore((s) => s.user);
   const openLogin = useAuthStore((s) => s.openLoginModal);
 
@@ -22,7 +21,7 @@ const WantSeePage: React.FC = () => {
 
     const loadWantSee = async () => {
       setLoading(true);
-      setError('');
+      setFailed(false);
       setLoginCancelled(false);
 
       if (!user) {
@@ -38,9 +37,15 @@ const WantSeePage: React.FC = () => {
 
       try {
         const res = await catalogApi.listWantSee({ page: 1, size: 50 });
-        if (active) setMovies(res.items);
+        if (active) {
+          setMovies(res.items);
+          setFailed(false);
+        }
       } catch {
-        if (active) setError('想看列表加载失败，请稍后重试');
+        if (active) {
+          setMovies([]);
+          setFailed(true);
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -50,9 +55,7 @@ const WantSeePage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [openLogin, reloadVersion, user]);
-
-  const retry = () => setReloadVersion((version) => version + 1);
+  }, [openLogin, user]);
 
   return (
     <main className={`miaoyu-container ${styles.page}`}>
@@ -63,23 +66,7 @@ const WantSeePage: React.FC = () => {
       </header>
 
       {loading ? (
-        <div className={styles.grid} aria-label="正在加载想看影片">
-          {Array.from({ length: SKELETON_COUNT }, (_, index) => (
-            <div className={styles.skeletonCard} key={index}>
-              <div className={`miaoyu-skeleton ${styles.skeletonPoster}`} />
-              <div className={`miaoyu-skeleton ${styles.skeletonTitle}`} />
-              <div className={`miaoyu-skeleton ${styles.skeletonMeta}`} />
-            </div>
-          ))}
-        </div>
-      ) : error ? (
-        <section className={styles.state}>
-          <h2>暂时无法加载</h2>
-          <p>{error}</p>
-          <button type="button" className="miaoyu-btn-primary" onClick={retry}>
-            重新加载
-          </button>
-        </section>
+        <BlankPlaceholder variant="poster" count={SKELETON_COUNT} className={styles.grid} />
       ) : loginCancelled ? (
         <section className={styles.state}>
           <h2>登录后查看想看列表</h2>
@@ -88,20 +75,14 @@ const WantSeePage: React.FC = () => {
             去登录
           </button>
         </section>
-      ) : movies.length ? (
+      ) : failed || movies.length === 0 ? (
+        <BlankPlaceholder variant="poster" count={SKELETON_COUNT} className={styles.grid} />
+      ) : (
         <div className={styles.grid}>
           {movies.map((movie) => (
             <MoviePosterCard key={movie.movieId} movie={movie} />
           ))}
         </div>
-      ) : (
-        <section className={styles.state}>
-          <h2>还没有想看的影片</h2>
-          <p>去电影频道挑选感兴趣的影片，点击“想看”即可收藏。</p>
-          <button type="button" className="miaoyu-btn-primary" onClick={() => history.push('/movies')}>
-            去电影频道
-          </button>
-        </section>
       )}
     </main>
   );

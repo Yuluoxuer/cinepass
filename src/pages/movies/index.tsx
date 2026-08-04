@@ -3,6 +3,7 @@ import { history, useLocation } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { MovieVO } from '@/types';
 import { useBookingStore } from '@/stores/booking';
+import BlankPlaceholder from '@/components/BlankPlaceholder';
 import styles from './movies.less';
 
 const MoviesPage: React.FC = () => {
@@ -27,6 +28,8 @@ const MoviesPage: React.FC = () => {
           size: 10,
         });
         if (!c) setData({ items: res.items, total: res.total });
+      } catch {
+        if (!c) setData({ items: [], total: 0 });
       } finally {
         if (!c) setLoading(false);
       }
@@ -64,8 +67,8 @@ const MoviesPage: React.FC = () => {
           </button>
         ))}
       </div>
-      {loading ? (
-        <div className={styles.loading}>加载中…</div>
+      {loading || data.items.length === 0 ? (
+        <BlankPlaceholder variant="row" count={5} />
       ) : (
         <div className={styles.list}>
           {data.items.map((m) => (
@@ -87,10 +90,14 @@ const MoviesPage: React.FC = () => {
                 className="miaoyu-btn-primary"
                 onClick={async (e) => {
                   e.stopPropagation();
-                  await patchLocal(
-                    { movieId: m.movieId, filmTitle: m.title, state: 'SelectCinema' },
-                    { debounce: false },
-                  );
+                  try {
+                    await patchLocal(
+                      { movieId: m.movieId, filmTitle: m.title, state: 'SelectCinema' },
+                      { debounce: false },
+                    );
+                  } catch {
+                    /* 拦截器已提示 */
+                  }
                   history.push(`/booking/cinemas?movieId=${m.movieId}`);
                 }}
               >
@@ -100,17 +107,19 @@ const MoviesPage: React.FC = () => {
           ))}
         </div>
       )}
-      <div className={styles.pager}>
-        <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-          上一页
-        </button>
-        <span>
-          {page} / {pages}
-        </span>
-        <button type="button" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>
-          下一页
-        </button>
-      </div>
+      {data.items.length > 0 ? (
+        <div className={styles.pager}>
+          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            上一页
+          </button>
+          <span>
+            {page} / {pages}
+          </span>
+          <button type="button" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>
+            下一页
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Modal, Space, Table, Tooltip, message } from 'antd';
+import { Button, Modal, Space, Table, Tooltip, message, Empty} from 'antd';
 import { history } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import * as adminApi from '@/api/admin';
@@ -47,6 +47,7 @@ const AdminCinemasPage: React.FC = () => {
       <Table
         rowKey="cinemaId"
         dataSource={data}
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有数据" /> }}
         columns={[
           { title: '影院名称', dataIndex: 'name' },
           { title: '地址', dataIndex: 'address' },

@@ -11,6 +11,6 @@ Placeholder directory for application-wide constant values (enums, static maps, 
 ### Working In This Directory
 - Name files by domain, e.g. `status.ts`, `pagination.ts`, `routes.ts`
 - Export as named constants (`export const PAGE_SIZE = 20`); avoid default exports
-- Do not import from `@/stores` or `@/services` here — constants must be side-effect-free
+- Do not import from `@/stores` or `@/api` here — constants must be side-effect-free
 
 <!-- MANUAL: -->

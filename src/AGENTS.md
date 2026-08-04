@@ -4,7 +4,7 @@
 # src
 
 ## Purpose
-All application source code. Organized into components, layouts, pages, services, stores, and utilities. The two root-level files `app.tsx` and `access.ts` are loaded automatically by Umi at runtime and form the authentication and permission backbone.
+All application source code. Organized into api, components, layouts, pages, stores, and utilities. The two root-level files `app.tsx` and `access.ts` are loaded automatically by Umi at runtime and form the authentication and permission backbone.
 
 ## Key Files
 
@@ -21,7 +21,7 @@ All application source code. Organized into components, layouts, pages, services
 | `constants/` | Application-wide constant values — currently a placeholder (see `constants/AGENTS.md`) |
 | `layouts/` | Root application shell: collapsible sidebar, top header, breadcrumb, theme switcher (see `layouts/AGENTS.md`) |
 | `pages/` | Page-level route components, one directory per route — currently placeholder (see `pages/AGENTS.md`) |
-| `services/` | API service modules, one file per backend controller group (see `services/AGENTS.md`) |
+| `api/` | HTTP client and domain API modules (`client.ts`, `auth.ts`, `catalog.ts`, etc.) |
 | `stores/` | Zustand global state stores (see `stores/AGENTS.md`) |
 | `utils/` | Pure utility functions: token management, axios HTTP client, value formatters (see `utils/AGENTS.md`) |
 
@@ -36,7 +36,7 @@ All application source code. Organized into components, layouts, pages, services
 ### Common Patterns
 - Permission checks: `const { canManageUsers } = useAccess()` — Umi picks up `access.ts` automatically
 - Global state: import from `@/stores/*`
-- API calls in pages use `@/services/*`; prefer the Umi `request` wrapper over the bare axios instance for consistency with response interceptors
+- API calls in pages use `@/api/*`（经 `client.ts` 直连真实后端）
 
 ### Testing Requirements
 - No test runner configured yet; add tests adjacent to the file under test (e.g., `stores/__tests__/auth.test.ts`)
@@ -45,6 +45,6 @@ All application source code. Organized into components, layouts, pages, services
 
 ### Internal
 - `stores/auth` → `access.ts` reads role codes for permission resolution
-- `utils/token` → used by `app.tsx`, `services/request.ts`, and `utils/request.ts`
+- `utils/token` → used by `app.tsx` and auth-related utilities
 
 <!-- MANUAL: -->

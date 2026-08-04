@@ -91,10 +91,17 @@ export const useBookingStore = create<BookingStateStore>((set, get) => ({
           /* create new */
         }
       }
-      const created = await draftApi.createDraft({ source: 'manual' });
-      localStorage.setItem(SESSION_KEY, created.sessionId);
-      set({ draft: created });
-      return created;
+      try {
+        const created = await draftApi.createDraft({ source: 'manual' });
+        localStorage.setItem(SESSION_KEY, created.sessionId);
+        set({ draft: created });
+        return created;
+      } catch {
+        // 拦截器已 toast；本地占位避免布局崩溃，不写入 localStorage
+        const local = emptyDraft(`sess_local_${Date.now()}`);
+        set({ draft: local });
+        return local;
+      }
     } finally {
       set({ ensuring: false });
     }
@@ -103,11 +110,15 @@ export const useBookingStore = create<BookingStateStore>((set, get) => ({
   hydrateFromServer: async (sessionId) => {
     const sid = sessionId || get().draft?.sessionId || localStorage.getItem(SESSION_KEY);
     if (!sid) return get().ensureSession();
-    const d = await draftApi.getDraft(sid);
-    localStorage.setItem(SESSION_KEY, d.sessionId);
-    set({ draft: d });
-    syncAgentProgress(d);
-    return d;
+    try {
+      const d = await draftApi.getDraft(sid);
+      localStorage.setItem(SESSION_KEY, d.sessionId);
+      set({ draft: d });
+      syncAgentProgress(d);
+      return d;
+    } catch {
+      return get().ensureSession();
+    }
   },
 
   patchLocal: async (patch, opts) => {
@@ -134,18 +145,23 @@ export const useBookingStore = create<BookingStateStore>((set, get) => ({
         });
       } catch (error) {
         if (!(error instanceof ApiError) || error.errorCode !== 'DRAFT_CONFLICT') {
-          throw error;
+          // 拦截器已可视化提示；保留乐观态，不向上抛避免 Umi 红屏
+          return get().draft || withDerivedState(current, bodyPatch);
         }
-        // Draft 使用 CAS。冲突后先以服务端完整状态为准，再重放本次用户操作。
-        const serverDraft = await draftApi.getDraft(current.sessionId);
-        const retryPatch = { ...bodyPatch };
-        if (retryPatch.state == null) {
-          retryPatch.state = firstIncompleteStep({ ...serverDraft, ...retryPatch } as BookingDraft);
+        try {
+          // Draft 使用 CAS。冲突后先以服务端完整状态为准，再重放本次用户操作。
+          const serverDraft = await draftApi.getDraft(current.sessionId);
+          const retryPatch = { ...bodyPatch };
+          if (retryPatch.state == null) {
+            retryPatch.state = firstIncompleteStep({ ...serverDraft, ...retryPatch } as BookingDraft);
+          }
+          updated = await draftApi.updateDraft(serverDraft.sessionId, {
+            version: serverDraft.version,
+            patch: retryPatch,
+          });
+        } catch {
+          return get().draft || withDerivedState(current, bodyPatch);
         }
-        updated = await draftApi.updateDraft(serverDraft.sessionId, {
-          version: serverDraft.version,
-          patch: retryPatch,
-        });
       }
       set({ draft: updated });
       syncAgentProgress(updated);
@@ -161,15 +177,15 @@ export const useBookingStore = create<BookingStateStore>((set, get) => ({
     set({ draft: optimistic });
     syncAgentProgress(optimistic);
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
         const p = pendingPatch;
         pendingPatch = null;
         try {
           resolve(await doPut(p || patch));
-        } catch (e) {
-          reject(e);
+        } catch {
+          resolve(get().draft || optimistic);
         }
       }, 300);
     });

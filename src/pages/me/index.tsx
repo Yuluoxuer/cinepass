@@ -56,6 +56,12 @@ const MePage: React.FC = () => {
             <span>›</span>
           </div>
         ))}
+        {user ? (
+          <div className={styles.item} onClick={() => openLogin()}>
+            <span>修改密码</span>
+            <span>›</span>
+          </div>
+        ) : null}
       </div>
       {user ? (
         <button type="button" className="miaoyu-btn-text" style={{ marginTop: 24 }} onClick={logout}>

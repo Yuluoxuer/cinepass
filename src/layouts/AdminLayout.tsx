@@ -15,7 +15,7 @@ import {
 } from '@ant-design/icons';
 import { getCinemaIdFromAccessToken, restoreLoginState, useAuthStore, isStaffOrAdmin } from '@/stores/auth';
 import * as authApi from '@/api/auth';
-import MockToggle from '@/components/MockToggle';
+import AdminErrorBoundary from '@/components/AdminErrorBoundary';
 import '@/styles/tokens.css';
 
 const { Header, Sider, Content } = Layout;
@@ -332,52 +332,53 @@ const AdminLayout: React.FC = () => {
             minHeight: 360,
           }}
         >
-          {isSecondaryPage && (
-            <section
-              style={{
-                width: '100%',
-                minHeight: 360,
-                padding: '28px 32px 36px',
-                background: '#fff',
-                border: '1px solid #dce0e4',
-              }}
-            >
-              <div
+          <AdminErrorBoundary>
+            {isSecondaryPage && (
+              <section
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  gap: 24,
-                  paddingBottom: 20,
-                  marginBottom: 24,
-                  borderBottom: '1px solid #eef0f2',
+                  width: '100%',
+                  minHeight: 360,
+                  padding: '28px 32px 36px',
+                  background: '#fff',
+                  border: '1px solid #dce0e4',
                 }}
               >
-                <div>
-                  <h1
-                    style={{
-                      margin: 0,
-                      color: 'var(--color-text-primary)',
-                      fontFamily: 'var(--font-display)',
-                      fontSize: 24,
-                      lineHeight: 1.35,
-                    }}
-                  >
-                    {crumbs[crumbs.length - 1]}
-                  </h1>
-                  <p style={{ margin: '7px 0 0', color: '#77808d', fontSize: 13 }}>{secondaryDescription}</p>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    gap: 24,
+                    paddingBottom: 20,
+                    marginBottom: 24,
+                    borderBottom: '1px solid #eef0f2',
+                  }}
+                >
+                  <div>
+                    <h1
+                      style={{
+                        margin: 0,
+                        color: 'var(--color-text-primary)',
+                        fontFamily: 'var(--font-display)',
+                        fontSize: 24,
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {crumbs[crumbs.length - 1]}
+                    </h1>
+                    <p style={{ margin: '7px 0 0', color: '#77808d', fontSize: 13 }}>{secondaryDescription}</p>
+                  </div>
+                  <Button type="link" icon={<ArrowLeftOutlined />} onClick={() => history.push(activeMenuKey)}>
+                    返回{crumbs[0]}
+                  </Button>
                 </div>
-                <Button type="link" icon={<ArrowLeftOutlined />} onClick={() => history.push(activeMenuKey)}>
-                  返回{crumbs[0]}
-                </Button>
-              </div>
-              <Outlet />
-            </section>
-          )}
-          {!isSecondaryPage && <Outlet />}
+                <Outlet />
+              </section>
+            )}
+            {!isSecondaryPage && <Outlet />}
+          </AdminErrorBoundary>
         </Content>
       </Layout>
-      <MockToggle />
     </Layout>
   );
 };

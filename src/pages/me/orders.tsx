@@ -6,6 +6,8 @@ import type { OrderVO } from '@/types';
 import { useAuthStore } from '@/stores/auth';
 import { useBookingStore } from '@/stores/booking';
 import { useAgentStore } from '@/stores/agent';
+import BlankPlaceholder from '@/components/BlankPlaceholder';
+import { formatOrderSeatLabels } from '@/utils/format';
 import styles from './me.less';
 
 const TABS = [
@@ -52,8 +54,12 @@ const OrdersPage: React.FC = () => {
       const ok = await openLogin();
       if (!ok) return;
     }
-    const res = await orderApi.listOrders({ status: status || undefined, page: 1, size: 20 });
-    setOrders(res.items);
+    try {
+      const res = await orderApi.listOrders({ status: status || undefined, page: 1, size: 20 });
+      setOrders(res.items);
+    } catch {
+      setOrders([]);
+    }
   };
 
   useEffect(() => {
@@ -111,7 +117,7 @@ const OrdersPage: React.FC = () => {
                 {o.cinemaName ? `${o.cinemaName} · ` : ''}
                 {o.hallName}
               </p>
-              <p>{o.seatIds.map((id) => seatNameById[id] || id).join('、') || '座位信息待确认'}</p>
+              <p>{formatOrderSeatLabels(o, seatNameById) || '座位信息待确认'}</p>
             </div>
             <div className={styles.orderPrice}>
               <strong>¥{Number(o.amount).toFixed(2)}</strong>
@@ -161,7 +167,7 @@ const OrdersPage: React.FC = () => {
           </div>
         );
       })}
-      {!orders.length ? <p style={{ color: 'var(--color-text-muted)', marginTop: 24 }}>暂无订单</p> : null}
+      {!orders.length ? <BlankPlaceholder variant="row" count={3} /> : null}
     </div>
   );
 };

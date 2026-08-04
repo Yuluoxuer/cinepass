@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { history } from 'umi';
 import type { MovieVO } from '@/types';
 import { useBookingStore } from '@/stores/booking';
@@ -21,6 +21,7 @@ const MoviePosterCard: React.FC<Props> = ({
   showBuy = true,
   compact,
 }) => {
+  const [imgBroken, setImgBroken] = useState(false);
   const patchLocal = useBookingStore((s) => s.patchLocal);
   const goDetail = () => history.push(`/movies/${movie.movieId}`);
   const goBuy = async (e: React.MouseEvent) => {
@@ -29,17 +30,31 @@ const MoviePosterCard: React.FC<Props> = ({
       history.push(`/movies/${movie.movieId}`);
       return;
     }
-    await patchLocal(
-      { movieId: movie.movieId, filmTitle: movie.title, state: 'SelectCinema' },
-      { debounce: false },
-    );
+    try {
+      await patchLocal(
+        { movieId: movie.movieId, filmTitle: movie.title, state: 'SelectCinema' },
+        { debounce: false },
+      );
+    } catch {
+      /* 拦截器已提示 */
+    }
     history.push(`/booking/cinemas?movieId=${movie.movieId}`);
   };
 
   return (
     <div className={`${styles.card} ${compact ? styles.compact : ''}`} onClick={goDetail}>
       <div className={styles.posterWrap}>
-        <img src={movie.posterUrl} alt={movie.title} className={styles.poster} loading="lazy" />
+        {movie.posterUrl && !imgBroken ? (
+          <img
+            src={movie.posterUrl}
+            alt={movie.title}
+            className={styles.poster}
+            loading="lazy"
+            onError={() => setImgBroken(true)}
+          />
+        ) : (
+          <div className={`${styles.posterBlank} miaoyu-skeleton`} aria-hidden />
+        )}
         <div className={styles.posterShade} />
         {rank != null ? (
           <span className={`${styles.rank} ${rank <= 3 ? styles[`r${rank}`] : ''}`}>{rank}</span>

@@ -18,3 +18,4 @@ export const AMAP_API_VERSION = '2.0';
 
 /** 默认地图中心（上海） */
 export const DEFAULT_MAP_CENTER = { lng: 121.4737, lat: 31.2304 };
+

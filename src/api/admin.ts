@@ -82,8 +82,30 @@ export interface SeatMapCreateBody {
   seats: Array<Pick<SeatMapVO['seats'][number], 'graphRow' | 'graphCol' | 'rowNo' | 'colNo' | 'seatId' | 'type' | 'zone' | 'defaultStatus' | 'couplePairId'>>;
 }
 
+export type SeatMapUpdateBody = Omit<SeatMapCreateBody, 'seatMapId' | 'cinemaId'>;
+
+/** 运营端座位图列表；staff 自动本院，admin 须传 cinemaId。 */
+export function listSeatMaps(params?: { cinemaId?: string; page?: number; size?: number }) {
+  return get<PageResult<SeatMapVO>>('/seat-maps', params);
+}
+
+/** 查询座位图模板详情（含座位明细）。 */
+export function getSeatMapTemplate(seatMapId: string) {
+  return get<SeatMapVO>(`/seat-maps/${seatMapId}`);
+}
+
 export function createSeatMap(body: SeatMapCreateBody) {
   return post<SeatMapVO>('/seat-maps', body);
+}
+
+/** 全量替换座位集合；仅 mutable 时可改。 */
+export function updateSeatMap(seatMapId: string, body: SeatMapUpdateBody) {
+  return put<SeatMapVO>(`/seat-maps/${seatMapId}`, body);
+}
+
+/** 删除座位图；仍被影厅/场次引用时 409。 */
+export function deleteSeatMap(seatMapId: string) {
+  return del<{ deleted: boolean; seatMapId: string }>(`/seat-maps/${seatMapId}`);
 }
 
 export function createShow(body: {
@@ -133,22 +155,25 @@ export function getDashboardStats(date: string) {
   return get<AdminDashboardStatsVO>('/admin/dashboard/stats', { date });
 }
 
+/** 运营协助查单；与中台 GET /admin/orders 对齐。 */
 export function adminListOrders(params?: {
   orderId?: string;
   userId?: string;
   status?: string;
+  dateFrom?: string;
+  dateTo?: string;
   page?: number;
   size?: number;
 }) {
   return get<PageResult<OrderVO>>('/admin/orders', params);
 }
 
-/** 运营人员关闭待支付订单。 */
-export function adminCancelOrder(orderId: string, reason = 'admin_closed') {
-  return post<OrderVO>(`/admin/orders/${orderId}/cancel`, { reason });
+/** 运营关闭待支付订单并释放座位；POST /admin/orders/:orderId/cancel。 */
+export function adminCancelOrder(orderId: string, reason?: string) {
+  return post<OrderVO>(`/admin/orders/${orderId}/cancel`, reason ? { reason } : {});
 }
 
-/** 运营人员现场核销已出票订单。 */
+/** 运营核销已出票订单；POST /admin/orders/:orderId/consume。 */
 export function consumeTicket(orderId: string) {
   return post<OrderVO>(`/admin/orders/${orderId}/consume`);
 }
@@ -162,13 +187,21 @@ export function createUser(body: {
   phone?: string;
   password: string;
   role: string;
+  cinemaId?: string | null;
 }) {
   return post<AdminUserVO>('/admin/users', body);
 }
 
 export function updateUser(
   userId: string,
-  body: Partial<Pick<AdminUserVO, 'role' | 'status'>>,
+  body: Partial<{
+    role: AdminUserVO['role'];
+    status: 0 | 1;
+    cinemaId: string | null;
+    nickname: string;
+    phone: string;
+    password: string;
+  }>,
 ) {
   return put<AdminUserVO>(`/admin/users/${userId}`, body);
 }

@@ -1,0 +1,1727 @@
+================================================================================
+src/components/LoginModal/index.tsx
+================================================================================
+--- hunk 1 lines 3-10 ---
+1|import React, { useEffect, useState } from 'react';
+2|import { history } from 'umi';
+3|<<<<<<< Updated upstream
+4|import { login as loginApi } from '@/api/auth';
+5|import { getCinemaIdFromAccessToken, isStaffOrAdmin, useAuthStore } from '@/stores/auth';
+6|import type { UserVO } from '@/types';
+7|=======
+8|import * as authApi from '@/api/auth';
+9|import { isStaffOrAdmin, useAuthStore } from '@/stores/auth';
+10|>>>>>>> Stashed changes
+11|import styles from './LoginModal.less';
+12|
+13|type Mode = 'login' | 'register' | 'change';
+
+--- hunk 2 lines 97-125 ---
+94|    setHint('');
+95|    setLoading(true);
+96|    try {
+97|<<<<<<< Updated upstream
+98|      const res = await loginApi(account.trim(), password);
+99|      const user: UserVO = {
+100|        userId: res.userId,
+101|        nickname: res.nickname,
+102|        phone: res.phone,
+103|        role: res.role,
+104|        avatarUrl: null,
+105|        cinemaId: res.cinemaId || getCinemaIdFromAccessToken(res.accessToken),
+106|      };
+107|      setLogin({ accessToken: res.accessToken, expiresIn: res.expiresIn, user });
+108|      close(true);
+109|      // staff / admin 登录后进入运营后台，避免仍停在购票页
+110|      if (isStaffOrAdmin(res.role)) {
+111|        history.push('/admin');
+112|=======
+113|      if (mode === 'login') {
+114|        if (!account.trim() || account.length > 64) {
+115|          setError('账号长度 1–64');
+116|          return;
+117|        }
+118|        if (password.length < 8 || password.length > 64) {
+119|          setError('密码长度 8–64');
+120|          return;
+121|        }
+122|        const res = await authApi.login(account.trim(), password);
+123|        finishLogin(res);
+124|        return;
+125|>>>>>>> Stashed changes
+126|      }
+127|
+128|      if (mode === 'register') {
+
+--- hunk 3 lines 226-390 ---
+223|          >
+224|            登录
+225|          </button>
+226|<<<<<<< Updated upstream
+227|          <p className={styles.hint}>
+228|            演示：演示用户甲（购票）/ 运营小李或运营小王（后台）/ 系统管理员（后台），密码均为 demo123456
+229|          </p>
+230|          <p className={styles.hint}>
+231|            也可直接打开{' '}
+232|            <a href="/admin/login" onClick={(e) => { e.preventDefault(); close(false); history.push('/admin/login'); }}>
+233|              运营后台登录
+234|            </a>
+235|          </p>
+236|=======
+237|          <button
+238|            type="button"
+239|            role="tab"
+240|            aria-selected={mode === 'register'}
+241|            className={mode === 'register' ? styles.tabActive : styles.tab}
+242|            onClick={() => switchMode('register')}
+243|          >
+244|            注册
+245|          </button>
+246|          <button
+247|            type="button"
+248|            role="tab"
+249|            aria-selected={mode === 'change'}
+250|            className={mode === 'change' ? styles.tabActive : styles.tab}
+251|            onClick={() => switchMode('change')}
+252|          >
+253|            修改密码
+254|          </button>
+255|        </div>
+256|
+257|        <form onSubmit={onSubmit} className={styles.form}>
+258|          {mode === 'login' ? (
+259|            <>
+260|              <label>
+261|                账号
+262|                <input
+263|                  value={account}
+264|                  onChange={(e) => setAccount(e.target.value)}
+265|                  placeholder="昵称或手机号"
+266|                  autoComplete="username"
+267|                />
+268|              </label>
+269|              <label>
+270|                密码
+271|                <input
+272|                  type="password"
+273|                  value={password}
+274|                  onChange={(e) => setPassword(e.target.value)}
+275|                  placeholder="8–64 位"
+276|                  autoComplete="current-password"
+277|                />
+278|              </label>
+279|            </>
+280|          ) : null}
+281|
+282|          {mode === 'register' ? (
+283|            <>
+284|              <label>
+285|                昵称
+286|                <input
+287|                  value={nickname}
+288|                  onChange={(e) => setNickname(e.target.value)}
+289|                  placeholder="展示名，唯一"
+290|                  autoComplete="nickname"
+291|                />
+292|              </label>
+293|              <label>
+294|                手机号
+295|                <input
+296|                  value={phone}
+297|                  onChange={(e) => setPhone(e.target.value)}
+298|                  placeholder="11 位大陆手机号"
+299|                  autoComplete="tel"
+300|                />
+301|              </label>
+302|              <label>
+303|                密码
+304|                <input
+305|                  type="password"
+306|                  value={password}
+307|                  onChange={(e) => setPassword(e.target.value)}
+308|                  placeholder="8–64 位"
+309|                  autoComplete="new-password"
+310|                />
+311|              </label>
+312|            </>
+313|          ) : null}
+314|
+315|          {mode === 'change' ? (
+316|            <>
+317|              {!isAuthed ? (
+318|                <label>
+319|                  账号
+320|                  <input
+321|                    value={account}
+322|                    onChange={(e) => setAccount(e.target.value)}
+323|                    placeholder="昵称或手机号"
+324|                    autoComplete="username"
+325|                  />
+326|                </label>
+327|              ) : (
+328|                <p className={styles.hint}>当前账号：{user?.nickname}</p>
+329|              )}
+330|              <label>
+331|                旧密码
+332|                <input
+333|                  type="password"
+334|                  value={oldPassword}
+335|                  onChange={(e) => setOldPassword(e.target.value)}
+336|                  placeholder="当前密码"
+337|                  autoComplete="current-password"
+338|                />
+339|              </label>
+340|              <label>
+341|                新密码
+342|                <input
+343|                  type="password"
+344|                  value={newPassword}
+345|                  onChange={(e) => setNewPassword(e.target.value)}
+346|                  placeholder="8–64 位"
+347|                  autoComplete="new-password"
+348|                />
+349|              </label>
+350|            </>
+351|          ) : null}
+352|
+353|          {error ? <div className={styles.error}>{error}</div> : null}
+354|          {hint ? <div className={styles.info}>{hint}</div> : null}
+355|
+356|          <button type="submit" className={styles.submit} disabled={loading}>
+357|            {loading
+358|              ? '提交中…'
+359|              : mode === 'login'
+360|                ? '登录'
+361|                : mode === 'register'
+362|                  ? '注册并登录'
+363|                  : '确认修改'}
+364|          </button>
+365|
+366|          {mode === 'login' ? (
+367|            <>
+368|              <p className={styles.hint}>
+369|                演示：演示用户甲（购票）/ 运营小王、系统管理员（登录后进后台），密码均为 demo123456
+370|              </p>
+371|              <p className={styles.hint}>
+372|                也可直接打开{' '}
+373|                <a
+374|                  href="/admin/login"
+375|                  onClick={(e) => {
+376|                    e.preventDefault();
+377|                    close(false);
+378|                    history.push('/admin/login');
+379|                  }}
+380|                >
+381|                  运营后台登录
+382|                </a>
+383|              </p>
+384|            </>
+385|          ) : mode === 'change' ? (
+386|            <p className={styles.hint}>无需短信。知道旧密码即可设置新密码。</p>
+387|          ) : (
+388|            <p className={styles.hint}>注册无需验证码，填写昵称、手机号与密码即可。</p>
+389|          )}
+390|>>>>>>> Stashed changes
+391|        </form>
+392|      </div>
+393|    </div>
+
+================================================================================
+src/mock/router.ts
+================================================================================
+--- hunk 1 lines 320-324 ---
+317|      nickname: user.nickname,
+318|      phone: user.phone,
+319|      role: user.role,
+320|<<<<<<< Updated upstream
+321|      cinemaId: user.cinemaId,
+322|=======
+323|      cinemaId: (user as { cinemaId?: string | null }).cinemaId ?? null,
+324|>>>>>>> Stashed changes
+325|    };
+326|    return ok(data);
+327|  }
+
+================================================================================
+src/pages/admin/cinemaForm.tsx
+================================================================================
+--- hunk 1 lines 8-16 ---
+5|import * as adminApi from '@/api/admin';
+6|import AmapLocationPicker from '@/components/AmapLocationPicker';
+7|import type { SelectedLocation } from '@/components/AmapLocationPicker/interface';
+8|<<<<<<< Updated upstream
+9|import { cityIdToName, cityNameToId } from '@/components/AmapLocationPicker/cityMap';
+10|=======
+11|import { cityNameToId, cityIdToName } from '@/components/AmapLocationPicker/cityMap';
+12|import { useAuthStore } from '@/stores/auth';
+13|import PageError from '@/components/PageError';
+14|
+15|const MAP_HEIGHT = 520;
+16|>>>>>>> Stashed changes
+17|
+18|const CinemaFormPage: React.FC = () => {
+19|  const { cinemaId } = useParams<{ cinemaId: string }>();
+
+--- hunk 2 lines 28-101 ---
+25|  const [loadError, setLoadError] = useState<unknown>(null);
+26|
+27|  useEffect(() => {
+28|<<<<<<< Updated upstream
+29|    if (!isNew && cinemaId) void catalogApi.getCinema(cinemaId)
+30|      .then((cinema) => {
+31|        form.setFieldsValue({ ...cinema, cityName: cinema.cityName || cityIdToName(cinema.cityId), tagsText: cinema.tags?.join(', ') });
+32|        setMapCenter({ lng: cinema.lng, lat: cinema.lat });
+33|      })
+34|      .catch(() => {});
+35|  }, [cinemaId, form, isNew]);
+36|
+37|  const onFinish = async (values: Record<string, unknown>) => {
+38|    const lat = values.lat as number | undefined;
+39|    const lng = values.lng as number | undefined;
+40|    const tags = String(values.tagsText || '').split(/[,，]/).map((item) => item.trim()).filter(Boolean);
+41|    const cityName = String(values.cityName || '').trim();
+42|    const common = {
+43|      cityId: cityNameToId(cityName) || undefined,
+44|      cityName,
+45|      name: String(values.name).trim(), address: String(values.address).trim(),
+46|    };
+47|    const trafficNote = String(values.trafficNote || '').trim();
+48|    try {
+49|      if (isNew) {
+50|        if (lat == null || lng == null) { message.error('新建影院必须选择经纬度'); return; }
+51|        await adminApi.createCinema({ ...common, lat, lng, trafficNote: trafficNote || undefined, tags: tags.length ? tags : undefined });
+52|      } else {
+53|        const coordinatePatch = lat != null && lng != null ? { lat, lng } : {};
+54|        // 编辑时空值也是显式变更，确保可以清空既有交通说明和特色标签。
+55|        await adminApi.updateCinema(cinemaId!, { ...common, ...coordinatePatch, trafficNote, tags });
+56|      }
+57|      message.success('已保存'); history.push('/admin/cinemas');
+58|    } catch {
+59|      // 请求层已处理。
+60|=======
+61|    if (isNew && user?.role !== 'admin') {
+62|      message.error('仅管理员可新建影院');
+63|      history.replace('/admin/cinemas');
+64|      return;
+65|    }
+66|    if (!isNew && cinemaId) {
+67|      if (user?.role === 'staff' && user.cinemaId && user.cinemaId !== cinemaId) {
+68|        message.error('无权编辑其他影院');
+69|        history.replace('/admin/cinemas');
+70|        return;
+71|      }
+72|      setLoadError(null);
+73|      void catalogApi
+74|        .getCinema(cinemaId)
+75|        .then((c) => {
+76|          // 编辑回显：城市编码转中文名显示
+77|          form.setFieldsValue({
+78|            ...c,
+79|            cityId: cityIdToName(c.cityId),
+80|          });
+81|          setMapCenter({ lng: c.lng, lat: c.lat });
+82|        })
+83|        .catch((e) => setLoadError(e));
+84|    }
+85|  }, [cinemaId, isNew, user, form]);
+86|
+87|  const onFinish = async (v: Record<string, unknown>) => {
+88|    try {
+89|      // 提交时：城市中文名转编码（如"上海市" → city_sh）
+90|      const cityInput = String(v.cityId || '');
+91|      const body = {
+92|        ...v,
+93|        cityId: cityNameToId(cityInput) || cityInput,
+94|      };
+95|      if (isNew) await adminApi.createCinema(body);
+96|      else await adminApi.updateCinema(cinemaId!, body);
+97|      message.success('已保存');
+98|      history.push('/admin/cinemas');
+99|    } catch (e) {
+100|      message.error(e instanceof Error ? e.message : '保存失败');
+101|>>>>>>> Stashed changes
+102|    }
+103|  };
+104|
+
+--- hunk 3 lines 114-203 ---
+111|  });
+112|  const coordinateRule = (name: string, min: number, max: number) => [{ required: isNew, message: `请输入${name}` }, { type: 'number' as const, min, max, message: `${name}范围应为 ${min} 至 ${max}` }];
+113|
+114|<<<<<<< Updated upstream
+115|  return <div>
+116|    <h2 style={{ marginBottom: 16 }}>{isNew ? '新建影院' : '编辑影院'}</h2>
+117|    <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+118|      <Card title="影院信息" style={{ flex: '0 0 400px' }} styles={{ body: { paddingBottom: 12 } }}>
+119|        <Form form={form} layout="vertical" onFinish={onFinish}>
+120|          <Form.Item name="name" label="名称" rules={[{ required: true, whitespace: true, message: '请输入影院名称' }]}><Input /></Form.Item>
+121|          <Form.Item name="address" label="地址" rules={[{ required: true, whitespace: true, message: '请输入地址' }]}><Input /></Form.Item>
+122|          <Form.Item name="cityName" label="城市" rules={[{ required: true, whitespace: true, message: '请输入城市名称' }]}><Input placeholder="例如：上海市" /></Form.Item>
+123|          <div style={{ display: 'flex', gap: 12 }}>
+124|            <Form.Item name="lat" label="纬度" style={{ flex: 1 }} rules={coordinateRule('纬度', -90, 90)}><InputNumber style={{ width: '100%' }} /></Form.Item>
+125|            <Form.Item name="lng" label="经度" style={{ flex: 1 }} rules={coordinateRule('经度', -180, 180)}><InputNumber style={{ width: '100%' }} /></Form.Item>
+126|=======
+127|  if (loadError) {
+128|    return (
+129|      <PageError
+130|        title="影院详情加载失败"
+131|        error={loadError}
+132|        onRetry={() => {
+133|          setLoadError(null);
+134|          if (cinemaId) {
+135|            void catalogApi
+136|              .getCinema(cinemaId)
+137|              .then((c) => {
+138|                form.setFieldsValue({
+139|                  ...c,
+140|                  cityId: cityIdToName(c.cityId),
+141|                });
+142|                setMapCenter({ lng: c.lng, lat: c.lat });
+143|              })
+144|              .catch((e) => setLoadError(e));
+145|          }
+146|        }}
+147|      />
+148|    );
+149|  }
+150|
+151|  return (
+152|    <div>
+153|      <h2 style={{ marginBottom: 16 }}>{isNew ? '新建影院' : '编辑影院'}</h2>
+154|
+155|      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+156|        {/* 左侧 — 表单 */}
+157|        <Card
+158|          title="影院信息"
+159|          style={{ flex: '0 0 400px' }}
+160|          styles={{ body: { paddingBottom: 12 } }}
+161|        >
+162|          <Form form={form} layout="vertical" onFinish={onFinish}>
+163|            <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入影院名称' }]}>
+164|              <Input placeholder="点击地图或搜索自动填充" />
+165|            </Form.Item>
+166|
+167|            <Form.Item name="address" label="地址" rules={[{ required: true, message: '请输入地址' }]}>
+168|              <Input placeholder="点击地图或搜索自动填充" />
+169|            </Form.Item>
+170|
+171|            <Form.Item name="cityId" label="城市">
+172|              <Input placeholder="点击地图自动填充（提交时转为城市编码）" />
+173|            </Form.Item>
+174|
+175|            <div style={{ display: 'flex', gap: 12 }}>
+176|              <Form.Item name="lat" label="纬度" style={{ flex: 1 }}>
+177|                <InputNumber style={{ width: '100%' }} placeholder="自动填充" />
+178|              </Form.Item>
+179|              <Form.Item name="lng" label="经度" style={{ flex: 1 }}>
+180|                <InputNumber style={{ width: '100%' }} placeholder="自动填充" />
+181|              </Form.Item>
+182|            </div>
+183|
+184|            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+185|              <Button onClick={() => history.push('/admin/cinemas')}>取消</Button>
+186|              <Button type="primary" htmlType="submit">保存</Button>
+187|            </div>
+188|          </Form>
+189|        </Card>
+190|
+191|        {/* 右侧 — 地图 */}
+192|        <Card
+193|          title="地图选址"
+194|          style={{ flex: 1, minWidth: 0 }}
+195|          styles={{ body: { padding: 0 } }}
+196|        >
+197|          <div style={{ height: MAP_HEIGHT }}>
+198|            <AmapLocationPicker
+199|              onSelect={handleLocationSelect}
+200|              initialLng={mapCenter.lng}
+201|              initialLat={mapCenter.lat}
+202|            />
+203|>>>>>>> Stashed changes
+204|          </div>
+205|          <Form.Item name="trafficNote" label="交通说明"><Input placeholder="例如：地铁 1 号线直达" /></Form.Item>
+206|          <Form.Item name="tagsText" label="特色标签"><Input placeholder="IMAX, 杜比" /></Form.Item>
+
+================================================================================
+src/pages/admin/cinemas.tsx
+================================================================================
+--- hunk 1 lines 1-7 ---
+1|<<<<<<< Updated upstream
+2|import React, { useEffect, useState } from 'react';
+3|import { Button, Modal, Space, Table, Tooltip, message } from 'antd';
+4|=======
+5|import React, { useCallback, useEffect, useState } from 'react';
+6|import { Button, Space, Spin, Table, Tag } from 'antd';
+7|>>>>>>> Stashed changes
+8|import { history } from 'umi';
+9|import * as catalogApi from '@/api/catalog';
+10|import * as adminApi from '@/api/admin';
+
+--- hunk 2 lines 20-86 ---
+17|
+18|const AdminCinemasPage: React.FC = () => {
+19|  const [data, setData] = useState<CinemaVO[]>([]);
+20|<<<<<<< Updated upstream
+21|  const { canAdmin } = useAccess();
+22|  const user = useAuthStore((state) => state.user);
+23|  const staffCinemaId = user?.role === 'staff' ? user.cinemaId || getCinemaIdFromAccessToken() : undefined;
+24|
+25|  const load = () => void catalogApi.listCinemas({ sort: 'price', page: 1, size: 50 })
+26|    .then((r) => setData(r.items))
+27|    .catch(() => setData([]));
+28|
+29|  useEffect(() => { load(); }, []);
+30|
+31|  const remove = (cinema: CinemaVO) => Modal.confirm({
+32|    title: `确认删除“${cinema.name}”吗？`,
+33|    content: '删除后公开端将不再展示该影院，且无法恢复。若仍有员工绑定该影院，请先迁移员工。',
+34|    okText: '确认删除',
+35|    cancelText: '取消',
+36|    okButtonProps: { danger: true },
+37|    onOk: async () => {
+38|      try {
+39|        await adminApi.deleteCinema(cinema.cinemaId);
+40|        message.success('影院已删除');
+41|        load();
+42|      } catch {
+43|        // 请求层已统一提示并执行对应错误策略，避免 Modal 回调形成未处理拒绝。
+44|      }
+45|    },
+46|  });
+47|=======
+48|  const [loading, setLoading] = useState(true);
+49|  const [error, setError] = useState<unknown>(null);
+50|  const user = useAuthStore((s) => s.user);
+51|  const isAdmin = user?.role === 'admin';
+52|  const staffCinemaId = user?.role === 'staff' ? user.cinemaId : null;
+53|
+54|  const load = useCallback(async () => {
+55|    setLoading(true);
+56|    setError(null);
+57|    try {
+58|      const r = await catalogApi.listCinemas({ page: 1, size: 50 });
+59|      let items = r.items;
+60|      if (staffCinemaId) {
+61|        items = items.filter((c) => c.cinemaId === staffCinemaId);
+62|      }
+63|      setData(items);
+64|    } catch (e) {
+65|      setError(e);
+66|    } finally {
+67|      setLoading(false);
+68|    }
+69|  }, [staffCinemaId]);
+70|
+71|  useEffect(() => {
+72|    void load();
+73|  }, [load]);
+74|
+75|  if (error) {
+76|    return <PageError title="影院列表加载失败" error={error} onRetry={() => void load()} />;
+77|  }
+78|
+79|  if (loading) {
+80|    return (
+81|      <div style={{ padding: 64, textAlign: 'center' }}>
+82|        <Spin tip="加载中…" />
+83|      </div>
+84|    );
+85|  }
+86|>>>>>>> Stashed changes
+87|
+88|  return (
+89|    <div>
+
+--- hunk 3 lines 91-103 ---
+88|  return (
+89|    <div>
+90|      <Space style={{ marginBottom: 16 }}>
+91|<<<<<<< Updated upstream
+92|        {canAdmin && <Button type="primary" onClick={() => history.push('/admin/cinemas/new')}>
+93|          + 新建影院
+94|        </Button>}
+95|=======
+96|        {isAdmin ? (
+97|          <Button type="primary" onClick={() => history.push('/admin/cinemas/new')}>
+98|            + 新建影院
+99|          </Button>
+100|        ) : (
+101|          <Tag color="processing">仅可管理本影院（{staffCinemaId || '未绑定'}）</Tag>
+102|        )}
+103|>>>>>>> Stashed changes
+104|      </Space>
+105|      <Table
+106|        rowKey="cinemaId"
+
+================================================================================
+src/pages/admin/dashboard.tsx
+================================================================================
+--- hunk 1 lines 19-51 ---
+16|  const [error, setError] = useState<unknown>(null);
+17|  const today = getToday();
+18|
+19|<<<<<<< Updated upstream
+20|  useEffect(() => {
+21|    (async () => {
+22|      try {
+23|        const dashboardStats = await adminApi.getDashboardStats(today);
+24|        setStats({
+25|          total: dashboardStats.totalOrderCount,
+26|          pending: dashboardStats.pendingPayOrderCount,
+27|          issued: dashboardStats.issuedOrderCount,
+28|          shows: dashboardStats.onSaleShowCount,
+29|        });
+30|      } catch {
+31|        // 请求层已处理，保留零值统计。
+32|      }
+33|    })();
+34|=======
+35|  const load = useCallback(async () => {
+36|    setLoading(true);
+37|    setError(null);
+38|    try {
+39|      const dashboardStats = await adminApi.getDashboardStats(today);
+40|      setStats({
+41|        total: dashboardStats.totalOrderCount,
+42|        pending: dashboardStats.pendingPayOrderCount,
+43|        issued: dashboardStats.issuedOrderCount,
+44|        shows: dashboardStats.onSaleShowCount,
+45|      });
+46|    } catch (e) {
+47|      setError(e);
+48|    } finally {
+49|      setLoading(false);
+50|    }
+51|>>>>>>> Stashed changes
+52|  }, [today]);
+53|
+54|  useEffect(() => {
+
+================================================================================
+src/pages/admin/halls.tsx
+================================================================================
+--- hunk 1 lines 1-14 ---
+1|<<<<<<< Updated upstream
+2|import React, { useEffect, useState } from 'react';
+3|import { Button, Form, Input, Modal, Space, Table, message } from 'antd';
+4|import { history, useLocation, useParams } from 'umi';
+5|import * as adminApi from '@/api/admin';
+6|import type { HallVO } from '@/types';
+7|=======
+8|import React, { useCallback, useEffect, useState } from 'react';
+9|import { Button, Form, Input, Modal, Select, Spin, Table, message } from 'antd';
+10|import { useParams } from 'umi';
+11|import * as adminApi from '@/api/admin';
+12|import type { HallVO, SeatMapVO } from '@/types';
+13|import PageError from '@/components/PageError';
+14|>>>>>>> Stashed changes
+15|
+16|const HallsPage: React.FC = () => {
+17|  const { cinemaId } = useParams<{ cinemaId: string }>();
+
+--- hunk 2 lines 25-66 ---
+22|  const [loading, setLoading] = useState(true);
+23|  const [error, setError] = useState<unknown>(null);
+24|
+25|<<<<<<< Updated upstream
+26|  const load = () => void adminApi.listHalls({ cinemaId, page: 1, size: 50 })
+27|    .then((r) => setHalls(r.items))
+28|    .catch(() => setHalls([]));
+29|
+30|  useEffect(() => {
+31|    load();
+32|  }, [cinemaId]);
+33|=======
+34|  const load = useCallback(async () => {
+35|    setLoading(true);
+36|    setError(null);
+37|    try {
+38|      const [h, m] = await Promise.all([
+39|        adminApi.listHalls(cinemaId),
+40|        adminApi.listSeatMaps(),
+41|      ]);
+42|      setHalls(h.items);
+43|      setMaps(m.items);
+44|    } catch (e) {
+45|      setError(e);
+46|    } finally {
+47|      setLoading(false);
+48|    }
+49|  }, [cinemaId]);
+50|
+51|  useEffect(() => {
+52|    void load();
+53|  }, [load]);
+54|
+55|  if (error) {
+56|    return <PageError title="影厅列表加载失败" error={error} onRetry={() => void load()} />;
+57|  }
+58|
+59|  if (loading) {
+60|    return (
+61|      <div style={{ padding: 64, textAlign: 'center' }}>
+62|        <Spin tip="加载中…" />
+63|      </div>
+64|    );
+65|  }
+66|>>>>>>> Stashed changes
+67|
+68|  useEffect(() => {
+69|    const seatMapId = new URLSearchParams(location.search).get('seatMapId');
+
+--- hunk 3 lines 94-138 ---
+91|          {
+92|            title: '操作',
+93|            render: (_, r) => (
+94|<<<<<<< Updated upstream
+95|              <Button type="link" onClick={() => {
+96|                let nextName = r.name;
+97|                Modal.confirm({
+98|                  title: '修改影厅名称',
+99|                  content: <Input defaultValue={r.name} onChange={(event) => { nextName = event.target.value; }} />,
+100|                  onOk: async () => {
+101|                    try {
+102|                      await adminApi.updateHall(r.hallId, { name: nextName.trim() || r.name });
+103|                      message.success('已更新');
+104|                      load();
+105|                    } catch {
+106|                      // 请求层已处理。
+107|                    }
+108|                  },
+109|                });
+110|              }}>改名</Button>
+111|=======
+112|              <Button
+113|                type="link"
+114|                onClick={() => {
+115|                  Modal.confirm({
+116|                    title: '改名',
+117|                    content: (
+118|                      <Input
+119|                        defaultValue={r.name}
+120|                        id="hall-rename"
+121|                      />
+122|                    ),
+123|                    onOk: async () => {
+124|                      try {
+125|                        const el = document.getElementById('hall-rename') as HTMLInputElement;
+126|                        await adminApi.updateHall(r.hallId, { name: el?.value || r.name });
+127|                        message.success('已更新');
+128|                        void load();
+129|                      } catch (e) {
+130|                        message.error(e instanceof Error ? e.message : '更新失败');
+131|                      }
+132|                    },
+133|                  });
+134|                }}
+135|              >
+136|                改名
+137|              </Button>
+138|>>>>>>> Stashed changes
+139|            ),
+140|          },
+141|        ]}
+
+--- hunk 4 lines 143-191 ---
+140|          },
+141|        ]}
+142|      />
+143|<<<<<<< Updated upstream
+144|      <Modal title="新建影厅" open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()}>
+145|        <Form form={form} layout="vertical" onFinish={async (values) => {
+146|          try {
+147|            await adminApi.createHall({ ...values, cinemaId });
+148|            message.success('已创建');
+149|            setOpen(false);
+150|            form.resetFields();
+151|            load();
+152|          } catch {
+153|            // 请求层已处理。
+154|          }
+155|        }}>
+156|          <Form.Item name="name" label="厅名" rules={[{ required: true, whitespace: true, message: '请输入影厅名称' }]}><Input /></Form.Item>
+157|          <Form.Item name="seatMapId" label="座位图 ID" rules={[{ required: true, whitespace: true, message: '请输入已创建的座位图 ID' }]}>
+158|            <Input placeholder="例如 sm_sh_xuhui_01" />
+159|=======
+160|      <Modal
+161|        title="新建影厅"
+162|        open={open}
+163|        onCancel={() => setOpen(false)}
+164|        onOk={() => form.submit()}
+165|      >
+166|        <Form
+167|          form={form}
+168|          layout="vertical"
+169|          onFinish={async (v) => {
+170|            try {
+171|              await adminApi.createHall({ ...v, cinemaId });
+172|              message.success('已创建');
+173|              setOpen(false);
+174|              form.resetFields();
+175|              void load();
+176|            } catch (e) {
+177|              message.error(e instanceof Error ? e.message : '创建失败');
+178|            }
+179|          }}
+180|        >
+181|          <Form.Item name="name" label="厅名" rules={[{ required: true }]}>
+182|            <Input />
+183|          </Form.Item>
+184|          <Form.Item name="seatMapId" label="座位图" rules={[{ required: true }]}>
+185|            <Select
+186|              options={maps.map((m) => ({
+187|                value: m.seatMapId,
+188|                label: `${m.seatMapId} (${m.rows}×${m.cols})`,
+189|              }))}
+190|            />
+191|>>>>>>> Stashed changes
+192|          </Form.Item>
+193|        </Form>
+194|      </Modal>
+
+================================================================================
+src/pages/admin/movieForm.tsx
+================================================================================
+--- hunk 1 lines 39-57 ---
+36|
+37|  useEffect(() => {
+38|    if (!isNew && movieId) {
+39|<<<<<<< Updated upstream
+40|      void catalogApi.getMovie(movieId)
+41|        .then((m) => {
+42|          form.setFieldsValue({ ...m, genres: m.genres.join(','), releaseDate: dayjs(m.releaseDate) });
+43|        })
+44|        .catch(() => {});
+45|=======
+46|      setLoadError(null);
+47|      void catalogApi
+48|        .getMovie(movieId)
+49|        .then((m) => {
+50|          form.setFieldsValue({
+51|            ...m,
+52|            genres: m.genres.join(','),
+53|            releaseDate: dayjs(m.releaseDate),
+54|          });
+55|        })
+56|        .catch((e) => setLoadError(e));
+57|>>>>>>> Stashed changes
+58|    }
+59|  }, [movieId, isNew, form]);
+60|
+
+--- hunk 2 lines 73-89 ---
+70|        cast: String(v.cast || '').trim(),
+71|        description: String(v.description || '').trim(),
+72|      };
+73|<<<<<<< Updated upstream
+74|      try {
+75|        if (isNew) await adminApi.createMovie(body);
+76|        else await adminApi.updateMovie(movieId!, body);
+77|        message.success('已保存');
+78|        history.push('/admin/movies');
+79|      } catch {
+80|        // 请求层已处理。
+81|      }
+82|=======
+83|      if (isNew) await adminApi.createMovie(body);
+84|      else await adminApi.updateMovie(movieId!, body);
+85|      message.success('已保存');
+86|      history.push('/admin/movies');
+87|    } catch (e) {
+88|      message.error(e instanceof Error ? e.message : '保存失败');
+89|>>>>>>> Stashed changes
+90|    } finally {
+91|      setLoading(false);
+92|    }
+
+================================================================================
+src/pages/admin/movies.tsx
+================================================================================
+--- hunk 1 lines 2-6 ---
+1|import React, { useEffect, useState } from 'react';
+2|<<<<<<< Updated upstream
+3|import { Alert, Button, Input, Space, Table, Tag } from 'antd';
+4|=======
+5|import { Button, Input, Space, Table, Tag, message } from 'antd';
+6|>>>>>>> Stashed changes
+7|import { history } from 'umi';
+8|import * as catalogApi from '@/api/catalog';
+9|import type { MovieVO } from '@/types';
+
+--- hunk 2 lines 22-45 ---
+19|  const [data, setData] = useState<MovieVO[]>([]);
+20|  const [q, setQ] = useState('');
+21|  const [loading, setLoading] = useState(false);
+22|<<<<<<< Updated upstream
+23|  const [loadError, setLoadError] = useState<string | null>(null);
+24|
+25|  const load = async () => {
+26|    setLoading(true);
+27|    setLoadError(null);
+28|    try {
+29|      const res = await catalogApi.listMovies({ q: q || undefined, page: 1, size: 50 });
+30|      setData(res.items);
+31|    } catch (error) {
+32|      setLoadError(error instanceof Error ? error.message : '影片列表加载失败，请稍后重试');
+33|=======
+34|  const [error, setError] = useState<unknown>(null);
+35|
+36|  const load = async () => {
+37|    setLoading(true);
+38|    setError(null);
+39|    try {
+40|      const res = await catalogApi.listMovies({ q: q || undefined, page: 1, size: 50 });
+41|      setData(res.items);
+42|    } catch (e) {
+43|      setError(e);
+44|      message.error(e instanceof Error ? e.message : '加载失败');
+45|>>>>>>> Stashed changes
+46|    } finally {
+47|      setLoading(false);
+48|    }
+
+================================================================================
+src/pages/admin/orders.tsx
+================================================================================
+--- hunk 1 lines 14-48 ---
+11|  const [error, setError] = useState<unknown>(null);
+12|
+13|  const search = async (v?: Record<string, string>) => {
+14|<<<<<<< Updated upstream
+15|    const values = v || form.getFieldsValue();
+16|    try {
+17|      const res = await adminApi.adminListOrders({
+18|        orderId: values.orderId,
+19|        userId: values.userId,
+20|        status: values.status,
+21|        page: 1,
+22|        size: 50,
+23|      });
+24|      setData(res.items);
+25|    } catch {
+26|      setData([]);
+27|=======
+28|    setError(null);
+29|    try {
+30|      const values = v || form.getFieldsValue();
+31|      const res = await adminApi.adminListOrders({
+32|        userId: values.userId || undefined,
+33|        status: values.status || undefined,
+34|        dateFrom: values.dateFrom || undefined,
+35|        dateTo: values.dateTo || undefined,
+36|        page: 1,
+37|        size: 50,
+38|      });
+39|      // 订单号筛选为前端本地过滤（中台暂无 orderId 查询参数）
+40|      const orderIdQ = (values.orderId || '').trim();
+41|      const items = orderIdQ
+42|        ? res.items.filter((o) => o.orderId.includes(orderIdQ))
+43|        : res.items;
+44|      setData(items);
+45|    } catch (e) {
+46|      setError(e);
+47|      message.error(e instanceof Error ? e.message : '查询失败');
+48|>>>>>>> Stashed changes
+49|    }
+50|  };
+51|
+
+--- hunk 2 lines 110-154 ---
+107|            ),
+108|          },
+109|          { title: '取票码', dataIndex: 'ticketCode' },
+110|<<<<<<< Updated upstream
+111|          {
+112|            title: '操作',
+113|            render: (_, record: OrderVO) => (
+114|              <Space onClick={(event) => event.stopPropagation()}>
+115|                {record.status === 'pending_pay' ? (
+116|                  <Popconfirm
+117|                    title="关闭该待支付订单？"
+118|                    description="关闭后会释放已锁定座位，订单不可恢复。"
+119|                    onConfirm={async () => {
+120|                      try {
+121|                        await adminApi.adminCancelOrder(record.orderId);
+122|                        message.success('订单已关闭，座位已释放');
+123|                        await search();
+124|                      } catch {
+125|                        // 请求层已处理。
+126|                      }
+127|                    }}
+128|                  >
+129|                    <Button type="link" danger>关闭订单</Button>
+130|                  </Popconfirm>
+131|                ) : null}
+132|                {record.status === 'issued' ? (
+133|                  <Popconfirm
+134|                    title="确认核销该票券？"
+135|                    description="核销后票券将不可再次使用。"
+136|                    onConfirm={async () => {
+137|                      try {
+138|                        const updated = await adminApi.consumeTicket(record.orderId);
+139|                        setCurrent((item) => (item?.orderId === updated.orderId ? updated : item));
+140|                        message.success('票券已核销');
+141|                        await search();
+142|                      } catch {
+143|                        // 请求层已处理。
+144|                      }
+145|                    }}
+146|                  >
+147|                    <Button type="link">核销</Button>
+148|                  </Popconfirm>
+149|                ) : null}
+150|              </Space>
+151|            ),
+152|          },
+153|=======
+154|>>>>>>> Stashed changes
+155|        ]}
+156|      />
+157|      <Drawer open={!!current} onClose={() => setCurrent(null)} title="订单详情" width={420}>
+
+================================================================================
+src/pages/admin/seatMapEditor.tsx
+================================================================================
+--- hunk 1 lines 40-112 ---
+37|  const [loadKey, setLoadKey] = useState(0);
+38|
+39|  useEffect(() => {
+40|<<<<<<< Updated upstream
+41|    setCinemaId(queryCinemaId);
+42|    void catalogApi.listCinemas({ sort: 'price', page: 1, size: 50 })
+43|      .then((result) => setCinemas(result.items))
+44|      .catch(() => setCinemas([]));
+45|  }, [queryCinemaId]);
+46|
+47|  const generate = () => setGrid(emptyGrid(rows, cols));
+48|  const seatCount = useMemo(() => grid.flat().filter((cell) => cell.kind === 'seat').length, [grid]);
+49|  const usedZones = useMemo(() => distinctZones(grid.flat().filter((cell): cell is Extract<Cell, { kind: 'seat' }> => cell.kind === 'seat')), [grid]);
+50|=======
+51|    if (isNew) {
+52|      setLoadError(null);
+53|      setGrid(emptyGrid(rows, cols));
+54|      return;
+55|    }
+56|    setLoadError(null);
+57|    void adminApi
+58|      .getSeatMapTemplate(seatMapId!)
+59|      .then((map) => {
+60|        setRows(map.rows);
+61|        setCols(map.cols);
+62|        setScreenLabel(map.screenLabel);
+63|        setId(map.seatMapId);
+64|        const g = emptyGrid(map.rows, map.cols);
+65|        for (const s of map.seats) {
+66|          g[s.graphRow - 1][s.graphCol - 1] = {
+67|            kind: 'seat',
+68|            type: s.type,
+69|            zone: s.zone,
+70|            defaultStatus: s.defaultStatus || 'available',
+71|            couplePairId: s.couplePairId,
+72|            rowNo: s.rowNo,
+73|            colNo: s.colNo,
+74|            seatName: s.seatName,
+75|            seatId: s.seatId,
+76|          };
+77|        }
+78|        setGrid(g);
+79|        const found = distinctZones(map.seats);
+80|        setZonePresets(Array.from(new Set([...DEFAULT_ZONE_PRESETS, ...found])));
+81|        if (found[0]) setZone(found[0]);
+82|      })
+83|      .catch((e) => setLoadError(e));
+84|  }, [seatMapId, isNew, loadKey]);
+85|
+86|  const seatCount = useMemo(
+87|    () => grid.flat().filter((c) => c.kind === 'seat').length,
+88|    [grid],
+89|  );
+90|
+91|  const usedZones = useMemo(
+92|    () =>
+93|      distinctZones(
+94|        grid.flat().filter((c): c is Extract<Cell, { kind: 'seat' }> => c.kind === 'seat'),
+95|      ),
+96|    [grid],
+97|  );
+98|
+99|  if (loadError) {
+100|    return (
+101|      <PageError
+102|        title="座位图加载失败"
+103|        error={loadError}
+104|        onRetry={() => setLoadKey((k) => k + 1)}
+105|      />
+106|    );
+107|  }
+108|
+109|  const generate = () => {
+110|    setGrid(emptyGrid(rows, cols));
+111|  };
+112|>>>>>>> Stashed changes
+113|
+114|  const addCustomZone = () => {
+115|    const code = customZone.trim();
+
+--- hunk 2 lines 190-218 ---
+187|      message.error('情侣座必须以完整的一对保存，请检查座位图后重试');
+188|      return;
+189|    }
+190|<<<<<<< Updated upstream
+191|    try {
+192|      const created = await adminApi.createSeatMap({ seatMapId: normalizedId || undefined, cinemaId, rows, cols, screenLabel, seats });
+193|      message.success('已创建座位图');
+194|      history.replace(`/admin/cinemas/${created.cinemaId || cinemaId}/halls?seatMapId=${encodeURIComponent(created.seatMapId)}`);
+195|    } catch {
+196|      // 请求层已处理。
+197|=======
+198|    const body = {
+199|      seatMapId: id || undefined,
+200|      rows,
+201|      cols,
+202|      screenLabel,
+203|      seats,
+204|      zones: distinctZones(seats),
+205|      mutable: true,
+206|    };
+207|    try {
+208|      if (isNew || !id) {
+209|        const created = await adminApi.createSeatMap(body);
+210|        message.success('已创建');
+211|        history.replace(`/admin/seat-maps/${created.seatMapId}`);
+212|      } else {
+213|        await adminApi.updateSeatMap(id, body);
+214|        message.success('已保存');
+215|      }
+216|    } catch (e) {
+217|      message.error(e instanceof Error ? e.message : '保存失败');
+218|>>>>>>> Stashed changes
+219|    }
+220|  };
+221|
+
+================================================================================
+src/pages/admin/seatMaps.tsx
+================================================================================
+--- hunk 1 lines 1-121 ---
+1|<<<<<<< Updated upstream
+2|import React from 'react';
+3|import { Alert, Button, Card, Space } from 'antd';
+4|import { history } from 'umi';
+5|
+6|const SeatMapsPage: React.FC = () => (
+7|  <Card title="座位图">
+8|    <Alert
+9|      type="info"
+10|      showIcon
+11|      message="座位图创建后不可在运营端查询、编辑或删除"
+12|      description="当前真实接口只提供创建座位图。请从具体影院的影厅管理页创建，以自动关联影院；创建完成后将座位图 ID 填入新建影厅表单。"
+13|    />
+14|    <Space style={{ marginTop: 16 }}>
+15|      <Button type="primary" onClick={() => history.push('/admin/cinemas')}>前往影院管理</Button>
+16|      <Button onClick={() => history.push('/admin/seat-maps/new')}>直接新建座位图</Button>
+17|    </Space>
+18|  </Card>
+19|);
+20|=======
+21|import React, { useCallback, useEffect, useState } from 'react';
+22|import { Button, Modal, Space, Spin, Table, message } from 'antd';
+23|import { history } from 'umi';
+24|import * as adminApi from '@/api/admin';
+25|import type { SeatMapVO } from '@/types';
+26|import PageError from '@/components/PageError';
+27|
+28|const SeatMapsPage: React.FC = () => {
+29|  const [data, setData] = useState<SeatMapVO[]>([]);
+30|  const [loading, setLoading] = useState(true);
+31|  const [error, setError] = useState<unknown>(null);
+32|
+33|  const load = useCallback(async () => {
+34|    setLoading(true);
+35|    setError(null);
+36|    try {
+37|      const r = await adminApi.listSeatMaps();
+38|      setData(r.items);
+39|    } catch (e) {
+40|      setError(e);
+41|    } finally {
+42|      setLoading(false);
+43|    }
+44|  }, []);
+45|
+46|  useEffect(() => {
+47|    void load();
+48|  }, [load]);
+49|
+50|  if (error) {
+51|    return <PageError title="座位图列表加载失败" error={error} onRetry={() => void load()} />;
+52|  }
+53|
+54|  if (loading) {
+55|    return (
+56|      <div style={{ padding: 64, textAlign: 'center' }}>
+57|        <Spin tip="加载中…" />
+58|      </div>
+59|    );
+60|  }
+61|
+62|  const requestDelete = async (seatMapId: string) => {
+63|    try {
+64|      const usage = await adminApi.getSeatMapUsage(seatMapId);
+65|      if (usage.hallCount || usage.showCount) {
+66|        message.warning(
+67|          `该座位图正被 ${usage.hallCount} 个影厅、${usage.showCount} 个场次引用，不能删除。`,
+68|        );
+69|        return;
+70|      }
+71|      Modal.confirm({
+72|        title: '确认删除座位图？',
+73|        content: '删除后不可恢复。',
+74|        okButtonProps: { danger: true },
+75|        onOk: async () => {
+76|          await adminApi.deleteSeatMap(seatMapId);
+77|          message.success('已删除');
+78|          await load();
+79|        },
+80|      });
+81|    } catch (e) {
+82|      message.error(e instanceof Error ? e.message : '删除失败');
+83|    }
+84|  };
+85|
+86|  return (
+87|    <div>
+88|      <Button type="primary" style={{ marginBottom: 16 }} onClick={() => history.push('/admin/seat-maps/new')}>
+89|        + 新建
+90|      </Button>
+91|      <Table
+92|        rowKey="seatMapId"
+93|        dataSource={data}
+94|        columns={[
+95|          { title: 'ID', dataIndex: 'seatMapId' },
+96|          { title: '行列', render: (_, r) => `${r.rows} × ${r.cols}` },
+97|          { title: '座位数', render: (_, r) => r.seats.length },
+98|          {
+99|            title: 'mutable',
+100|            dataIndex: 'mutable',
+101|            render: (v: boolean) => (v === false ? '否' : '是'),
+102|          },
+103|          {
+104|            title: '操作',
+105|            render: (_, r) => (
+106|              <Space>
+107|                <Button type="link" onClick={() => history.push(`/admin/seat-maps/${r.seatMapId}`)}>
+108|                  打开
+109|                </Button>
+110|                <Button type="link" danger onClick={() => void requestDelete(r.seatMapId)}>
+111|                  删除
+112|                </Button>
+113|              </Space>
+114|            ),
+115|          },
+116|        ]}
+117|      />
+118|    </div>
+119|  );
+120|};
+121|>>>>>>> Stashed changes
+122|
+123|export default SeatMapsPage;
+
+================================================================================
+src/pages/admin/shows.tsx
+================================================================================
+--- hunk 1 lines 6-14 ---
+3|import dayjs from 'dayjs';
+4|import * as catalogApi from '@/api/catalog';
+5|import * as adminApi from '@/api/admin';
+6|<<<<<<< Updated upstream
+7|import type { CinemaVO, MovieVO, HallVO, ShowVO, ZonePrice } from '@/types';
+8|import { zoneLabel } from '@/utils/zone';
+9|=======
+10|import type { CinemaVO, MovieVO, HallVO, ShowVO, ZonePrice, SeatMapVO } from '@/types';
+11|import { distinctZones, zoneLabel } from '@/utils/zone';
+12|import { useAuthStore } from '@/stores/auth';
+13|import PageError from '@/components/PageError';
+14|>>>>>>> Stashed changes
+15|
+16|function formatZonePrices(zonePrices?: ZonePrice[], fallback?: number) {
+17|  if (zonePrices && zonePrices.length > 0) {
+
+--- hunk 2 lines 43-49 ---
+40|  const [formHalls, setFormHalls] = useState<HallVO[]>([]);
+41|  const [formZones, setFormZones] = useState<string[]>([]);
+42|  const [editZones, setEditZones] = useState<string[]>([]);
+43|<<<<<<< Updated upstream
+44|=======
+45|  const [seatMapCache, setSeatMapCache] = useState<Record<string, SeatMapVO>>({});
+46|  const [bootLoading, setBootLoading] = useState(true);
+47|  const [bootError, setBootError] = useState<unknown>(null);
+48|  const [bootKey, setBootKey] = useState(0);
+49|>>>>>>> Stashed changes
+50|
+51|  const startTimeValid = (value: dayjs.Dayjs) => value.isAfter(dayjs());
+52|  const localScheduleConflict = (hallId: string, start: dayjs.Dayjs, end: dayjs.Dayjs, excludeShowId?: string) =>
+
+--- hunk 3 lines 59-158 ---
+56|    });
+57|
+58|  useEffect(() => {
+59|<<<<<<< Updated upstream
+60|    void catalogApi.listCinemas({ sort: 'price', page: 1, size: 50 }).then((r) => setCinemas(r.items)).catch(() => setCinemas([]));
+61|    void catalogApi.listMovies({ page: 1, size: 50 }).then((r) => setMovies(r.items)).catch(() => setMovies([]));
+62|  }, []);
+63|
+64|  useEffect(() => {
+65|    if (!cinemaId) return;
+66|    void adminApi.listHalls({ cinemaId }).then((r) => setHalls(r.items)).catch(() => setHalls([]));
+67|  }, [cinemaId]);
+68|
+69|  const onFormHallChange = (hallId: string) => {
+70|=======
+71|    let cancelled = false;
+72|    setBootLoading(true);
+73|    setBootError(null);
+74|    void (async () => {
+75|      try {
+76|        const [cinemaRes, movieRes] = await Promise.all([
+77|          catalogApi.listCinemas({ page: 1, size: 50 }),
+78|          catalogApi.listMovies({ page: 1, size: 50 }),
+79|        ]);
+80|        if (cancelled) return;
+81|        const items = staffCinemaId
+82|          ? cinemaRes.items.filter((c) => c.cinemaId === staffCinemaId)
+83|          : cinemaRes.items;
+84|        setCinemas(items);
+85|        setMovies(movieRes.items);
+86|        if (staffCinemaId) setCinemaId(staffCinemaId);
+87|      } catch (e) {
+88|        if (!cancelled) setBootError(e);
+89|      } finally {
+90|        if (!cancelled) setBootLoading(false);
+91|      }
+92|    })();
+93|    return () => {
+94|      cancelled = true;
+95|    };
+96|  }, [staffCinemaId, bootKey]);
+97|
+98|  useEffect(() => {
+99|    if (!cinemaId) return;
+100|    let cancelled = false;
+101|    void adminApi
+102|      .listHalls(cinemaId)
+103|      .then((r) => {
+104|        if (!cancelled) setHalls(r.items);
+105|      })
+106|      .catch((e) => {
+107|        if (!cancelled) setBootError(e);
+108|      });
+109|    return () => {
+110|      cancelled = true;
+111|    };
+112|  }, [cinemaId]);
+113|
+114|  const zonePriceFields = useMemo(
+115|    () =>
+116|      formZones.map((z) => (
+117|        <Form.Item
+118|          key={z}
+119|          name={['zonePriceMap', z]}
+120|          label={`${zoneLabel(z)} 价格`}
+121|          rules={[{ required: true, message: `请填写${zoneLabel(z)}价格` }]}
+122|        >
+123|          <InputNumber min={0.01} precision={2} style={{ width: '100%' }} addonBefore="¥" />
+124|        </Form.Item>
+125|      )),
+126|    [formZones],
+127|  );
+128|
+129|  if (bootError) {
+130|    return (
+131|      <PageError
+132|        title="排片工作台加载失败"
+133|        error={bootError}
+134|        onRetry={() => setBootKey((k) => k + 1)}
+135|      />
+136|    );
+137|  }
+138|
+139|  if (bootLoading) {
+140|    return (
+141|      <div style={{ padding: 64, textAlign: 'center' }}>
+142|        <Spin tip="加载中…" />
+143|      </div>
+144|    );
+145|  }
+146|
+147|  const loadSeatMapZones = async (seatMapId: string): Promise<string[]> => {
+148|    if (seatMapCache[seatMapId]) {
+149|      const cached = seatMapCache[seatMapId];
+150|      return cached.zones?.length ? cached.zones : distinctZones(cached.seats);
+151|    }
+152|    const map = await adminApi.getSeatMapTemplate(seatMapId);
+153|    setSeatMapCache((prev) => ({ ...prev, [seatMapId]: map }));
+154|    return map.zones?.length ? map.zones : distinctZones(map.seats);
+155|  };
+156|
+157|  const onFormHallChange = async (hallId: string) => {
+158|>>>>>>> Stashed changes
+159|    const hall = formHalls.find((h) => h.hallId === hallId) || halls.find((h) => h.hallId === hallId);
+160|    setFormZones([]);
+161|    form.setFieldValue('zonePriceMap', undefined);
+
+--- hunk 4 lines 175-181 ---
+172|    try {
+173|      const res = await adminApi.adminListShows({ cinemaId, movieId, date });
+174|      setShows(res.items);
+175|<<<<<<< Updated upstream
+176|    } catch {
+177|      setShows([]);
+178|=======
+179|    } catch (e) {
+180|      message.error(e instanceof Error ? e.message : '查询场次失败');
+181|>>>>>>> Stashed changes
+182|    }
+183|  };
+184|
+
+--- hunk 5 lines 381-391 ---
+378|              onChange={(v) => {
+379|                form.setFieldValue('hallId', undefined);
+380|                setFormZones([]);
+381|<<<<<<< Updated upstream
+382|                void adminApi.listHalls({ cinemaId: v }).then((r) => setFormHalls(r.items)).catch(() => setFormHalls([]));
+383|=======
+384|                void adminApi
+385|                  .listHalls(v)
+386|                  .then((r) => setFormHalls(r.items))
+387|                  .catch(() => {
+388|                    setFormHalls([]);
+389|                    message.error('影厅列表加载失败');
+390|                  });
+391|>>>>>>> Stashed changes
+392|              }}
+393|            />
+394|          </Form.Item>
+
+================================================================================
+src/pages/admin/ticketVerify.tsx
+================================================================================
+--- hunk 1 lines 15-30 ---
+12|
+13|  const verify = async () => {
+14|    try {
+15|<<<<<<< Updated upstream
+16|      const res = await adminApi.verifyTicket(payload.trim());
+17|      setResult(res);
+18|    } catch {
+19|      setResult(null);
+20|=======
+21|      setFatalError(null);
+22|      const res = await adminApi.verifyTicket(payload.trim());
+23|      setResult(res);
+24|    } catch (e) {
+25|      if (e instanceof ApiError && e.errorCode === 'UNAUTHORIZED') {
+26|        setFatalError(e);
+27|        return;
+28|      }
+29|      message.error(e instanceof Error ? e.message : '核验失败');
+30|>>>>>>> Stashed changes
+31|    }
+32|  };
+33|
+
+================================================================================
+src/pages/admin/users.tsx
+================================================================================
+--- hunk 1 lines 22-44 ---
+19|  const [loading, setLoading] = useState(true);
+20|  const [error, setError] = useState<unknown>(null);
+21|
+22|<<<<<<< Updated upstream
+23|  const load = () => void adminApi.listUsers().then((r) => setData(r.items)).catch(() => setData([]));
+24|=======
+25|  const load = useCallback(async () => {
+26|    setLoading(true);
+27|    setError(null);
+28|    try {
+29|      const usersRes = await adminApi.listUsers();
+30|      setData(usersRes.items);
+31|      try {
+32|        const cinemaRes = await catalogApi.listCinemas({ page: 1, size: 50 });
+33|        setCinemas(cinemaRes.items);
+34|      } catch {
+35|        // 影院目录未就绪时仍可管理用户；staff 影院用手填 cinemaId
+36|        setCinemas([]);
+37|      }
+38|    } catch (e) {
+39|      setError(e);
+40|    } finally {
+41|      setLoading(false);
+42|    }
+43|  }, []);
+44|>>>>>>> Stashed changes
+45|
+46|  useEffect(() => {
+47|    void load();
+
+--- hunk 2 lines 115-129 ---
+112|                    onConfirm={async () => {
+113|                      try {
+114|                        await adminApi.updateUser(r.userId, {
+115|<<<<<<< Updated upstream
+116|                          status: r.status === 'active' ? 'disabled' : 'active',
+117|                        });
+118|                        message.success(r.status === 'active' ? '用户已停用' : '用户已启用');
+119|                        load();
+120|                      } catch {
+121|                        // 请求层已处理。
+122|=======
+123|                          status: r.status === 1 ? 0 : 1,
+124|                        });
+125|                        message.success(r.status === 1 ? '用户已停用' : '用户已启用');
+126|                        await load();
+127|                      } catch (e) {
+128|                        message.error(e instanceof Error ? e.message : '操作失败');
+129|>>>>>>> Stashed changes
+130|                      }
+131|                    }}
+132|                    disabled={isSelf}
+
+--- hunk 3 lines 151-170 ---
+148|          layout="vertical"
+149|          onFinish={async (v) => {
+150|            try {
+151|<<<<<<< Updated upstream
+152|              await adminApi.createUser(v);
+153|              message.success('已创建');
+154|              setOpen(false);
+155|              form.resetFields();
+156|              load();
+157|            } catch {
+158|              // 请求层已处理。
+159|=======
+160|              await adminApi.createUser({
+161|                ...v,
+162|                cinemaId: v.role === 'staff' ? v.cinemaId : null,
+163|              });
+164|              message.success('已创建');
+165|              setOpen(false);
+166|              form.resetFields();
+167|              await load();
+168|            } catch (e) {
+169|              message.error(e instanceof Error ? e.message : '创建失败');
+170|>>>>>>> Stashed changes
+171|            }
+172|          }}
+173|        >
+
+--- hunk 4 lines 216-235 ---
+213|          onFinish={async ({ role: nextRole, cinemaId }) => {
+214|            if (!editingUser) return;
+215|            try {
+216|<<<<<<< Updated upstream
+217|              await adminApi.updateUser(editingUser.userId, { role });
+218|              message.success('角色已更新');
+219|              setEditingUser(null);
+220|              roleForm.resetFields();
+221|              load();
+222|            } catch {
+223|              // 请求层已处理。
+224|=======
+225|              await adminApi.updateUser(editingUser.userId, {
+226|                role: nextRole,
+227|                cinemaId: nextRole === 'staff' ? cinemaId || null : null,
+228|              });
+229|              message.success('已更新');
+230|              setEditingUser(null);
+231|              roleForm.resetFields();
+232|              await load();
+233|            } catch (e) {
+234|              message.error(e instanceof Error ? e.message : '更新失败');
+235|>>>>>>> Stashed changes
+236|            }
+237|          }}
+238|        >
+
+================================================================================
+src/pages/booking/cinemas.tsx
+================================================================================
+--- hunk 1 lines 27-73 ---
+24|
+25|  useEffect(() => {
+26|    if (!movieId) return;
+27|<<<<<<< Updated upstream
+28|    let active = true;
+29|    const load = async () => {
+30|      setLoading(true);
+31|      setError('');
+32|      try {
+33|        const [loadedMovie, result] = await Promise.all([
+34|          catalogApi.getMovie(movieId),
+35|          catalogApi.listCinemas({ movieId, sort: 'price', page: 1, size: 20 }),
+36|        ]);
+37|        if (!active) return;
+38|        setMovie(loadedMovie);
+39|        setCinemas(result.items);
+40|        try {
+41|          await patchLocal({ movieId: loadedMovie.movieId, filmTitle: loadedMovie.title, state: 'SelectCinema' }, { debounce: false });
+42|        } catch {
+43|          // 草稿同步失败不影响用户查看可购影院，后续选影院时仍会再次同步。
+44|        }
+45|      } catch (requestError) {
+46|        if (!active) return;
+47|        setCinemas([]);
+48|        setError(requestError instanceof Error ? requestError.message : '影院信息加载失败，请稍后重试');
+49|      } finally {
+50|        if (active) setLoading(false);
+51|      }
+52|    };
+53|    void load();
+54|    return () => { active = false; };
+55|  }, [movieId, patchLocal, reloadVersion]);
+56|=======
+57|    void catalogApi
+58|      .getMovie(movieId)
+59|      .then((m) => {
+60|        setMovie(m);
+61|        // 进入选影院页即写入 Draft，保护已选片步骤（模式切换 / Agent 打开不回退）
+62|        void patchLocal(
+63|          { movieId: m.movieId, filmTitle: m.title, state: 'SelectCinema' },
+64|          { debounce: false },
+65|        );
+66|      })
+67|      .catch(() => setMovie(null));
+68|    void catalogApi
+69|      .listCinemas({ movieId, sort: 'distance', page: 1, size: 20 })
+70|      .then((r) => setCinemas(r.items))
+71|      .catch(() => setCinemas([]));
+72|  }, [movieId]);
+73|>>>>>>> Stashed changes
+74|
+75|  const onSelect = async (c: CinemaVO) => {
+76|    const date = new Date().toISOString().slice(0, 10);
+
+================================================================================
+src/pages/booking/shows.tsx
+================================================================================
+--- hunk 1 lines 50-103 ---
+47|  const dateOptions = useMemo(() => datesAhead(5), []);
+48|
+49|  useEffect(() => {
+50|<<<<<<< Updated upstream
+51|    let active = true;
+52|    const loadContext = async () => {
+53|      setContextError('');
+54|      try {
+55|        const [loadedMovie, loadedCinema] = await Promise.all([
+56|          movieId ? catalogApi.getMovie(movieId) : Promise.resolve(null),
+57|          cinemaId ? catalogApi.getCinema(cinemaId) : Promise.resolve(null),
+58|        ]);
+59|        if (!active) return;
+60|        setMovie(loadedMovie);
+61|        setCinema(loadedCinema);
+62|      } catch (error) {
+63|        if (active) setContextError(error instanceof Error ? error.message : '影片或影院信息加载失败，请稍后重试');
+64|      }
+65|    };
+66|    void loadContext();
+67|    return () => { active = false; };
+68|  }, [movieId, cinemaId, reloadVersion]);
+69|
+70|  useEffect(() => {
+71|    if (!movieId || !cinemaId || !date) return;
+72|    let active = true;
+73|    const loadShows = async () => {
+74|      setShowLoading(true);
+75|      setShowsError('');
+76|      try {
+77|        const result = await catalogApi.listShows({ movieId, cinemaId, date });
+78|        if (active) setShows(result.items);
+79|      } catch (error) {
+80|        if (active) {
+81|          setShows([]);
+82|          setShowsError(error instanceof Error ? error.message : '场次加载失败，请稍后重试');
+83|        }
+84|      } finally {
+85|        if (active) setShowLoading(false);
+86|      }
+87|    };
+88|    void loadShows();
+89|    return () => { active = false; };
+90|  }, [movieId, cinemaId, date, reloadVersion]);
+91|=======
+92|    if (movieId) void catalogApi.getMovie(movieId).then(setMovie).catch(() => setMovie(null));
+93|    if (cinemaId) void catalogApi.getCinema(cinemaId).then(setCinema).catch(() => setCinema(null));
+94|  }, [movieId, cinemaId]);
+95|
+96|  useEffect(() => {
+97|    if (!movieId || !cinemaId || !date) return;
+98|    void catalogApi
+99|      .listShows({ movieId, cinemaId, date })
+100|      .then((r) => setShows(r.items))
+101|      .catch(() => setShows([]));
+102|  }, [movieId, cinemaId, date]);
+103|>>>>>>> Stashed changes
+104|
+105|  const onSelect = async (s: ShowVO) => {
+106|    try {
+
+================================================================================
+src/pages/cinemas/index.tsx
+================================================================================
+--- hunk 1 lines 19-42 ---
+16|  const [moviesError, setMoviesError] = useState('');
+17|  const patchLocal = useBookingStore((s) => s.patchLocal);
+18|
+19|<<<<<<< Updated upstream
+20|  const loadCinemas = async () => {
+21|    setLoadingCinemas(true);
+22|    setCinemasError('');
+23|    try {
+24|      const result = await catalogApi.listCinemas({ sort: 'price', page: 1, size: 20 });
+25|      setCinemas(result.items);
+26|    } catch (error) {
+27|      setCinemas([]);
+28|      setCinemasError(error instanceof Error ? error.message : '影院列表加载失败，请稍后重试');
+29|    } finally {
+30|      setLoadingCinemas(false);
+31|    }
+32|  };
+33|
+34|  useEffect(() => { void loadCinemas(); }, []);
+35|=======
+36|  useEffect(() => {
+37|    void catalogApi
+38|      .listCinemas({ page: 1, size: 20 })
+39|      .then((r) => setCinemas(r.items))
+40|      .catch(() => setCinemas([]));
+41|  }, []);
+42|>>>>>>> Stashed changes
+43|
+44|  const openCinema = async (c: CinemaVO) => {
+45|    setSelected(c);
+
+--- hunk 2 lines 65-79 ---
+62|          failedShowRequests += 1;
+63|        }
+64|      }
+65|<<<<<<< Updated upstream
+66|      if (failedShowRequests > 0 && withShows.length === 0) {
+67|        setMovies([]);
+68|        setMoviesError('场次加载失败，请检查网络后重试');
+69|      } else {
+70|        setMovies(withShows);
+71|      }
+72|    } catch (error) {
+73|      setMovies([]);
+74|      setMoviesError(error instanceof Error ? error.message : '在售影片加载失败，请稍后重试');
+75|=======
+76|      setMovies(withShows);
+77|    } catch {
+78|      setMovies([]);
+79|>>>>>>> Stashed changes
+80|    } finally {
+81|      setLoadingMovies(false);
+82|    }

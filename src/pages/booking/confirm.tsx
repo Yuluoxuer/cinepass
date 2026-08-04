@@ -4,8 +4,10 @@ import { Modal, message } from 'antd';
 import * as orderApi from '@/api/order';
 import type { OrderVO } from '@/types';
 import BookingProgress from '@/components/BookingProgress';
+import BlankPlaceholder from '@/components/BlankPlaceholder';
 import { useLockCountdown } from '@/features/seatmap/useLockCountdown';
 import { useBookingStore } from '@/stores/booking';
+import { formatOrderSeatLabels } from '@/utils/format';
 import styles from './booking.less';
 
 const ConfirmPage: React.FC = () => {
@@ -15,29 +17,64 @@ const ConfirmPage: React.FC = () => {
     useBookingStore.getState().draft?.orderId ||
     '';
   const [order, setOrder] = useState<OrderVO | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [missing, setMissing] = useState(false);
   const seatNameById = useBookingStore((s) => s.seatNameById);
   const patchLocal = useBookingStore((s) => s.patchLocal);
   const rollbackDependent = useBookingStore((s) => s.rollbackDependent);
   const { text, warning, expired } = useLockCountdown(order?.expireAt);
 
   useEffect(() => {
-    if (!orderId) return;
-    void orderApi.getOrder(orderId).then(setOrder);
+    if (!orderId) {
+      setLoading(false);
+      setMissing(true);
+      return;
+    }
+    setLoading(true);
+    void orderApi
+      .getOrder(orderId)
+      .then((o) => {
+        setOrder(o);
+        setMissing(false);
+      })
+      .catch(() => {
+        setOrder(null);
+        setMissing(true);
+      })
+      .finally(() => setLoading(false));
   }, [orderId]);
 
-  if (!order) return <div className="miaoyu-container">加载订单…</div>;
+  if (loading) {
+    return (
+      <div className="miaoyu-container">
+        <BlankPlaceholder variant="block" />
+      </div>
+    );
+  }
 
-  const seatText = order.seatIds.map((id) => seatNameById[id] || id).join('、');
+  if (missing || !order) {
+    return (
+      <div className="miaoyu-container">
+        <BlankPlaceholder variant="block" />
+      </div>
+    );
+  }
+
+  const seatText = formatOrderSeatLabels(order, seatNameById);
 
   const onCancel = () => {
     Modal.confirm({
       title: '确定取消？座位将释放',
       onOk: async () => {
-        await orderApi.cancelOrder(order.orderId);
-        rollbackDependent('SelectSeat');
-        await patchLocal({ state: 'SelectSeat', seatIds: [] }, { debounce: false });
-        message.success('座位已释放，请重新选择');
-        history.push(`/booking/seats?showId=${order.showId}`);
+        try {
+          await orderApi.cancelOrder(order.orderId);
+          rollbackDependent('SelectSeat');
+          await patchLocal({ state: 'SelectSeat', seatIds: [] }, { debounce: false });
+          message.success('座位已释放，请重新选择');
+          history.push(`/booking/seats?showId=${order.showId}`);
+        } catch {
+          /* 拦截器已提示 */
+        }
       },
     });
   };

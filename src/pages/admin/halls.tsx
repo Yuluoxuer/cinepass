@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, Modal, Space, Table, message } from 'antd';
+import { Button, Form, Input, Modal, Space, Table, message, Empty} from 'antd';
 import { history, useLocation, useParams } from 'umi';
 import * as adminApi from '@/api/admin';
 import type { HallVO } from '@/types';
@@ -38,6 +38,7 @@ const HallsPage: React.FC = () => {
       <Table
         rowKey="hallId"
         dataSource={halls}
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有数据" /> }}
         columns={[
           { title: '厅名', dataIndex: 'name' },
           { title: '座位图 ID', dataIndex: 'seatMapId' },

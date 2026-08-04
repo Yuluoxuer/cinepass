@@ -3,7 +3,6 @@ import { Outlet } from 'umi';
 import '@/styles/tokens.css';
 import SiteHeader from '@/components/SiteHeader';
 import LoginModal from '@/components/LoginModal';
-import MockToggle from '@/components/MockToggle';
 import AgentDrawer from '@/agent/AgentDrawer';
 import { restoreLoginState, useAuthStore } from '@/stores/auth';
 import { useBookingStore } from '@/stores/booking';
@@ -14,7 +13,9 @@ const ClientLayout: React.FC = () => {
     if (accessToken) {
       useAuthStore.setState({ accessToken, tokenExpireAt, user });
     }
-    void useBookingStore.getState().ensureSession();
+    void useBookingStore.getState().ensureSession().catch(() => {
+      /* 拦截器已提示；布局不阻塞 */
+    });
   }, []);
 
   return (
@@ -23,7 +24,6 @@ const ClientLayout: React.FC = () => {
       <Outlet />
       <AgentDrawer />
       <LoginModal />
-      <MockToggle />
     </div>
   );
 };

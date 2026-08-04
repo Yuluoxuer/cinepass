@@ -111,7 +111,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   closeDrawer: () => {
     useBookingStore.getState().setAgentPaused(false);
-    void useBookingStore.getState().hydrateFromServer();
+    void useBookingStore.getState().hydrateFromServer().catch(() => {
+      /* 拦截器已提示 */
+    });
     set({ open: false });
   },
 

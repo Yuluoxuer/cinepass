@@ -4,6 +4,7 @@ import { message, QRCode } from 'antd';
 import * as orderApi from '@/api/order';
 import type { OrderVO, PayQrVO } from '@/types';
 import BookingProgress from '@/components/BookingProgress';
+import BlankPlaceholder from '@/components/BlankPlaceholder';
 import { useLockCountdown } from '@/features/seatmap/useLockCountdown';
 import { getSessionId } from '@/stores/booking';
 import styles from './booking.less';
@@ -13,13 +14,37 @@ const PayPage: React.FC = () => {
   const orderId = new URLSearchParams(loc.search).get('orderId') || '';
   const [order, setOrder] = useState<OrderVO | null>(null);
   const [qr, setQr] = useState<PayQrVO | null>(null);
+  const [orderMissing, setOrderMissing] = useState(false);
+  const [qrMissing, setQrMissing] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const { text, expired } = useLockCountdown(qr?.expireAt || order?.expireAt);
 
   useEffect(() => {
-    if (!orderId) return;
-    void orderApi.getOrder(orderId).then(setOrder);
-    void orderApi.getPayQrcode(orderId).then(setQr);
+    if (!orderId) {
+      setOrderMissing(true);
+      setQrMissing(true);
+      return;
+    }
+    void orderApi
+      .getOrder(orderId)
+      .then((o) => {
+        setOrder(o);
+        setOrderMissing(false);
+      })
+      .catch(() => {
+        setOrder(null);
+        setOrderMissing(true);
+      });
+    void orderApi
+      .getPayQrcode(orderId)
+      .then((q) => {
+        setQr(q);
+        setQrMissing(false);
+      })
+      .catch(() => {
+        setQr(null);
+        setQrMissing(true);
+      });
   }, [orderId]);
 
   useEffect(() => {
@@ -66,7 +91,9 @@ const PayPage: React.FC = () => {
                 <p>{order.startTime.replace('T', ' ').slice(0, 16)}</p>
                 <div className={styles.amount}>¥{order.amount}</div>
               </>
-            ) : null}
+            ) : (
+              <BlankPlaceholder variant="block" style={{ minHeight: 120 }} />
+            )}
           </div>
           <div className={`${styles.card} ${styles.payBox}`}>
             {expired ? (
@@ -96,8 +123,10 @@ const PayPage: React.FC = () => {
                   我已在电脑完成支付（演示）
                 </button>
               </>
+            ) : orderMissing || qrMissing ? (
+              <BlankPlaceholder variant="block" style={{ width: 200, minHeight: 200, margin: '0 auto' }} />
             ) : (
-              <div className="miaoyu-skeleton" style={{ width: 200, height: 200 }} />
+              <BlankPlaceholder variant="block" style={{ width: 200, minHeight: 200, margin: '0 auto' }} />
             )}
           </div>
         </div>

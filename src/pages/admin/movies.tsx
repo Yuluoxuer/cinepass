@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Input, Space, Table, Tag } from 'antd';
+import { Alert, Button, Input, Space, Table, Tag, Empty} from 'antd';
 import { history } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { MovieVO } from '@/types';
@@ -23,6 +23,7 @@ const AdminMoviesPage: React.FC = () => {
       const res = await catalogApi.listMovies({ q: q || undefined, page: 1, size: 50 });
       setData(res.items);
     } catch (error) {
+      setData([]);
       setLoadError(error instanceof Error ? error.message : '影片列表加载失败，请稍后重试');
     } finally {
       setLoading(false);
@@ -55,6 +56,7 @@ const AdminMoviesPage: React.FC = () => {
         rowKey="movieId"
         loading={loading}
         dataSource={data}
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有数据" /> }}
         columns={[
           {
             title: '海报',

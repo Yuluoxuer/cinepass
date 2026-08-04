@@ -42,7 +42,7 @@ const BookingSeatsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    void refresh();
+    void refresh().catch(() => setMap(null));
     void catalogApi
       .recommendSeats({ showId, count: draft?.count || 2, preferRow: 'middle', preferSide: 'center', together: true })
       .then((r) => {
@@ -132,7 +132,7 @@ const BookingSeatsPage: React.FC = () => {
   const total = selected.reduce((sum, seat) => sum + (seat.price ?? map?.price ?? 0), 0);
 
   return (
-    <div>
+    <div className={styles.seatPage}>
       <div className="miaoyu-container">
         <h2 className={styles.title}>在线选座</h2>
         <BookingProgress step={4} />

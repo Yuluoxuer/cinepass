@@ -4,7 +4,6 @@ import { Card, Form, Input, Button, message } from 'antd';
 import * as authApi from '@/api/auth';
 import { getCinemaIdFromAccessToken, useAuthStore, isStaffOrAdmin } from '@/stores/auth';
 import type { UserVO } from '@/types';
-import MockToggle from '@/components/MockToggle';
 import '@/styles/tokens.css';
 
 const AdminLoginPage: React.FC = () => {
@@ -26,6 +25,7 @@ const AdminLoginPage: React.FC = () => {
         nickname: res.nickname,
         phone: res.phone,
         role: res.role,
+        cinemaId: res.cinemaId ?? null,
         avatarUrl: null,
         cinemaId: res.cinemaId || getCinemaIdFromAccessToken(res.accessToken),
       };
@@ -64,7 +64,6 @@ const AdminLoginPage: React.FC = () => {
           </p>
         </Form>
       </Card>
-      <MockToggle />
     </div>
   );
 };

@@ -2,18 +2,56 @@ import React, { useEffect, useState } from 'react';
 import { useParams, history } from 'umi';
 import * as orderApi from '@/api/order';
 import type { OrderVO } from '@/types';
+import BlankPlaceholder from '@/components/BlankPlaceholder';
 import { useBookingStore } from '@/stores/booking';
+import { formatOrderSeatLabels } from '@/utils/format';
 
 const OrderDetailPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const [order, setOrder] = useState<OrderVO | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [missing, setMissing] = useState(false);
   const seatNameById = useBookingStore((s) => s.seatNameById);
 
   useEffect(() => {
-    if (orderId) void orderApi.getOrder(orderId).then(setOrder);
+    if (!orderId) {
+      setLoading(false);
+      setMissing(true);
+      return;
+    }
+    setLoading(true);
+    setMissing(false);
+    void orderApi
+      .getOrder(orderId)
+      .then((o) => {
+        setOrder(o);
+        setMissing(false);
+      })
+      .catch(() => {
+        setOrder(null);
+        setMissing(true);
+      })
+      .finally(() => setLoading(false));
   }, [orderId]);
 
-  if (!order) return <div className="miaoyu-container">加载中…</div>;
+  if (loading) {
+    return (
+      <div className="miaoyu-container">
+        <BlankPlaceholder variant="block" />
+      </div>
+    );
+  }
+
+  if (missing || !order) {
+    return (
+      <div className="miaoyu-container">
+        <button type="button" className="miaoyu-btn-text" onClick={() => history.back()}>
+          ← 返回
+        </button>
+        <BlankPlaceholder variant="block" style={{ marginTop: 12 }} />
+      </div>
+    );
+  }
 
   return (
     <div className="miaoyu-container">
@@ -27,7 +65,7 @@ const OrderDetailPage: React.FC = () => {
           {order.cinemaName} · {order.hallName}
         </p>
         <p>{order.startTime.replace('T', ' ').slice(0, 16)}</p>
-        <p>座位：{order.seatIds.map((id) => seatNameById[id] || id).join('、')}</p>
+        <p>座位：{formatOrderSeatLabels(order, seatNameById)}</p>
         <p style={{ color: '#e54847', fontSize: 20, fontWeight: 700 }}>¥{order.amount}</p>
         {order.ticketCode ? <p>取票码：{order.ticketCode}</p> : null}
         {order.qrPayload ? <p style={{ wordBreak: 'break-all' }}>QR：{order.qrPayload}</p> : null}

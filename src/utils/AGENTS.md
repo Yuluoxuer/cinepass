@@ -4,7 +4,7 @@
 # utils
 
 ## Purpose
-Pure utility functions with no UI concerns. Covers three domains: JWT/token lifecycle management, a typed axios HTTP client, and value formatters. These are low-level building blocks imported by stores, services, and `app.tsx`.
+Pure utility functions with no UI concerns. Covers three domains: JWT/token lifecycle management, a typed axios HTTP client, and value formatters. These are low-level building blocks imported by stores, api modules, and `app.tsx`.
 
 ## Key Files
 

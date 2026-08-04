@@ -1,9 +1,7 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import { ApiError, type ApiEnvelope } from '@/types';
 import { presentApiError, redirectToRequestError } from './error';
-import { getUseMock } from '@/stores/mock';
 import { getAccessToken, useAuthStore } from '@/stores/auth';
-import { dispatchMock } from '@/mock/router';
 
 interface ClientRequestConfig extends AxiosRequestConfig {
   silent?: boolean;
@@ -33,27 +31,37 @@ export interface RequestOptions {
   skipAuth?: boolean;
 }
 
-function buildQuery(params?: Record<string, unknown>): Record<string, string> {
-  const query: Record<string, string> = {};
-  if (!params) return query;
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null && value !== '') query[key] = String(value);
-  }
-  return query;
-}
-
 function isEnvelope(value: unknown): value is ApiEnvelope<unknown> {
   return !!value && typeof value === 'object' && 'code' in value && 'message' in value;
+}
+
+function isNotFoundError(err: ApiError): boolean {
+  return err.errorCode === 'NOT_FOUND' || err.httpStatus === 404 || err.code === 404;
 }
 
 function handleUnauthorized() {
   useAuthStore.getState().clearAuth();
   if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
-    const redirect = `${window.location.pathname}${window.location.search}`;
-    window.location.replace(`/admin/login?redirect=${encodeURIComponent(redirect)}`);
+    // 管理端走独立登录页，避免 C 端 LoginModal；已在登录页则不再跳转
+    if (!window.location.pathname.startsWith('/admin/login')) {
+      const redirect = `${window.location.pathname}${window.location.search}`;
+      window.location.replace(`/admin/login?redirect=${encodeURIComponent(redirect)}`);
+    }
     return;
   }
   void useAuthStore.getState().openLoginModal();
+}
+
+function isUnauthorizedError(err: unknown): boolean {
+  return (
+    err instanceof ApiError &&
+    (err.errorCode === 'UNAUTHORIZED' || err.httpStatus === 401 || err.code === 401 || err.code === 40101)
+  );
+}
+
+/** 鉴权失败已跳转/弹窗后，挂起 Promise，避免未捕获 rejection 触发 React 开发红屏 */
+function pendingAuthRedirect<T>(): Promise<T> {
+  return new Promise<T>(() => {});
 }
 
 /** 将后端响应统一转换为 ApiError；业务页面不再自行判断 HTTP/业务错误码。 */
@@ -90,9 +98,13 @@ function isRequestCancelled(error: unknown) {
 
 /** 响应拦截器是唯一的错误码处理入口，同时保留 Promise 失败语义供页面落地错误态。 */
 function rejectApiError(error: ApiError, silent?: boolean): Promise<never> {
-  error.silent = Boolean(silent) || Boolean(error.silent);
-  presentApiError(error, silent);
+  const mute = Boolean(silent) || Boolean(error.silent);
+  error.silent = mute;
+  presentApiError(error, mute);
   redirectToRequestError(error);
+  if (isUnauthorizedError(error)) {
+    return pendingAuthRedirect();
+  }
   return Promise.reject(error);
 }
 
@@ -100,7 +112,12 @@ http.interceptors.response.use(
   (response: AxiosResponse<ApiEnvelope<unknown>>) => {
     const envelope = response.data;
     if (isEnvelope(envelope) && envelope.code !== 200) {
-      return rejectApiError(toApiError(envelope, response.status), (response.config as ClientRequestConfig).silent);
+      const config = response.config as ClientRequestConfig;
+      const method = (config.method || 'get').toUpperCase();
+      const apiError = toApiError(envelope, response.status);
+      // GET 404 默认静默，由页面用空白形状占位
+      const silent = Boolean(config.silent) || (method === 'GET' && isNotFoundError(apiError));
+      return rejectApiError(apiError, silent);
     }
     if (envelope?.accessToken) useAuthStore.getState().setAccessToken(envelope.accessToken);
     return response;
@@ -111,18 +128,12 @@ http.interceptors.response.use(
       const cancelled = new ApiError('请求已取消');
       return rejectApiError(cancelled, true);
     }
-    return rejectApiError(error instanceof ApiError ? error : toNetworkError(error), config?.silent);
+    const apiError = error instanceof ApiError ? error : toNetworkError(error);
+    const method = (config?.method || 'get').toUpperCase();
+    const silent = Boolean(config?.silent) || (method === 'GET' && isNotFoundError(apiError));
+    return rejectApiError(apiError, silent);
   },
 );
-
-function resolveMockEnvelope<T>(envelope: ApiEnvelope<T>, silent?: boolean): T | Promise<never> {
-  if (!isEnvelope(envelope)) {
-    return rejectApiError(new ApiError('服务返回了无效响应'), silent);
-  }
-  if (envelope.code !== 200) return rejectApiError(toApiError(envelope), silent);
-  if (envelope.accessToken) useAuthStore.getState().setAccessToken(envelope.accessToken);
-  return envelope.data;
-}
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = (options.method || 'GET').toUpperCase();
@@ -136,18 +147,6 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (!options.skipAuth) {
     const token = getAccessToken();
     if (token) headers.Authorization = `Bearer ${token}`;
-  }
-
-  if (getUseMock()) {
-    return dispatchMock({
-      method,
-      path: path.startsWith('/') ? path : `/${path}`,
-      query: buildQuery(options.params),
-      body: options.data,
-      headers,
-    })
-      .then((envelope) => resolveMockEnvelope(envelope as ApiEnvelope<T>, options.silent))
-      .catch((error: unknown) => error instanceof ApiError ? Promise.reject(error) : rejectApiError(toNetworkError(error), options.silent));
   }
 
   const config: ClientRequestConfig = {

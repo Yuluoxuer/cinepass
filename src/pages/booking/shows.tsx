@@ -6,6 +6,7 @@ import type { ShowVO, MovieVO, CinemaVO } from '@/types';
 import BookingProgress from '@/components/BookingProgress';
 import { useBookingStore } from '@/stores/booking';
 import { useAgentStore } from '@/stores/agent';
+import { addLocalDays, localDateISO } from '@/utils/format';
 import styles from './booking.less';
 
 const LEVEL_TEXT: Record<string, string> = {
@@ -16,13 +17,12 @@ const LEVEL_TEXT: Record<string, string> = {
 
 function datesAhead(n: number) {
   const list: { date: string; label: string }[] = [];
+  const today = localDateISO();
   for (let i = 0; i < n; i++) {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + i);
-    const date = d.toISOString().slice(0, 10);
+    const date = addLocalDays(today, i);
+    const [, m, d] = date.split('-').map(Number);
     const label =
-      i === 0 ? `${d.getMonth() + 1}/${d.getDate()} 今天` : i === 1 ? `${d.getMonth() + 1}/${d.getDate()} 明天` : `${d.getMonth() + 1}/${d.getDate()}`;
+      i === 0 ? `${m}/${d} 今天` : i === 1 ? `${m}/${d} 明天` : `${m}/${d}`;
     list.push({ date, label });
   }
   return list;
@@ -33,7 +33,7 @@ const BookingShowsPage: React.FC = () => {
   const qs = new URLSearchParams(loc.search);
   const movieId = qs.get('movieId') || '';
   const cinemaId = qs.get('cinemaId') || '';
-  const [date, setDate] = useState(qs.get('date') || new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(qs.get('date') || localDateISO());
   const [shows, setShows] = useState<ShowVO[]>([]);
   const [movie, setMovie] = useState<MovieVO | null>(null);
   const [cinema, setCinema] = useState<CinemaVO | null>(null);

@@ -3,23 +3,56 @@ import { history, useLocation } from 'umi';
 import { message, QRCode } from 'antd';
 import * as orderApi from '@/api/order';
 import type { OrderVO } from '@/types';
+import BlankPlaceholder from '@/components/BlankPlaceholder';
 import { useBookingStore } from '@/stores/booking';
+import { formatOrderSeatLabels } from '@/utils/format';
 import styles from './booking.less';
 
 const TicketPage: React.FC = () => {
   const loc = useLocation();
   const orderId = new URLSearchParams(loc.search).get('orderId') || '';
   const [order, setOrder] = useState<OrderVO | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [missing, setMissing] = useState(false);
   const seatNameById = useBookingStore((s) => s.seatNameById);
 
   useEffect(() => {
-    if (!orderId) return;
-    void orderApi.getOrder(orderId).then(setOrder);
+    if (!orderId) {
+      setLoading(false);
+      setMissing(true);
+      return;
+    }
+    setLoading(true);
+    void orderApi
+      .getOrder(orderId)
+      .then((o) => {
+        setOrder(o);
+        setMissing(false);
+      })
+      .catch(() => {
+        setOrder(null);
+        setMissing(true);
+      })
+      .finally(() => setLoading(false));
   }, [orderId]);
 
-  if (!order) return <div className="miaoyu-container">加载中…</div>;
+  if (loading) {
+    return (
+      <div className="miaoyu-container">
+        <BlankPlaceholder variant="block" />
+      </div>
+    );
+  }
 
-  const seats = order.seatIds.map((id) => seatNameById[id] || id).join('、');
+  if (missing || !order) {
+    return (
+      <div className="miaoyu-container">
+        <BlankPlaceholder variant="block" />
+      </div>
+    );
+  }
+
+  const seats = formatOrderSeatLabels(order, seatNameById);
 
   return (
     <div className="miaoyu-container">

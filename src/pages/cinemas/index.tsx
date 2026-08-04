@@ -4,6 +4,8 @@ import { history } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { CinemaVO, MovieVO } from '@/types';
 import { useBookingStore } from '@/stores/booking';
+import BlankPlaceholder from '@/components/BlankPlaceholder';
+import { localDateISO } from '@/utils/format';
 import styles from './cinemas.less';
 
 const CinemasPage: React.FC = () => {
@@ -36,29 +38,10 @@ const CinemasPage: React.FC = () => {
     setSelected(c);
     setLoadingMovies(true);
     setMoviesError('');
+    setMovies([]);
     try {
-      const date = new Date().toISOString().slice(0, 10);
-      const hot = await catalogApi.listMovies({ status: 'hot_showing', page: 1, size: 20 });
-      const withShows: MovieVO[] = [];
-      let failedShowRequests = 0;
-      for (const m of hot.items) {
-        try {
-          const shows = await catalogApi.listShows({
-            cinemaId: c.cinemaId,
-            movieId: m.movieId,
-            date,
-          });
-          if (shows.items.length) withShows.push(m);
-        } catch {
-          failedShowRequests += 1;
-        }
-      }
-      if (failedShowRequests > 0 && withShows.length === 0) {
-        setMovies([]);
-        setMoviesError('场次加载失败，请检查网络后重试');
-      } else {
-        setMovies(withShows);
-      }
+      const result = await catalogApi.listCinemaMovies(c.cinemaId);
+      setMovies(result.items);
     } catch (error) {
       setMovies([]);
       setMoviesError(error instanceof Error ? error.message : '在售影片加载失败，请稍后重试');
@@ -69,7 +52,7 @@ const CinemasPage: React.FC = () => {
 
   const selectShow = async (movie: MovieVO) => {
     if (!selected) return;
-    const date = new Date().toISOString().slice(0, 10);
+    const date = movie.nextShowDate || localDateISO();
     try {
       await patchLocal(
         {
@@ -92,26 +75,34 @@ const CinemasPage: React.FC = () => {
       <h1>影院</h1>
       <div className={styles.layout}>
         <div className={styles.list}>
-          {loadingCinemas ? <p className={styles.hint}>正在加载影院…</p> : cinemasError ? <div className={styles.hint}><p>影院列表加载失败，请检查网络后重试。</p><button type="button" className="miaoyu-btn-secondary" onClick={() => void loadCinemas()}>重新加载</button></div> : cinemas.map((c) => (
-            <div
-              key={c.cinemaId}
-              className={`${styles.item} ${selected?.cinemaId === c.cinemaId ? styles.active : ''}`}
-              onClick={() => openCinema(c)}
-            >
-              <h3>{c.name}</h3>
-              <p>{c.address}</p>
-            </div>
-          ))}
+          {loadingCinemas ? (
+            <BlankPlaceholder variant="row" count={4} />
+          ) : cinemasError ? (
+            <p className={styles.hint}>{cinemasError}</p>
+          ) : cinemas.length === 0 ? (
+            <p className={styles.hint}>暂无影院</p>
+          ) : (
+            cinemas.map((c) => (
+              <div
+                key={c.cinemaId}
+                className={`${styles.item} ${selected?.cinemaId === c.cinemaId ? styles.active : ''}`}
+                onClick={() => openCinema(c)}
+              >
+                <h3>{c.name}</h3>
+                <p>{c.address}</p>
+              </div>
+            ))
+          )}
         </div>
         <div className={styles.panel}>
           {!selected ? (
-            <p className={styles.hint}>选择影院查看在售影片</p>
+            <p className={styles.hint}>请选择左侧影院，查看在售影片</p>
           ) : loadingMovies ? (
-            <p>加载中…</p>
+            <BlankPlaceholder variant="row" count={3} />
           ) : moviesError ? (
-            <div className={styles.hint}><p>在售影片加载失败，请稍后重试。</p><button type="button" className="miaoyu-btn-secondary" onClick={() => void openCinema(selected)}>重新加载</button></div>
+            <p className={styles.hint}>{moviesError}</p>
           ) : movies.length === 0 ? (
-            <p className={styles.hint}>今日暂无场次</p>
+            <p className={styles.hint}>当前暂无在售排片</p>
           ) : (
             movies.map((m) => (
               <div key={m.movieId} className={styles.movieRow}>
@@ -120,6 +111,9 @@ const CinemasPage: React.FC = () => {
                   <h3>{m.title}</h3>
                   <p>
                     {m.genres.join(' / ')} · {m.durationMin}分钟
+                    {m.nextShowDate && m.nextShowDate !== localDateISO()
+                      ? ` · 最近 ${m.nextShowDate}`
+                      : ''}
                   </p>
                   <button
                     type="button"

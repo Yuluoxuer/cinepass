@@ -3,6 +3,7 @@ import { message } from 'antd';
 import { history, useParams } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { CinemaVO, MovieVO } from '@/types';
+import BlankPlaceholder from '@/components/BlankPlaceholder';
 import { useBookingStore } from '@/stores/booking';
 import { useAgentStore } from '@/stores/agent';
 import { useAuthStore } from '@/stores/auth';
@@ -186,13 +187,17 @@ const MovieDetailPage: React.FC = () => {
   };
 
   if (movieLoading) {
-    return <div className={`${styles.pageLoading} miaoyu-container`}>正在加载影片详情…</div>;
+    return (
+      <div className="miaoyu-container" style={{ paddingTop: 24 }}>
+        <BlankPlaceholder variant="block" />
+      </div>
+    );
   }
 
   if (!movie) {
     return (
-      <div className={`${styles.pageLoading} miaoyu-container`}>
-        {movieError || '未找到该影片'}
+      <div className="miaoyu-container" style={{ paddingTop: 24 }}>
+        <BlankPlaceholder variant="block" />
       </div>
     );
   }

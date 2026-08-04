@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, DatePicker, Form, InputNumber, Modal, Select, Space, Table, message } from 'antd';
+import { Button, DatePicker, Empty, Form, InputNumber, Modal, Select, Space, Table, message } from 'antd';
 import dayjs from 'dayjs';
 import * as catalogApi from '@/api/catalog';
 import * as adminApi from '@/api/admin';
 import type { CinemaVO, MovieVO, HallVO, ShowVO, ZonePrice } from '@/types';
-import { zoneLabel } from '@/utils/zone';
+import { distinctZones, zoneLabel } from '@/utils/zone';
+import { getCinemaIdFromAccessToken, useAuthStore } from '@/stores/auth';
 
 function formatZonePrices(zonePrices?: ZonePrice[], fallback?: number) {
   if (zonePrices && zonePrices.length > 0) {
@@ -17,13 +18,18 @@ function formatZonePrices(zonePrices?: ZonePrice[], fallback?: number) {
 }
 
 const AdminShowsPage: React.FC = () => {
+  const user = useAuthStore((s) => s.user);
+  const staffCinemaId = user?.role === 'staff' ? user.cinemaId || getCinemaIdFromAccessToken() : undefined;
+
   const [cinemas, setCinemas] = useState<CinemaVO[]>([]);
   const [movies, setMovies] = useState<MovieVO[]>([]);
   const [halls, setHalls] = useState<HallVO[]>([]);
-  const [cinemaId, setCinemaId] = useState<string>();
+  const [cinemaId, setCinemaId] = useState<string | undefined>(staffCinemaId);
   const [movieId, setMovieId] = useState<string>();
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
   const [shows, setShows] = useState<ShowVO[]>([]);
+  const [querying, setQuerying] = useState(false);
+  const [queried, setQueried] = useState(false);
   const [open, setOpen] = useState(false);
   const [editShow, setEditShow] = useState<ShowVO | null>(null);
   const [form] = Form.useForm();
@@ -40,35 +46,92 @@ const AdminShowsPage: React.FC = () => {
     });
 
   useEffect(() => {
-    void catalogApi.listCinemas({ sort: 'price', page: 1, size: 50 }).then((r) => setCinemas(r.items)).catch(() => setCinemas([]));
-    void catalogApi.listMovies({ page: 1, size: 50 }).then((r) => setMovies(r.items)).catch(() => setMovies([]));
-  }, []);
+    void catalogApi
+      .listCinemas({ sort: 'price', page: 1, size: 50 })
+      .then((r) => {
+        const items = staffCinemaId
+          ? r.items.filter((c) => c.cinemaId === staffCinemaId)
+          : r.items;
+        setCinemas(items);
+        if (staffCinemaId) setCinemaId(staffCinemaId);
+        else if (!cinemaId && items[0]) setCinemaId(items[0].cinemaId);
+      })
+      .catch(() => setCinemas([]));
+    void catalogApi
+      .listMovies({ page: 1, size: 50 })
+      .then((r) => {
+        setMovies(r.items);
+        if (!movieId && r.items[0]) setMovieId(r.items[0].movieId);
+      })
+      .catch(() => setMovies([]));
+  }, [staffCinemaId]);
 
   useEffect(() => {
-    if (!cinemaId) return;
+    if (!cinemaId) {
+      setHalls([]);
+      return;
+    }
     void adminApi.listHalls({ cinemaId }).then((r) => setHalls(r.items)).catch(() => setHalls([]));
   }, [cinemaId]);
 
-  const onFormHallChange = (hallId: string) => {
-    const hall = formHalls.find((h) => h.hallId === hallId) || halls.find((h) => h.hallId === hallId);
-    setFormZones([]);
-    form.setFieldValue('zonePriceMap', undefined);
-    if (!hall) return;
-    // 当前真实接口未提供按影厅读取座位图分区的能力，不能凭空构造分区价格。
-    message.warning('当前无法读取该影厅的座位图分区，暂不能创建排片。请等待座位图分区读取接口接入。');
-  };
-
-  const query = async () => {
-    if (!cinemaId || !movieId || !date) {
+  const query = async (override?: { cinemaId?: string; movieId?: string; date?: string }) => {
+    const nextCinemaId = override?.cinemaId ?? cinemaId;
+    const nextMovieId = override?.movieId ?? movieId;
+    const nextDate = override?.date ?? date;
+    if (!nextCinemaId || !nextMovieId || !nextDate) {
       message.warning('请先选齐影院、影片、日期');
       return;
     }
+    setQuerying(true);
     try {
-      const res = await adminApi.adminListShows({ cinemaId, movieId, date });
-      setShows(res.items);
+      const res = await adminApi.adminListShows({
+        cinemaId: nextCinemaId,
+        movieId: nextMovieId,
+        date: nextDate,
+      });
+      setShows(res.items || []);
     } catch {
       setShows([]);
+    } finally {
+      setQueried(true);
+      setQuerying(false);
     }
+  };
+
+  // 筛选项齐全后自动查询，避免空表一直像「加载中」
+  useEffect(() => {
+    if (!cinemaId || !movieId || !date) {
+      setShows([]);
+      setQueried(false);
+      return;
+    }
+    void query({ cinemaId, movieId, date });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cinemaId, movieId, date]);
+
+  const loadHallZones = async (hallId: string, hallList: HallVO[]) => {
+    const hall = hallList.find((h) => h.hallId === hallId);
+    setFormZones([]);
+    form.setFieldValue('zonePriceMap', undefined);
+    if (!hall?.seatMapId) {
+      message.warning('该影厅未绑定座位图，无法创建排片');
+      return;
+    }
+    try {
+      const map = await adminApi.getSeatMapTemplate(hall.seatMapId);
+      const zones = distinctZones(map.seats || []);
+      if (!zones.length) {
+        message.warning('座位图没有分区信息，无法创建排片');
+        return;
+      }
+      setFormZones(zones);
+    } catch {
+      // 请求层已处理。
+    }
+  };
+
+  const onFormHallChange = (hallId: string) => {
+    void loadHallZones(hallId, formHalls.length ? formHalls : halls);
   };
 
   const zonePriceFields = useMemo(
@@ -108,6 +171,14 @@ const AdminShowsPage: React.FC = () => {
     editForm.setFieldsValue({ zonePriceMap: priceMap, startTime: dayjs(show.startTime) });
   };
 
+  const emptyText = !cinemaId || !movieId || !date
+    ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="请先选择影院、影片和日期" />
+    : querying
+      ? '查询中…'
+      : queried
+        ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有数据" />
+        : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="请点击查询" />;
+
   return (
     <div>
       <Space wrap style={{ marginBottom: 16 }}>
@@ -116,27 +187,30 @@ const AdminShowsPage: React.FC = () => {
           style={{ width: 200 }}
           options={cinemas.map((c) => ({ value: c.cinemaId, label: c.name }))}
           value={cinemaId}
-          onChange={setCinemaId}
+          disabled={!!staffCinemaId}
+          onChange={(v) => setCinemaId(v)}
         />
         <Select
           placeholder="影片"
           style={{ width: 200 }}
           options={movies.map((m) => ({ value: m.movieId, label: m.title }))}
           value={movieId}
-          onChange={setMovieId}
+          onChange={(v) => setMovieId(v)}
         />
         <DatePicker
           value={dayjs(date)}
           onChange={(d) => setDate(d ? d.format('YYYY-MM-DD') : date)}
         />
-        <Button type="primary" onClick={query}>
+        <Button type="primary" loading={querying} onClick={() => void query()}>
           查询
         </Button>
         <Button onClick={openCreate}>+ 新建场次</Button>
       </Space>
       <Table
         rowKey="showId"
+        loading={querying}
         dataSource={shows}
+        locale={{ emptyText }}
         columns={[
           {
             title: '开场',
@@ -269,7 +343,6 @@ const AdminShowsPage: React.FC = () => {
               setCinemaId(v.cinemaId);
               setMovieId(v.movieId);
               setDate(dayjs(v.startTime).format('YYYY-MM-DD'));
-              setTimeout(() => void query(), 100);
             } catch {
               // 请求层已处理。
             }
@@ -278,6 +351,7 @@ const AdminShowsPage: React.FC = () => {
           <Form.Item name="cinemaId" label="影院" rules={[{ required: true }]}>
             <Select
               options={cinemas.map((c) => ({ value: c.cinemaId, label: c.name }))}
+              disabled={!!staffCinemaId}
               onChange={(v) => {
                 form.setFieldValue('hallId', undefined);
                 setFormZones([]);
@@ -297,32 +371,22 @@ const AdminShowsPage: React.FC = () => {
               onChange={onFormHallChange}
             />
           </Form.Item>
-          <Form.Item name="startTime" label="开场时间" rules={[{ required: true }]}>
-            <DatePicker
-              showTime
-              disabledDate={(d) => !!d && d.endOf('day').isBefore(dayjs().startOf('day'))}
-              style={{ width: '100%' }}
-            />
+          <Form.Item
+            name="startTime"
+            label="开场时间"
+            rules={[{ required: true, message: '请选择开场时间' }]}
+          >
+            <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
           </Form.Item>
-          {formZones.length === 0 ? (
-            <p style={{ color: '#999' }}>真实接口暂未提供座位图分区读取，选择影厅后无法生成区价；为避免创建未知分区排片，暂不允许提交。</p>
-          ) : (
-            <>
-              <p style={{ color: '#666', marginBottom: 8 }}>
-                本厅座位图分区：{formZones.map((z) => zoneLabel(z)).join('、')}
-              </p>
-              {zonePriceFields}
-            </>
-          )}
+          {zonePriceFields}
         </Form>
       </Modal>
 
       <Modal
-        title={editShow ? `编辑区价 · ${editShow.hallName}` : '编辑区价'}
+        title="编辑区价 / 开场时间"
         open={!!editShow}
         onCancel={() => setEditShow(null)}
         onOk={() => editForm.submit()}
-        width={480}
         destroyOnClose
       >
         <Form
@@ -335,10 +399,6 @@ const AdminShowsPage: React.FC = () => {
               zone: z,
               price: Number(zonePriceMap[z]),
             }));
-            if (zonePrices.some((p) => !(p.price > 0))) {
-              message.error('请为每个分区填写有效价格');
-              return;
-            }
             const startMoment = dayjs(v.startTime);
             const movie = movies.find((m) => m.movieId === editShow.movieId);
             const endMoment = startMoment.add(movie?.durationMin || 120, 'minute');
@@ -352,24 +412,20 @@ const AdminShowsPage: React.FC = () => {
             }
             try {
               await adminApi.updateShow(editShow.showId, {
-                zonePrices,
                 startTime: startMoment.format('YYYY-MM-DDTHH:mm:ss+08:00'),
                 endTime: endMoment.format('YYYY-MM-DDTHH:mm:ss+08:00'),
+                zonePrices,
               });
-              message.success('区价已更新');
+              message.success('已更新');
               setEditShow(null);
-              void query();
+              await query();
             } catch {
               // 请求层已处理。
             }
           }}
         >
           <Form.Item name="startTime" label="开场时间" rules={[{ required: true }]}>
-            <DatePicker
-              showTime
-              disabledDate={(d) => !!d && d.endOf('day').isBefore(dayjs().startOf('day'))}
-              style={{ width: '100%' }}
-            />
+            <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
           </Form.Item>
           {editZones.map((z) => (
             <Form.Item

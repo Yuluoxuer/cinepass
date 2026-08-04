@@ -5,6 +5,7 @@ import type { MovieVO, WeeklyHotItem, PersonalRecoItem } from '@/types';
 import { useAgentStore } from '@/stores/agent';
 import { useBookingStore } from '@/stores/booking';
 import { INTENT_CHIPS } from '@/constants';
+import BlankPlaceholder from '@/components/BlankPlaceholder';
 import styles from './home.less';
 
 const PROMPT_PLACEHOLDER = '明天下午，两张科幻片…';
@@ -32,6 +33,12 @@ const HomePage: React.FC = () => {
         setMovies(list.items);
         setHot(weekly.items);
         setPersonal(reco.items);
+      } catch {
+        if (!cancelled) {
+          setMovies([]);
+          setHot([]);
+          setPersonal([]);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -50,10 +57,14 @@ const HomePage: React.FC = () => {
   const recoCount = personal.filter((p) => p.reason).length || personal.length || 3;
 
   const goBuy = async (movie: MovieVO) => {
-    await patchLocal(
-      { movieId: movie.movieId, filmTitle: movie.title, state: 'SelectCinema' },
-      { debounce: false },
-    );
+    try {
+      await patchLocal(
+        { movieId: movie.movieId, filmTitle: movie.title, state: 'SelectCinema' },
+        { debounce: false },
+      );
+    } catch {
+      /* 拦截器已提示；仍允许进入购票流 */
+    }
     history.push(`/booking/cinemas?movieId=${movie.movieId}`);
   };
 
@@ -121,12 +132,8 @@ const HomePage: React.FC = () => {
               <img src={featured.posterUrl} alt={featured.title} />
             </div>
           ) : (
-            <div className={`${styles.posterStage} ${styles.posterFallback}`}>
-              <strong>
-                妙语
-                <br />
-                购票
-              </strong>
+            <div className={styles.posterStage}>
+              <BlankPlaceholder variant="poster" style={{ maxWidth: '100%', height: '100%' }} />
             </div>
           )}
           <div className={styles.beam} aria-hidden />
@@ -195,13 +202,9 @@ const HomePage: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className={styles.movieStrip}>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className={`miaoyu-skeleton ${styles.skCard}`} />
-            ))}
-          </div>
+          <BlankPlaceholder variant="card" count={4} className={styles.movieStrip} />
         ) : strip.length === 0 ? (
-          <div className={styles.empty}>暂无{tab === 'hot_showing' ? '热映' : '待映'}影片</div>
+          <BlankPlaceholder variant="card" count={4} className={styles.movieStrip} />
         ) : (
           <div className={styles.movieStrip}>
             {strip.map((m, i) => (
@@ -254,20 +257,25 @@ const HomePage: React.FC = () => {
             </button>
           </div>
           <ol>
-            {ranking.map((item) => (
-              <li
-                key={item.movie.movieId}
-                onClick={() => history.push(`/movies/${item.movie.movieId}`)}
-              >
-                <b>{String(item.rank).padStart(2, '0')}</b>
-                <span>
-                  {item.movie.title}
-                  <small>{item.heatTag || '热度上升'}</small>
-                </span>
-                <em>{item.movie.rating != null ? item.movie.rating.toFixed(1) : '—'}</em>
+            {ranking.length === 0 ? (
+              <li className={styles.emptyRank}>
+                <BlankPlaceholder variant="row" count={3} />
               </li>
-            ))}
-            {ranking.length === 0 ? <li className={styles.emptyRank}>暂无热榜数据</li> : null}
+            ) : (
+              ranking.map((item) => (
+                <li
+                  key={item.movie.movieId}
+                  onClick={() => history.push(`/movies/${item.movie.movieId}`)}
+                >
+                  <b>{String(item.rank).padStart(2, '0')}</b>
+                  <span>
+                    {item.movie.title}
+                    <small>{item.heatTag || '热度上升'}</small>
+                  </span>
+                  <em>{item.movie.rating != null ? item.movie.rating.toFixed(1) : '—'}</em>
+                </li>
+              ))
+            )}
           </ol>
         </article>
 
