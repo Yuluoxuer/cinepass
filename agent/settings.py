@@ -18,6 +18,9 @@ class AgentSettings(BaseSettings):
     # SubAgent / Tools 出站 HTTP
     http_timeout_s: float = 15.0
 
+    # 票务中台后端地址
+    backend_base_url: str = "http://localhost:8080/api/v1"
+
 
 @lru_cache
 def get_agent_settings() -> AgentSettings:
