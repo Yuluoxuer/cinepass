@@ -22,7 +22,7 @@ const AdminShowsPage: React.FC = () => {
   const [halls, setHalls] = useState<HallVO[]>([]);
   const [cinemaId, setCinemaId] = useState<string>();
   const [movieId, setMovieId] = useState<string>();
-  const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
+  const [date, setDate] = useState<string>('');
   const [shows, setShows] = useState<ShowVO[]>([]);
   const [open, setOpen] = useState(false);
   const [editShow, setEditShow] = useState<ShowVO | null>(null);
@@ -48,7 +48,18 @@ const AdminShowsPage: React.FC = () => {
   useEffect(() => {
     if (!cinemaId) return;
     void adminApi.listHalls(cinemaId).then((r) => setHalls(r.items));
+    if (movieId) void query(cinemaId, movieId, date || undefined);
   }, [cinemaId]);
+
+  useEffect(() => {
+    if (!movieId || !cinemaId) return;
+    void query(cinemaId, movieId, date || undefined);
+  }, [movieId]);
+
+  useEffect(() => {
+    if (!cinemaId || !movieId) return;
+    void query(cinemaId, movieId, date || undefined);
+  }, [date]);
 
   const loadSeatMapZones = async (seatMapId: string): Promise<string[]> => {
     if (seatMapCache[seatMapId]) {
@@ -75,12 +86,13 @@ const AdminShowsPage: React.FC = () => {
     form.setFieldsValue({ zonePriceMap: prices });
   };
 
-  const query = async () => {
-    if (!cinemaId || !movieId || !date) {
-      message.warning('请先选齐影院、影片、日期');
-      return;
-    }
-    const res = await adminApi.adminListShows({ cinemaId, movieId, date });
+  const query = async (cid?: string, mid?: string, d?: string) => {
+    const c = cid ?? cinemaId;
+    const m = mid ?? movieId;
+    if (!c || !m) return;
+    const params: { cinemaId: string; movieId: string; date?: string } = { cinemaId: c, movieId: m };
+    if (d) params.date = d;
+    const res = await adminApi.adminListShows(params);
     setShows(res.items);
   };
 
@@ -142,12 +154,11 @@ const AdminShowsPage: React.FC = () => {
           onChange={setMovieId}
         />
         <DatePicker
-          value={dayjs(date)}
-          onChange={(d) => setDate(d ? d.format('YYYY-MM-DD') : date)}
+          placeholder="按日期筛选（可选）"
+          value={date ? dayjs(date) : null}
+          onChange={(d) => setDate(d ? d.format('YYYY-MM-DD') : '')}
+          allowClear
         />
-        <Button type="primary" onClick={query}>
-          查询
-        </Button>
         <Button onClick={openCreate}>+ 新建场次</Button>
       </Space>
       <Table
@@ -169,7 +180,7 @@ const AdminShowsPage: React.FC = () => {
             title: '状态',
             dataIndex: 'status',
             render: (status: ShowVO['status']) =>
-              status === 'off_sale' ? '已停售' : status === 'cancelled' ? '已取消' : '售票中',
+              status === 'cancelled' ? '已停售' : '售票中',
           },
           {
             title: '操作',
@@ -178,10 +189,10 @@ const AdminShowsPage: React.FC = () => {
                 <Button type="link" disabled={r.status !== 'on_sale'} onClick={() => void openEdit(r)}>
                   编辑区价
                 </Button>
-                <Button
-                  type="link"
-                  disabled={r.status !== 'on_sale'}
-                  onClick={() => {
+                {r.status === 'on_sale' && (
+                  <Button
+                    type="link"
+                    onClick={() => {
                     Modal.confirm({
                       title: '确认停售？',
                       content: '停售后将关闭该场次购票，并取消所有未支付订单；已出票订单不受影响。',
@@ -195,6 +206,25 @@ const AdminShowsPage: React.FC = () => {
                 >
                   停售
                 </Button>
+                )}
+                {r.status === 'cancelled' && (
+                  <Button
+                    type="link"
+                    onClick={() => {
+                      Modal.confirm({
+                        title: '确认恢复出售？',
+                        content: '恢复后该场次将重新开放购票。',
+                        onOk: async () => {
+                          await adminApi.resumeShowSale(r.showId);
+                          message.success('该场次已恢复出售');
+                          await query();
+                        },
+                      });
+                    }}
+                  >
+                    恢复出售
+                  </Button>
+                )}
                 <Button
                   type="link"
                   danger

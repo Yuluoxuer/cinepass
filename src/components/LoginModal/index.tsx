@@ -84,7 +84,7 @@ const LoginModal: React.FC = () => {
             {loading ? '登录中…' : '登录'}
           </button>
           <p className={styles.hint}>
-            演示：演示用户甲（购票）/ 运营小王、系统管理员（登录后进后台），密码均为 demo123456
+            演示：演示用户甲（购票）/ 运营小李或运营小王（后台）/ 系统管理员（后台），密码均为 demo123456
           </p>
           <p className={styles.hint}>
             也可直接打开{' '}
