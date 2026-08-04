@@ -51,10 +51,12 @@ CREATE TABLE IF NOT EXISTS want_see (
 CREATE TABLE IF NOT EXISTS cinema (
   cinema_id    VARCHAR(32) NOT NULL,
   city_id      VARCHAR(32) NOT NULL,
+  city_name    VARCHAR(64) NOT NULL DEFAULT '上海市',
   name         VARCHAR(128) NOT NULL,
   address      VARCHAR(256) NOT NULL,
   lat          DECIMAL(10,6) NOT NULL,
   lng          DECIMAL(10,6) NOT NULL,
+  is_delete    BOOLEAN NOT NULL DEFAULT FALSE,
   traffic_note VARCHAR(256) NULL,
   tags_json    VARCHAR(2048) NOT NULL DEFAULT '[]',
   created_at   TIMESTAMP WITH TIME ZONE NOT NULL,
