@@ -7,6 +7,7 @@ import com.cinepass.dto.ShowUpdateDTO;
 import com.cinepass.mapper.CinemaMapper;
 import com.cinepass.mapper.HallMapper;
 import com.cinepass.mapper.MovieMapper;
+import com.cinepass.mapper.SeatMapMapper;
 import com.cinepass.mapper.ShowMapper;
 import com.cinepass.model.Cinema;
 import com.cinepass.model.Hall;
@@ -19,6 +20,7 @@ import com.cinepass.util.ShowIds;
 import com.cinepass.vo.ShowVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -40,6 +42,7 @@ public class AdminShowServiceImpl implements AdminShowService {
     private final MovieMapper movieMapper;
     private final CinemaMapper cinemaMapper;
     private final HallMapper hallMapper;
+    private final SeatMapMapper seatMapMapper;
     private final ShowService showService;
     private final SeatInventoryService seatInventoryService;
 
@@ -47,12 +50,14 @@ public class AdminShowServiceImpl implements AdminShowService {
                                 MovieMapper movieMapper,
                                 CinemaMapper cinemaMapper,
                                 HallMapper hallMapper,
+                                SeatMapMapper seatMapMapper,
                                 ShowService showService,
                                 SeatInventoryService seatInventoryService) {
         this.showMapper = showMapper;
         this.movieMapper = movieMapper;
         this.cinemaMapper = cinemaMapper;
         this.hallMapper = hallMapper;
+        this.seatMapMapper = seatMapMapper;
         this.showService = showService;
         this.seatInventoryService = seatInventoryService;
     }
@@ -106,6 +111,10 @@ public class AdminShowServiceImpl implements AdminShowService {
         show.setCreatedAt(now);
         show.setUpdatedAt(now);
         showMapper.insert(show);
+        // 排片后座位图不可再改布局，避免库存与模板错位
+        if (StringUtils.hasText(show.getSeatMapId())) {
+            seatMapMapper.markImmutable(show.getSeatMapId());
+        }
         // 排片后立即播种 seat_status，避免购票侧读到空库存
         seatInventoryService.ensureSeatStatus(show.getShowId(), show.getSeatMapId());
 

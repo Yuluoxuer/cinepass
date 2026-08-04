@@ -168,6 +168,45 @@ class CinemaIntegrationTest {
     }
 
     @Test
+    void staffCanListGetUpdateAndDeleteOwnSeatMap() throws Exception {
+        String staffToken = bearer(loginAs("运营小王", "demo123456"));
+        String seatMapId = "sm_cinema_test_crud";
+
+        mockMvc.perform(post("/api/v1/seat-maps").header("Authorization", staffToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(seatMapBodyWithoutCinema(seatMapId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.seatMapId").value(seatMapId))
+                .andExpect(jsonPath("$.data.cinemaId").value(STAFF_CINEMA_ID));
+
+        mockMvc.perform(get("/api/v1/seat-maps").header("Authorization", staffToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[?(@.seatMapId=='" + seatMapId + "')].seatMapId").exists());
+
+        mockMvc.perform(get("/api/v1/seat-maps/{seatMapId}", seatMapId).header("Authorization", staffToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.seatCount").value(2))
+                .andExpect(jsonPath("$.data.mutable").value(true));
+
+        String updateBody = "{\"rows\":2,\"cols\":3,\"screenLabel\":\"银幕更新\",\"seats\":["
+                + "{\"graphRow\":1,\"graphCol\":1},"
+                + "{\"graphRow\":1,\"graphCol\":3},"
+                + "{\"graphRow\":2,\"graphCol\":2}]}";
+        mockMvc.perform(put("/api/v1/seat-maps/{seatMapId}", seatMapId).header("Authorization", staffToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(updateBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.screenLabel").value("银幕更新"))
+                .andExpect(jsonPath("$.data.seatCount").value(3));
+
+        mockMvc.perform(delete("/api/v1/seat-maps/{seatMapId}", seatMapId).header("Authorization", staffToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deleted").value(true))
+                .andExpect(jsonPath("$.data.seatMapId").value(seatMapId));
+
+        mockMvc.perform(get("/api/v1/seat-maps/{seatMapId}", seatMapId).header("Authorization", staffToken))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void staffCanOnlyManageSeatMapsAndHallsForAssignedCinema() throws Exception {
         String staffToken = bearer(loginAs("运营小王", "demo123456"));
         String ownSeatMap = "sm_cinema_test_own";

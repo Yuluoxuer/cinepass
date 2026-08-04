@@ -5,9 +5,11 @@ import com.cinepass.dto.CinemaUpdateDTO;
 import com.cinepass.dto.HallCreateDTO;
 import com.cinepass.dto.HallUpdateDTO;
 import com.cinepass.dto.SeatMapCreateDTO;
+import com.cinepass.dto.SeatMapUpdateDTO;
 import com.cinepass.vo.CinemaVO;
 import com.cinepass.vo.HallVO;
 import com.cinepass.vo.PageResult;
+import com.cinepass.vo.SeatMapDeletedVO;
 import com.cinepass.vo.SeatMapVO;
 
 import java.math.BigDecimal;
@@ -39,6 +41,18 @@ public interface CinemaService {
 
     /** 创建稀疏座位图并落座位行；情侣座须成对 */
     SeatMapVO createSeatMap(SeatMapCreateDTO dto);
+
+    /** 运营端座位图分页；staff 强制本院，admin 可传 cinemaId 筛选 */
+    PageResult<SeatMapVO> listSeatMaps(String cinemaId, int page, int size);
+
+    /** 查询座位图模板（含座位明细）；校验影院数据范围 */
+    SeatMapVO getSeatMap(String seatMapId);
+
+    /** 全量替换座位集合；仅 mutable 且无场次引用时可改 */
+    SeatMapVO updateSeatMap(String seatMapId, SeatMapUpdateDTO dto);
+
+    /** 删除座位图；仍被影厅或场次引用时拒绝 */
+    SeatMapDeletedVO deleteSeatMap(String seatMapId);
 
     /** 新建影厅并绑定本影院座位图 */
     HallVO createHall(HallCreateDTO dto);

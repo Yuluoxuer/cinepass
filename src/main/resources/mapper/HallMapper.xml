@@ -30,6 +30,10 @@
         SELECT COUNT(1) FROM hall WHERE cinema_id = #{cinemaId}
     </select>
 
+    <select id="countBySeatMapId" resultType="long">
+        SELECT COUNT(1) FROM hall WHERE seat_map_id = #{seatMapId}
+    </select>
+
     <insert id="insert" parameterType="com.cinepass.model.Hall">
         INSERT INTO hall (hall_id, cinema_id, name, seat_map_id)
         VALUES (#{hallId}, #{cinemaId}, #{name}, #{seatMapId})

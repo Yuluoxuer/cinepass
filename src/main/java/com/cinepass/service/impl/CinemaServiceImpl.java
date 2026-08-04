@@ -9,10 +9,12 @@ import com.cinepass.dto.HallCreateDTO;
 import com.cinepass.dto.HallUpdateDTO;
 import com.cinepass.dto.SeatMapCreateDTO;
 import com.cinepass.dto.SeatMapSeatDTO;
+import com.cinepass.dto.SeatMapUpdateDTO;
 import com.cinepass.mapper.CinemaMapper;
 import com.cinepass.mapper.HallMapper;
 import com.cinepass.mapper.SeatMapMapper;
 import com.cinepass.mapper.SeatMapper;
+import com.cinepass.mapper.ShowMapper;
 import com.cinepass.mapper.UserAccountMapper;
 import com.cinepass.model.Cinema;
 import com.cinepass.model.Hall;
@@ -26,6 +28,7 @@ import com.cinepass.util.CinemaIds;
 import com.cinepass.vo.CinemaVO;
 import com.cinepass.vo.HallVO;
 import com.cinepass.vo.PageResult;
+import com.cinepass.vo.SeatMapDeletedVO;
 import com.cinepass.vo.SeatMapVO;
 import com.cinepass.vo.SeatMapSeatVO;
 import org.springframework.stereotype.Service;
@@ -52,14 +55,16 @@ public class CinemaServiceImpl implements CinemaService {
     private final HallMapper hallMapper;
     private final SeatMapMapper seatMapMapper;
     private final SeatMapper seatMapper;
+    private final ShowMapper showMapper;
     private final UserAccountMapper userAccountMapper;
 
     public CinemaServiceImpl(CinemaMapper cinemaMapper, HallMapper hallMapper, SeatMapMapper seatMapMapper,
-                             SeatMapper seatMapper, UserAccountMapper userAccountMapper) {
+                             SeatMapper seatMapper, ShowMapper showMapper, UserAccountMapper userAccountMapper) {
         this.cinemaMapper = cinemaMapper;
         this.hallMapper = hallMapper;
         this.seatMapMapper = seatMapMapper;
         this.seatMapper = seatMapper;
+        this.showMapper = showMapper;
         this.userAccountMapper = userAccountMapper;
     }
 
@@ -184,6 +189,77 @@ public class CinemaServiceImpl implements CinemaService {
     }
 
     @Override
+    public PageResult<SeatMapVO> listSeatMaps(String cinemaId, int page, int size) {
+        String actualCinemaId = resolveListCinemaId(cinemaId);
+        int actualPage = normalizePage(page);
+        int actualSize = normalizeSize(size);
+        long total = seatMapMapper.countByCinemaId(actualCinemaId);
+        List<SeatMap> rows = seatMapMapper.selectByCinemaId(actualCinemaId,
+                (actualPage - 1) * actualSize, actualSize);
+        List<SeatMapVO> items = new ArrayList<SeatMapVO>();
+        if (rows != null) {
+            for (SeatMap seatMap : rows) {
+                // 列表不携带座位明细，减轻体积
+                items.add(toSeatMapVO(syncMutableWithShows(seatMap), Collections.<Seat>emptyList()));
+            }
+        }
+        return new PageResult<SeatMapVO>(items, actualPage, actualSize, total);
+    }
+
+    @Override
+    public SeatMapVO getSeatMap(String seatMapId) {
+        SeatMap seatMap = requireSeatMap(seatMapId);
+        assertCinemaScope(seatMap.getCinemaId());
+        List<Seat> seats = seatMapper.selectBySeatMapId(seatMapId);
+        return toSeatMapVO(syncMutableWithShows(seatMap), seats != null ? seats : Collections.<Seat>emptyList());
+    }
+
+    @Override
+    @Transactional
+    public SeatMapVO updateSeatMap(String seatMapId, SeatMapUpdateDTO dto) {
+        SeatMap seatMap = requireSeatMap(seatMapId);
+        assertCinemaScope(seatMap.getCinemaId());
+        // 已排片或已标记不可变则禁止改座位集合，避免库存错位
+        if (Boolean.FALSE.equals(seatMap.getMutable()) || showMapper.countBySeatMapId(seatMapId) > 0) {
+            throw new BusinessException(ResultCode.CONFLICT, "座位图已被场次引用，不可修改");
+        }
+        SeatMapCreateDTO createShape = new SeatMapCreateDTO();
+        createShape.setRows(dto.getRows());
+        createShape.setCols(dto.getCols());
+        createShape.setScreenLabel(dto.getScreenLabel());
+        createShape.setSeats(dto.getSeats());
+        List<Seat> seats = toSeats(seatMapId, createShape);
+        seatMap.setRowsN(dto.getRows());
+        seatMap.setColsN(dto.getCols());
+        seatMap.setScreenLabel(StringUtils.hasText(dto.getScreenLabel()) ? dto.getScreenLabel().trim() : "银幕");
+        seatMap.setSeatCount(seats.size());
+        if (seatMapMapper.update(seatMap) != 1) {
+            throw new BusinessException(ResultCode.CONFLICT, "座位图不可修改");
+        }
+        seatMapper.deleteBySeatMapId(seatMapId);
+        seatMapper.insertBatch(seats);
+        return toSeatMapVO(seatMap, seats);
+    }
+
+    @Override
+    @Transactional
+    public SeatMapDeletedVO deleteSeatMap(String seatMapId) {
+        SeatMap seatMap = requireSeatMap(seatMapId);
+        assertCinemaScope(seatMap.getCinemaId());
+        if (hallMapper.countBySeatMapId(seatMapId) > 0) {
+            throw new BusinessException(ResultCode.CONFLICT, "座位图仍被影厅引用，无法删除");
+        }
+        if (showMapper.countBySeatMapId(seatMapId) > 0) {
+            throw new BusinessException(ResultCode.CONFLICT, "座位图仍被场次引用，无法删除");
+        }
+        seatMapper.deleteBySeatMapId(seatMapId);
+        if (seatMapMapper.deleteById(seatMapId) != 1) {
+            throw new BusinessException(ResultCode.CONFLICT, "座位图不可删除");
+        }
+        return SeatMapDeletedVO.builder().deleted(true).seatMapId(seatMapId).build();
+    }
+
+    @Override
     @Transactional
     public HallVO createHall(HallCreateDTO dto) {
         String cinemaId = resolveWriteCinemaId(dto.getCinemaId());
@@ -281,6 +357,45 @@ public class CinemaServiceImpl implements CinemaService {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权操作其他影院");
         }
         return staffCinemaId;
+    }
+
+    /** admin 列表可按 cinemaId 筛；staff 强制本院 */
+    private String resolveListCinemaId(String cinemaId) {
+        if (SecurityContext.isAdmin()) {
+            if (!StringUtils.hasText(cinemaId)) {
+                throw new BusinessException(ResultCode.FAIL, "管理员查询座位图时必须提供 cinemaId");
+            }
+            requireCinema(cinemaId.trim());
+            return cinemaId.trim();
+        }
+        String staffCinemaId = currentStaffCinemaId();
+        if (StringUtils.hasText(cinemaId) && !staffCinemaId.equals(cinemaId.trim())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权访问其他影院");
+        }
+        return staffCinemaId;
+    }
+
+    private SeatMap requireSeatMap(String seatMapId) {
+        SeatMap seatMap = seatMapMapper.selectById(seatMapId);
+        if (seatMap == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "座位图不存在");
+        }
+        return seatMap;
+    }
+
+    /**
+     * 场次引用优先于库内 mutable 标记：历史数据可能未及时 markImmutable，读路径补齐并回写。
+     */
+    private SeatMap syncMutableWithShows(SeatMap seatMap) {
+        if (seatMap == null) {
+            return null;
+        }
+        if (!Boolean.FALSE.equals(seatMap.getMutable())
+                && showMapper.countBySeatMapId(seatMap.getSeatMapId()) > 0) {
+            seatMapMapper.markImmutable(seatMap.getSeatMapId());
+            seatMap.setMutable(false);
+        }
+        return seatMap;
     }
 
     private Cinema requireCinema(String cinemaId) {

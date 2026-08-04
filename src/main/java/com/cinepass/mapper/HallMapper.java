@@ -26,6 +26,9 @@ public interface HallMapper {
     /** 某影院影厅总数 */
     long countByCinemaId(@Param("cinemaId") String cinemaId);
 
+    /** 引用某座位图的影厅数（删除座位图前置校验） */
+    long countBySeatMapId(@Param("seatMapId") String seatMapId);
+
     /** 插入影厅 */
     int insert(Hall hall);
 

@@ -159,4 +159,8 @@
         SELECT COUNT(1) FROM seat_status
         WHERE show_id = #{showId} AND status = 'locked' AND expire_at > NOW()
     </select>
+
+    <select id="countBySeatMapId" resultType="long">
+        SELECT COUNT(1) FROM show_schedule WHERE seat_map_id = #{seatMapId}
+    </select>
 </mapper>

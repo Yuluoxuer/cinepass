@@ -58,4 +58,7 @@ public interface ShowMapper {
 
     /** 恢复开售 */
     int resumeSale(@Param("showId") String showId);
+
+    /** 引用某座位图的场次数（座位图可变性/删除前置校验） */
+    long countBySeatMapId(@Param("seatMapId") String seatMapId);
 }
