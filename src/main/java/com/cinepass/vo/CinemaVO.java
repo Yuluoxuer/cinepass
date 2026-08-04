@@ -11,6 +11,7 @@ import java.util.List;
 public class CinemaVO {
     private String cinemaId;
     private String cityId;
+    private String cityName;
     private String name;
     private String address;
     private BigDecimal distanceMeters;

@@ -12,6 +12,7 @@ public class Cinema implements Serializable {
 
     private String cinemaId;
     private String cityId;
+    private String cityName;
     private String name;
     private String address;
     private BigDecimal lat;

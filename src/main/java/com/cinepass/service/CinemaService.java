@@ -18,6 +18,7 @@ public interface CinemaService {
     CinemaVO getCinema(String cinemaId);
     CinemaVO createCinema(CinemaCreateDTO dto);
     CinemaVO updateCinema(String cinemaId, CinemaUpdateDTO dto);
+    void deleteCinema(String cinemaId);
     SeatMapVO createSeatMap(SeatMapCreateDTO dto);
     HallVO createHall(HallCreateDTO dto);
     PageResult<HallVO> listAdminHalls(String cinemaId, int page, int size);

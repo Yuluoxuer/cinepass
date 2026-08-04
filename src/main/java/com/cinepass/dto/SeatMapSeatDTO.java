@@ -25,6 +25,9 @@ public class SeatMapSeatDTO {
     @Size(max = 64)
     private String seatName;
 
+    @Size(max = 64)
+    private String seatId;
+
     @Size(max = 16)
     private String type;
 
@@ -33,4 +36,7 @@ public class SeatMapSeatDTO {
 
     @Size(max = 64)
     private String couplePairId;
+
+    @Size(max = 16)
+    private String defaultStatus;
 }

@@ -27,6 +27,7 @@ import com.cinepass.vo.CinemaVO;
 import com.cinepass.vo.HallVO;
 import com.cinepass.vo.PageResult;
 import com.cinepass.vo.SeatMapVO;
+import com.cinepass.vo.SeatMapSeatVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -37,7 +38,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.HashMap;
 
 @Service
 public class CinemaServiceImpl implements CinemaService {
@@ -110,6 +113,7 @@ public class CinemaServiceImpl implements CinemaService {
             throw new BusinessException(ResultCode.CONFLICT, "cinema already exists");
         }
         cinema.setCityId(StringUtils.hasText(dto.getCityId()) ? dto.getCityId().trim() : "city_sh");
+        cinema.setCityName(dto.getCityName().trim());
         cinema.setName(dto.getName().trim());
         cinema.setAddress(dto.getAddress().trim());
         cinema.setLat(dto.getLat());
@@ -128,6 +132,7 @@ public class CinemaServiceImpl implements CinemaService {
         assertCinemaScope(cinemaId);
         Cinema cinema = requireCinema(cinemaId);
         if (dto.getCityId() != null) cinema.setCityId(dto.getCityId().trim());
+        if (dto.getCityName() != null) cinema.setCityName(dto.getCityName().trim());
         if (dto.getName() != null) cinema.setName(dto.getName().trim());
         if (dto.getAddress() != null) cinema.setAddress(dto.getAddress().trim());
         if (dto.getLat() != null) cinema.setLat(dto.getLat());
@@ -141,9 +146,21 @@ public class CinemaServiceImpl implements CinemaService {
 
     @Override
     @Transactional
+    public void deleteCinema(String cinemaId) {
+        requireCinema(cinemaId);
+        if (userAccountMapper.countStaffByCinemaId(cinemaId) > 0) {
+            throw new BusinessException(ResultCode.FAIL, "影院仍绑定员工，请先迁移员工");
+        }
+        if (cinemaMapper.softDelete(cinemaId) != 1) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
+        }
+    }
+
+    @Override
+    @Transactional
     public SeatMapVO createSeatMap(SeatMapCreateDTO dto) {
-        assertCinemaScope(dto.getCinemaId());
-        requireCinema(dto.getCinemaId());
+        String cinemaId = resolveWriteCinemaId(dto.getCinemaId());
+        requireCinema(cinemaId);
         String seatMapId = StringUtils.hasText(dto.getSeatMapId()) ? dto.getSeatMapId() : CinemaIds.nextSeatMapId();
         if (seatMapMapper.selectById(seatMapId) != null) {
             throw new BusinessException(ResultCode.CONFLICT, "座位图已存在");
@@ -151,7 +168,7 @@ public class CinemaServiceImpl implements CinemaService {
         List<Seat> seats = toSeats(seatMapId, dto);
         SeatMap seatMap = new SeatMap();
         seatMap.setSeatMapId(seatMapId);
-        seatMap.setCinemaId(dto.getCinemaId());
+        seatMap.setCinemaId(cinemaId);
         seatMap.setRowsN(dto.getRows());
         seatMap.setColsN(dto.getCols());
         seatMap.setScreenLabel(StringUtils.hasText(dto.getScreenLabel()) ? dto.getScreenLabel().trim() : "银幕");
@@ -159,19 +176,19 @@ public class CinemaServiceImpl implements CinemaService {
         seatMap.setSeatCount(seats.size());
         seatMapMapper.insert(seatMap);
         seatMapper.insertBatch(seats);
-        return toSeatMapVO(seatMap);
+        return toSeatMapVO(seatMap, seats);
     }
 
     @Override
     @Transactional
     public HallVO createHall(HallCreateDTO dto) {
-        assertCinemaScope(dto.getCinemaId());
-        requireCinema(dto.getCinemaId());
+        String cinemaId = resolveWriteCinemaId(dto.getCinemaId());
+        requireCinema(cinemaId);
         SeatMap seatMap = seatMapMapper.selectById(dto.getSeatMapId());
         if (seatMap == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "座位图不存在");
         }
-        if (!dto.getCinemaId().equals(seatMap.getCinemaId())) {
+        if (!cinemaId.equals(seatMap.getCinemaId())) {
             throw new BusinessException(ResultCode.FORBIDDEN, "座位图不属于该影院");
         }
         String hallId = StringUtils.hasText(dto.getHallId()) ? dto.getHallId() : CinemaIds.nextHallId();
@@ -180,7 +197,7 @@ public class CinemaServiceImpl implements CinemaService {
         }
         Hall hall = new Hall();
         hall.setHallId(hallId);
-        hall.setCinemaId(dto.getCinemaId());
+        hall.setCinemaId(cinemaId);
         hall.setName(dto.getName().trim());
         hall.setSeatMapId(dto.getSeatMapId());
         hallMapper.insert(hall);
@@ -190,6 +207,7 @@ public class CinemaServiceImpl implements CinemaService {
     @Override
     public PageResult<HallVO> listAdminHalls(String cinemaId, int page, int size) {
         String actualCinemaId = resolveAdminCinemaId(cinemaId);
+        requireCinema(actualCinemaId);
         int actualPage = normalizePage(page);
         int actualSize = normalizeSize(size);
         long total = hallMapper.countByCinemaId(actualCinemaId);
@@ -205,6 +223,7 @@ public class CinemaServiceImpl implements CinemaService {
     public HallVO updateHall(String hallId, HallUpdateDTO dto) {
         Hall hall = hallMapper.selectById(hallId);
         if (hall == null) throw new BusinessException(ResultCode.NOT_FOUND, "影厅不存在");
+        requireCinema(hall.getCinemaId());
         assertCinemaScope(hall.getCinemaId());
         hallMapper.updateName(hallId, dto.getName().trim());
         hall.setName(dto.getName().trim());
@@ -242,6 +261,20 @@ public class CinemaServiceImpl implements CinemaService {
         return user.getCinemaId();
     }
 
+    private String resolveWriteCinemaId(String requestedCinemaId) {
+        if (SecurityContext.isAdmin()) {
+            if (!StringUtils.hasText(requestedCinemaId)) {
+                throw new BusinessException(ResultCode.FAIL, "管理员创建资源时必须提供 cinemaId");
+            }
+            return requestedCinemaId.trim();
+        }
+        String staffCinemaId = currentStaffCinemaId();
+        if (StringUtils.hasText(requestedCinemaId) && !staffCinemaId.equals(requestedCinemaId.trim())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作其他影院");
+        }
+        return staffCinemaId;
+    }
+
     private Cinema requireCinema(String cinemaId) {
         Cinema cinema = cinemaMapper.selectById(cinemaId);
         if (cinema == null) throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
@@ -249,6 +282,9 @@ public class CinemaServiceImpl implements CinemaService {
     }
 
     private List<Seat> toSeats(String seatMapId, SeatMapCreateDTO dto) {
+        if (dto.getRows() != null && dto.getCols() != null) {
+            return buildSeats(seatMapId, dto);
+        }
         Set<String> coordinates = new HashSet<String>();
         List<Seat> result = new ArrayList<Seat>();
         int index = 0;
@@ -276,10 +312,101 @@ public class CinemaServiceImpl implements CinemaService {
         return result;
     }
 
+    private List<Seat> buildSeats(String seatMapId, SeatMapCreateDTO dto) {
+        Set<String> graphCoordinates = new HashSet<String>();
+        Map<Integer, List<SeatMapSeatDTO>> seatsByGraphRow = new HashMap<Integer, List<SeatMapSeatDTO>>();
+        for (SeatMapSeatDTO source : dto.getSeats()) {
+            if (source.getGraphRow() > dto.getRows() || source.getGraphCol() > dto.getCols()) {
+                throw new BusinessException(ResultCode.FAIL, "座位画布坐标越界");
+            }
+            String graphCoordinate = source.getGraphRow() + ":" + source.getGraphCol();
+            if (!graphCoordinates.add(graphCoordinate)) {
+                throw new BusinessException(ResultCode.CONFLICT, "座位画布坐标重复");
+            }
+            List<SeatMapSeatDTO> rowSeats = seatsByGraphRow.get(source.getGraphRow());
+            if (rowSeats == null) {
+                rowSeats = new ArrayList<SeatMapSeatDTO>();
+                seatsByGraphRow.put(source.getGraphRow(), rowSeats);
+            }
+            rowSeats.add(source);
+        }
+
+        List<Seat> result = new ArrayList<Seat>();
+        Set<String> businessCoordinates = new HashSet<String>();
+        Set<String> seatIds = new HashSet<String>();
+        Set<String> seatNames = new HashSet<String>();
+        int businessRow = 0;
+        for (int graphRow = 1; graphRow <= dto.getRows(); graphRow++) {
+            List<SeatMapSeatDTO> rowSeats = seatsByGraphRow.get(graphRow);
+            if (rowSeats == null || rowSeats.isEmpty()) continue;
+            businessRow++;
+            Collections.sort(rowSeats, new java.util.Comparator<SeatMapSeatDTO>() {
+                @Override
+                public int compare(SeatMapSeatDTO left, SeatMapSeatDTO right) {
+                    return left.getGraphCol().compareTo(right.getGraphCol());
+                }
+            });
+            for (int index = 0; index < rowSeats.size(); index++) {
+                SeatMapSeatDTO source = rowSeats.get(index);
+                int rowNo = source.getRowNo() == null ? businessRow : source.getRowNo();
+                int colNo = source.getColNo() == null ? index + 1 : source.getColNo();
+                String businessCoordinate = rowNo + ":" + colNo;
+                if (!businessCoordinates.add(businessCoordinate)) {
+                    throw new BusinessException(ResultCode.CONFLICT, "业务座位号重复");
+                }
+                String seatId = StringUtils.hasText(source.getSeatId()) ? source.getSeatId().trim()
+                        : seatMapId + ":" + source.getGraphRow() + ":" + source.getGraphCol();
+                if (!seatIds.add(seatId)) throw new BusinessException(ResultCode.CONFLICT, "座位 ID 重复");
+                String seatName = rowNo + "排" + colNo + "座";
+                if (!seatNames.add(seatName)) throw new BusinessException(ResultCode.CONFLICT, "座位名称重复");
+                String type = StringUtils.hasText(source.getType()) ? source.getType().trim() : "normal";
+                if (!"normal".equals(type) && !"couple".equals(type) && !"disabled".equals(type)) {
+                    throw new BusinessException(ResultCode.FAIL, "座位类型不合法");
+                }
+                String zone = StringUtils.hasText(source.getZone()) ? source.getZone().trim() : "normal";
+                String defaultStatus = StringUtils.hasText(source.getDefaultStatus())
+                        ? source.getDefaultStatus().trim() : "available";
+                if (!"available".equals(defaultStatus) && !"unavailable".equals(defaultStatus)) {
+                    throw new BusinessException(ResultCode.FAIL, "座位默认状态不合法");
+                }
+                if ("couple".equals(type) && !StringUtils.hasText(source.getCouplePairId())) {
+                    throw new BusinessException(ResultCode.FAIL, "情侣座必须提供 couplePairId");
+                }
+                Seat seat = new Seat();
+                seat.setSeatId(seatId);
+                seat.setSeatMapId(seatMapId);
+                seat.setGraphRow(source.getGraphRow());
+                seat.setGraphCol(source.getGraphCol());
+                seat.setRowNo(rowNo);
+                seat.setColNo(colNo);
+                seat.setSeatName(seatName);
+                seat.setSeatType(type);
+                seat.setZone(zone);
+                seat.setCouplePairId(trimToNull(source.getCouplePairId()));
+                seat.setDefaultStatus(defaultStatus);
+                result.add(seat);
+            }
+        }
+        validateCoupleSeats(result);
+        return result;
+    }
+
+    private void validateCoupleSeats(List<Seat> seats) {
+        Map<String, Integer> pairCounts = new HashMap<String, Integer>();
+        for (Seat seat : seats) {
+            if (!"couple".equals(seat.getSeatType())) continue;
+            Integer count = pairCounts.get(seat.getCouplePairId());
+            pairCounts.put(seat.getCouplePairId(), count == null ? 1 : count + 1);
+        }
+        for (Integer count : pairCounts.values()) {
+            if (count != 2) throw new BusinessException(ResultCode.FAIL, "情侣座必须成对创建");
+        }
+    }
+
     private CinemaVO toCinemaVO(Cinema cinema, boolean detail) {
         List<String> tags = StringUtils.hasText(cinema.getTagsJson())
                 ? JSON.parseArray(cinema.getTagsJson(), String.class) : Collections.<String>emptyList();
-        return CinemaVO.builder().cinemaId(cinema.getCinemaId()).cityId(cinema.getCityId())
+        return CinemaVO.builder().cinemaId(cinema.getCinemaId()).cityId(cinema.getCityId()).cityName(cinema.getCityName())
                 .name(cinema.getName()).address(cinema.getAddress()).distanceMeters(cinema.getDistanceMeters())
                 .minPrice(cinema.getMinPrice()).trafficNote(detail ? cinema.getTrafficNote() : null)
                 .tags(detail ? tags : null).build();
@@ -290,10 +417,17 @@ public class CinemaServiceImpl implements CinemaService {
                 .seatMapId(hall.getSeatMapId()).showCount(hall.getShowCount()).build();
     }
 
-    private SeatMapVO toSeatMapVO(SeatMap seatMap) {
+    private SeatMapVO toSeatMapVO(SeatMap seatMap, List<Seat> seats) {
+        List<SeatMapSeatVO> seatVos = new ArrayList<SeatMapSeatVO>();
+        for (Seat seat : seats) {
+            seatVos.add(SeatMapSeatVO.builder().seatId(seat.getSeatId()).seatName(seat.getSeatName())
+                    .rowNo(seat.getRowNo()).colNo(seat.getColNo()).graphRow(seat.getGraphRow())
+                    .graphCol(seat.getGraphCol()).type(seat.getSeatType()).zone(seat.getZone())
+                    .defaultStatus(seat.getDefaultStatus()).couplePairId(seat.getCouplePairId()).build());
+        }
         return SeatMapVO.builder().seatMapId(seatMap.getSeatMapId()).cinemaId(seatMap.getCinemaId())
                 .rows(seatMap.getRowsN()).cols(seatMap.getColsN()).screenLabel(seatMap.getScreenLabel())
-                .mutable(seatMap.getMutable()).seatCount(seatMap.getSeatCount()).build();
+                .mutable(seatMap.getMutable()).seatCount(seatMap.getSeatCount()).seats(seatVos).build();
     }
 
     private String toTagsJson(List<String> tags) { return JSON.toJSONString(tags == null ? Collections.emptyList() : tags); }

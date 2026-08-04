@@ -11,6 +11,7 @@ import com.cinepass.vo.PageResult;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -68,5 +69,13 @@ public class CinemaController {
     @Staff
     public Result<CinemaVO> update(@PathVariable String cinemaId, @Valid @RequestBody CinemaUpdateDTO body) {
         return Result.success(cinemaService.updateCinema(cinemaId, body));
+    }
+
+    @ApiOperation("删除影院")
+    @DeleteMapping("/admin/cinemas/{cinemaId}")
+    @Admin
+    public Result<Void> delete(@PathVariable String cinemaId) {
+        cinemaService.deleteCinema(cinemaId);
+        return Result.success();
     }
 }

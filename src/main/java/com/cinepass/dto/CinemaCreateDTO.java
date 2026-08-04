@@ -18,6 +18,10 @@ public class CinemaCreateDTO {
     @Size(max = 64)
     private String cityId;
 
+    @NotBlank(message = "城市名称不能为空")
+    @Size(max = 64)
+    private String cityName;
+
     @NotBlank(message = "影院名称不能为空")
     @Size(max = 128)
     private String name;

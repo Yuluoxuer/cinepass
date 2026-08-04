@@ -5,6 +5,7 @@ import lombok.Data;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.List;
 
@@ -15,10 +16,12 @@ public class SeatMapCreateDTO {
 
     private String cinemaId;
 
-    @Min(1)
+    @NotNull(message = "座位图行数不能为空")
+    @Min(value = 1, message = "座位图行数必须大于 0")
     private Integer rows;
 
-    @Min(1)
+    @NotNull(message = "座位图列数不能为空")
+    @Min(value = 1, message = "座位图列数必须大于 0")
     private Integer cols;
 
     @Size(max = 64)

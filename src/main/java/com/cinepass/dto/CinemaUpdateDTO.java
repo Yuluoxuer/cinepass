@@ -12,6 +12,8 @@ import java.util.List;
 public class CinemaUpdateDTO {
     @Size(max = 64)
     private String cityId;
+    @Size(min = 1, max = 64)
+    private String cityName;
     @Size(min = 1, max = 128)
     private String name;
     @Size(min = 1, max = 255)

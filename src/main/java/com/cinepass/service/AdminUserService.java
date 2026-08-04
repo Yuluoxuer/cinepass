@@ -167,7 +167,7 @@ public class AdminUserService {
         if (!StringUtils.hasText(cinemaId)) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "员工必须绑定影院");
         }
-        if (!cinemaMapper.exists(cinemaId)) {
+        if (!cinemaMapper.existsActive(cinemaId)) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
         }
         return cinemaId;

@@ -58,10 +58,12 @@ CREATE INDEX IF NOT EXISTS idx_movie_title ON movie (title);
 CREATE TABLE IF NOT EXISTS cinema (
   cinema_id   VARCHAR(32)    NOT NULL,
   city_id     VARCHAR(32)    NOT NULL,
+  city_name   VARCHAR(64)    NOT NULL DEFAULT U&'\4E0A\6D77\5E02',
   name        VARCHAR(128)   NOT NULL,
   address     VARCHAR(256)   NOT NULL,
   lat         DECIMAL(10,6)  NOT NULL,
   lng         DECIMAL(10,6)  NOT NULL,
+  is_delete   BOOLEAN        NOT NULL DEFAULT FALSE,
   traffic_note VARCHAR(256)   NULL,
   tags_json    JSONB           NOT NULL DEFAULT '[]'::jsonb,
   created_at  TIMESTAMPTZ(3) NOT NULL,

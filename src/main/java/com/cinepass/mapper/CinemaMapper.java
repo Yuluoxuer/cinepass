@@ -13,6 +13,8 @@ public interface CinemaMapper {
 
     boolean exists(@Param("cinemaId") String cinemaId);
 
+    boolean existsActive(@Param("cinemaId") String cinemaId);
+
     List<Cinema> selectNearby(@Param("movieId") String movieId,
                               @Param("lat") BigDecimal lat,
                               @Param("lng") BigDecimal lng,
@@ -29,4 +31,6 @@ public interface CinemaMapper {
     int insert(Cinema cinema);
 
     int update(Cinema cinema);
+
+    int softDelete(@Param("cinemaId") String cinemaId);
 }
