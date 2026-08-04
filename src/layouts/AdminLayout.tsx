@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, history, useLocation } from 'umi';
-import { Breadcrumb, Button, Layout, Menu, Dropdown } from 'antd';
+import { Breadcrumb, Button, Layout, Menu, Dropdown, message } from 'antd';
 import {
   DashboardOutlined,
   VideoCameraOutlined,
@@ -13,7 +13,7 @@ import {
   LogoutOutlined,
   ArrowLeftOutlined,
 } from '@ant-design/icons';
-import { restoreLoginState, useAuthStore, isStaffOrAdmin } from '@/stores/auth';
+import { getCinemaIdFromAccessToken, restoreLoginState, useAuthStore, isStaffOrAdmin } from '@/stores/auth';
 import * as authApi from '@/api/auth';
 import MockToggle from '@/components/MockToggle';
 import '@/styles/tokens.css';
@@ -126,6 +126,20 @@ const AdminLayout: React.FC = () => {
         if (loc.pathname.startsWith('/admin/users') && serverUser.role !== 'admin') {
           history.replace('/admin');
           return;
+        }
+        if (serverUser.role === 'staff') {
+          const staffCinemaId = serverUser.cinemaId || getCinemaIdFromAccessToken(token);
+          const cinemaRoute = loc.pathname.match(/^\/admin\/cinemas\/([^/]+)(?:\/halls)?$/);
+          if (loc.pathname === '/admin/cinemas/new') {
+            message.error('仅管理员可新建影院');
+            history.replace('/admin/cinemas');
+            return;
+          }
+          if (cinemaRoute && (!staffCinemaId || cinemaRoute[1] !== staffCinemaId)) {
+            message.error(staffCinemaId ? '员工只能管理所属影院' : '未识别所属影院，暂不可执行影院管理操作');
+            history.replace('/admin/cinemas');
+            return;
+          }
         }
         setUser(serverUser);
         setVerified(true);

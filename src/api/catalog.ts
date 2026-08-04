@@ -41,7 +41,7 @@ export function listCinemas(params?: {
   lat?: number;
   lng?: number;
   radiusMeters?: number;
-  sort?: string;
+  sort?: 'distance' | 'price';
   page?: number;
   size?: number;
 }) {

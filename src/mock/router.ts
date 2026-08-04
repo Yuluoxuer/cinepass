@@ -62,6 +62,7 @@ function authUser(req: MockRequest): UserVO | null {
     phone: u.phone,
     role: u.role,
     avatarUrl: u.avatarUrl,
+    cinemaId: u.cinemaId,
   };
 }
 
@@ -294,6 +295,7 @@ function handleAuth(req: MockRequest): ApiEnvelope<unknown> | null {
       nickname: user.nickname,
       phone: user.phone,
       role: user.role,
+      cinemaId: user.cinemaId,
     };
     return ok(data);
   }
@@ -426,18 +428,22 @@ function handleCinemas(req: MockRequest): ApiEnvelope<unknown> | null {
     return ok(c);
   }
   if (req.method === 'POST' && req.path === '/admin/cinemas') {
-    const { error } = requireStaff(req);
+    const { error, user } = requireStaff(req);
     if (error) return error;
+    if (user!.role !== 'admin') return fail('仅管理员可新建影院', 'FORBIDDEN');
     const body = req.body as Partial<CinemaVO>;
     const c: CinemaVO = {
       cinemaId: uid('c'),
       name: body.name || '新影院',
       address: body.address || '',
       cityId: body.cityId || 'city_sh',
+      cityName: body.cityName || '上海市',
       lat: body.lat,
       lng: body.lng,
       distanceMeters: null,
       minPrice: null,
+      trafficNote: body.trafficNote,
+      tags: body.tags,
     };
     db.cinemas.push(c);
     return ok(c);
@@ -450,6 +456,15 @@ function handleCinemas(req: MockRequest): ApiEnvelope<unknown> | null {
     if (!c) return fail('影院不存在', 'NOT_FOUND');
     Object.assign(c, req.body);
     return ok(c);
+  }
+  if (req.method === 'DELETE' && upd) {
+    const { error, user } = requireStaff(req);
+    if (error) return error;
+    if (user!.role !== 'admin') return fail('仅管理员可删除影院', 'FORBIDDEN');
+    const index = db.cinemas.findIndex((cinema) => cinema.cinemaId === upd[1]);
+    if (index < 0) return fail('影院不存在', 'NOT_FOUND');
+    db.cinemas.splice(index, 1);
+    return ok(null);
   }
   return null;
 }
@@ -480,6 +495,7 @@ function handleShows(req: MockRequest): ApiEnvelope<unknown> | null {
     if (error) return error;
     const { cinemaId, movieId, date } = req.query;
     if (!cinemaId || !movieId || !date) return fail('cinemaId、movieId、date 必填', 'VALIDATION_ERROR');
+    if (!cinemaById(cinemaId)) return fail('影院不存在', 'NOT_FOUND');
     return ok({
       date,
       items: db.shows.filter(
@@ -492,6 +508,7 @@ function handleShows(req: MockRequest): ApiEnvelope<unknown> | null {
     if (!cinemaId || !movieId || !date) {
       return fail('cinemaId、movieId、date 必填', 'VALIDATION_ERROR');
     }
+    if (!cinemaById(cinemaId)) return fail('影院不存在', 'NOT_FOUND');
     const items = db.shows.filter(
       (s) =>
         s.cinemaId === cinemaId &&
@@ -505,6 +522,8 @@ function handleShows(req: MockRequest): ApiEnvelope<unknown> | null {
 
   const seatMap = req.path.match(/^\/shows\/([^/]+)\/seat-map$/);
   if (req.method === 'GET' && seatMap) {
+    const show = showById(seatMap[1]);
+    if (!show || !cinemaById(show.cinemaId)) return fail('场次不存在', 'NOT_FOUND');
     const sm = seatMapForShow(seatMap[1]);
     if (!sm) return fail('场次不存在', 'NOT_FOUND');
     return ok(sm);
@@ -802,7 +821,7 @@ function handleLocksOrders(req: MockRequest): ApiEnvelope<unknown> | null {
     if (error) return error;
     const body = (req.body || {}) as { showId: string; seatIds: string[]; sessionId?: string };
     const show = showById(body.showId);
-    if (!show) return fail('场次不存在', 'NOT_FOUND');
+    if (!show || !cinemaById(show.cinemaId)) return fail('场次不存在', 'NOT_FOUND');
     if (show.status !== 'on_sale' || (parseShowTime(show.startTime) || 0) <= Date.now()) {
       return fail('该场次已停售或不可购买', 'SHOW_NOT_ON_SALE');
     }
@@ -877,7 +896,8 @@ function handleLocksOrders(req: MockRequest): ApiEnvelope<unknown> | null {
     const lock = db.locks.get(body.lockId);
     if (!lock || lock.status !== 'active') return fail('锁无效或已过期', 'LOCK_EXPIRED');
     if (lock.userId !== user!.userId) return fail('无权限', 'FORBIDDEN');
-    const show = showById(lock.showId)!;
+    const show = showById(lock.showId);
+    if (!show || !cinemaById(show.cinemaId)) return fail('场次不存在', 'NOT_FOUND');
     if (show.status !== 'on_sale' || (parseShowTime(show.startTime) || 0) <= Date.now()) {
       return fail('该场次已停售或不可购买', 'SHOW_NOT_ON_SALE');
     }
@@ -1046,7 +1066,7 @@ function handleLocksOrders(req: MockRequest): ApiEnvelope<unknown> | null {
     }
     const statusMap = db.seatStatus.get(order.showId);
     const show = showById(order.showId);
-    if (!show || show.status !== 'on_sale' || (parseShowTime(show.startTime) || 0) <= Date.now()) {
+    if (!show || !cinemaById(show.cinemaId) || show.status !== 'on_sale' || (parseShowTime(show.startTime) || 0) <= Date.now()) {
       return fail('场次已停售或不可支付', 'SHOW_NOT_ON_SALE');
     }
     for (const id of order.seatIds) statusMap?.set(id, 'sold');
@@ -1132,9 +1152,13 @@ function handleSeatMapsHalls(req: MockRequest): ApiEnvelope<unknown> | null {
     const { error } = requireStaff(req);
     if (error) return error;
     const body = req.body as SeatMapVO;
+    if (!body.cinemaId || !cinemaById(body.cinemaId)) {
+      return fail('影院不存在', 'NOT_FOUND');
+    }
     const seats = body.seats || [];
     const sm: SeatMapVO = {
       seatMapId: body.seatMapId || uid('sm'),
+      cinemaId: body.cinemaId,
       rows: body.rows,
       cols: body.cols,
       screenLabel: body.screenLabel || '银幕',
@@ -1184,7 +1208,7 @@ function handleSeatMapsHalls(req: MockRequest): ApiEnvelope<unknown> | null {
   if (req.method === 'GET' && req.path === '/admin/halls') {
     const { error } = requireStaff(req);
     if (error) return error;
-    let list = [...db.halls];
+    let list = db.halls.filter((hall) => Boolean(cinemaById(hall.cinemaId)));
     if (req.query.cinemaId) list = list.filter((h) => h.cinemaId === req.query.cinemaId);
     return ok(pageOf(list, 1, 50));
   }
@@ -1193,8 +1217,14 @@ function handleSeatMapsHalls(req: MockRequest): ApiEnvelope<unknown> | null {
     if (error) return error;
     const body = req.body as Partial<HallVO>;
     if (!body.cinemaId || !cinemaById(body.cinemaId)) return fail('影院不存在', 'NOT_FOUND');
-    if (!body.seatMapId || !db.seatMaps.some((map) => map.seatMapId === body.seatMapId)) {
+    const seatMap = body.seatMapId
+      ? db.seatMaps.find((map) => map.seatMapId === body.seatMapId)
+      : undefined;
+    if (!seatMap) {
       return fail('座位图不存在', 'NOT_FOUND');
+    }
+    if (seatMap.cinemaId && seatMap.cinemaId !== body.cinemaId) {
+      return fail('座位图不属于所选影院', 'FORBIDDEN');
     }
     const hall: HallVO = {
       hallId: uid('h'),
@@ -1212,6 +1242,7 @@ function handleSeatMapsHalls(req: MockRequest): ApiEnvelope<unknown> | null {
     if (error) return error;
     const h = hallById(hallUpd[1]);
     if (!h) return fail('影厅不存在', 'NOT_FOUND');
+    if (!cinemaById(h.cinemaId)) return fail('影院不存在', 'NOT_FOUND');
     const body = (req.body || {}) as Partial<HallVO>;
     if (body.seatMapId && !db.seatMaps.some((map) => map.seatMapId === body.seatMapId)) {
       return fail('座位图不存在', 'NOT_FOUND');
@@ -1459,7 +1490,7 @@ function handleAgent(req: MockRequest): ApiEnvelope<unknown> | null {
         });
       } else if (itemId?.startsWith('s')) {
         const show = showById(itemId);
-        if (!show || show.status !== 'on_sale' || (parseShowTime(show.startTime) || 0) <= Date.now()) {
+        if (!show || !cinemaById(show.cinemaId) || show.status !== 'on_sale' || (parseShowTime(show.startTime) || 0) <= Date.now()) {
           replyText = '该场次已停售、取消或开场，请重新选择场次。';
           cards.push({
             cardId: uid('card'),
@@ -1543,7 +1574,7 @@ function handleAgent(req: MockRequest): ApiEnvelope<unknown> | null {
         }
         const statusMap = db.seatStatus.get(draft.showId!);
         const show = showById(draft.showId!);
-        if (!show || show.status !== 'on_sale' || (parseShowTime(show.startTime) || 0) <= Date.now()) {
+        if (!show || !cinemaById(show.cinemaId) || show.status !== 'on_sale' || (parseShowTime(show.startTime) || 0) <= Date.now()) {
           replyText = '该场次已停售、取消或开场，请重新选择场次。';
           cards.push({
             cardId: uid('card'),

@@ -60,6 +60,10 @@ export class ApiError extends Error {
   errorCode?: string;
   data?: ApiErrorData;
   httpStatus?: number;
+  /** 已由接口层或全局兜底提示过，避免重复弹出错误消息。 */
+  notified?: boolean;
+  /** 调用方要求自行呈现错误态时，不触发全局错误页。 */
+  silent?: boolean;
 
   constructor(
     message: string,
@@ -80,6 +84,8 @@ export interface UserVO {
   phone: string | null;
   role: UserRole;
   avatarUrl: string | null;
+  /** staff 所属影院；真实环境从 JWT claim 补齐，Mock 由登录态直接返回。 */
+  cinemaId?: string | null;
 }
 
 export interface LoginResult {
@@ -90,6 +96,7 @@ export interface LoginResult {
   nickname: string;
   phone: string | null;
   role: UserRole;
+  cinemaId?: string | null;
 }
 
 export interface MovieVO {
@@ -121,12 +128,16 @@ export interface CinemaVO {
   name: string;
   address: string;
   cityId?: string;
+  cityName?: string;
   lat?: number;
   lng?: number;
   distanceMeters: number | null;
   minPrice: number | null;
   /** 影院特色厅标签，例如 IMAX、杜比全景声 */
   features?: string[];
+  trafficNote?: string;
+  tags?: string[];
+  halls?: HallVO[];
 }
 
 export interface ShowVO {
@@ -164,6 +175,7 @@ export interface SeatVO {
 
 export interface SeatMapVO {
   seatMapId: string;
+  cinemaId?: string;
   rows: number;
   cols: number;
   screenLabel: string;
@@ -176,6 +188,7 @@ export interface SeatMapVO {
   /** 模板/辅助：本图出现的区 */
   zones?: string[];
   showId?: string;
+  seatCount?: number;
 }
 
 /** 座位图被影厅、场次使用时的引用摘要，用于删除前治理提示。 */

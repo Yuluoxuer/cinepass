@@ -9,7 +9,6 @@ import type {
   OrderVO,
   PageResult,
   AdminUserVO,
-  SeatMapUsageVO,
   AdminShowImpactVO,
   AdminDashboardStatsVO,
   TicketVerifyVO,
@@ -24,48 +23,67 @@ export function updateMovie(movieId: string, body: Partial<MovieVO>) {
   return put<MovieVO>(`/admin/movies/${movieId}`, body);
 }
 
-export function createCinema(body: Partial<CinemaVO>) {
+export interface CinemaCreateBody {
+  cinemaId?: string;
+  cityId?: string;
+  cityName: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  trafficNote?: string;
+  tags?: string[];
+}
+
+export type CinemaUpdateBody = Partial<Omit<CinemaCreateBody, 'cinemaId'>>;
+
+export function createCinema(body: CinemaCreateBody) {
   return post<CinemaVO>('/admin/cinemas', body);
 }
 
-export function updateCinema(cinemaId: string, body: Partial<CinemaVO>) {
+export function updateCinema(cinemaId: string, body: CinemaUpdateBody) {
   return put<CinemaVO>(`/admin/cinemas/${cinemaId}`, body);
 }
 
-export function listHalls(cinemaId?: string) {
-  return get<PageResult<HallVO>>('/admin/halls', { cinemaId });
+/** 删除影院。服务端软删除并保留历史影厅、场次及订单关联。 */
+export function deleteCinema(cinemaId: string) {
+  return del<null>(`/admin/cinemas/${cinemaId}`);
 }
 
-export function createHall(body: Partial<HallVO>) {
+export function listHalls(params?: { cinemaId?: string; page?: number; size?: number }) {
+  return get<PageResult<HallVO>>('/admin/halls', params);
+}
+
+export interface HallCreateBody {
+  hallId?: string;
+  cinemaId?: string;
+  name: string;
+  seatMapId: string;
+}
+
+export interface HallUpdateBody {
+  name: string;
+}
+
+export function createHall(body: HallCreateBody) {
   return post<HallVO>('/halls', body);
 }
 
-export function updateHall(hallId: string, body: Partial<HallVO>) {
+export function updateHall(hallId: string, body: HallUpdateBody) {
   return put<HallVO>(`/admin/halls/${hallId}`, body);
 }
 
-export function listSeatMaps() {
-  return get<PageResult<SeatMapVO>>('/seat-maps');
+export interface SeatMapCreateBody {
+  seatMapId?: string;
+  cinemaId?: string;
+  rows: number;
+  cols: number;
+  screenLabel?: string;
+  seats: Array<Pick<SeatMapVO['seats'][number], 'graphRow' | 'graphCol' | 'rowNo' | 'colNo' | 'seatId' | 'type' | 'zone' | 'defaultStatus' | 'couplePairId'>>;
 }
 
-export function getSeatMapTemplate(id: string) {
-  return get<SeatMapVO>(`/seat-maps/${id}`);
-}
-
-export function createSeatMap(body: Partial<SeatMapVO>) {
+export function createSeatMap(body: SeatMapCreateBody) {
   return post<SeatMapVO>('/seat-maps', body);
-}
-
-export function updateSeatMap(id: string, body: Partial<SeatMapVO>) {
-  return put<SeatMapVO>(`/seat-maps/${id}`, body);
-}
-
-export function deleteSeatMap(id: string) {
-  return del<{ deleted: boolean }>(`/seat-maps/${id}`);
-}
-
-export function getSeatMapUsage(id: string) {
-  return get<SeatMapUsageVO>(`/seat-maps/${id}/usage`);
 }
 
 export function createShow(body: {

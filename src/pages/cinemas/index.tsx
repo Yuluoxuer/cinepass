@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { message } from 'antd';
 import { history } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { CinemaVO, MovieVO } from '@/types';
@@ -10,19 +11,36 @@ const CinemasPage: React.FC = () => {
   const [selected, setSelected] = useState<CinemaVO | null>(null);
   const [movies, setMovies] = useState<MovieVO[]>([]);
   const [loadingMovies, setLoadingMovies] = useState(false);
+  const [loadingCinemas, setLoadingCinemas] = useState(true);
+  const [cinemasError, setCinemasError] = useState('');
+  const [moviesError, setMoviesError] = useState('');
   const patchLocal = useBookingStore((s) => s.patchLocal);
 
-  useEffect(() => {
-    void catalogApi.listCinemas({ page: 1, size: 20 }).then((r) => setCinemas(r.items));
-  }, []);
+  const loadCinemas = async () => {
+    setLoadingCinemas(true);
+    setCinemasError('');
+    try {
+      const result = await catalogApi.listCinemas({ sort: 'price', page: 1, size: 20 });
+      setCinemas(result.items);
+    } catch (error) {
+      setCinemas([]);
+      setCinemasError(error instanceof Error ? error.message : '影院列表加载失败，请稍后重试');
+    } finally {
+      setLoadingCinemas(false);
+    }
+  };
+
+  useEffect(() => { void loadCinemas(); }, []);
 
   const openCinema = async (c: CinemaVO) => {
     setSelected(c);
     setLoadingMovies(true);
+    setMoviesError('');
     try {
       const date = new Date().toISOString().slice(0, 10);
       const hot = await catalogApi.listMovies({ status: 'hot_showing', page: 1, size: 20 });
       const withShows: MovieVO[] = [];
+      let failedShowRequests = 0;
       for (const m of hot.items) {
         try {
           const shows = await catalogApi.listShows({
@@ -32,12 +50,40 @@ const CinemasPage: React.FC = () => {
           });
           if (shows.items.length) withShows.push(m);
         } catch {
-          /* skip */
+          failedShowRequests += 1;
         }
       }
-      setMovies(withShows);
+      if (failedShowRequests > 0 && withShows.length === 0) {
+        setMovies([]);
+        setMoviesError('场次加载失败，请检查网络后重试');
+      } else {
+        setMovies(withShows);
+      }
+    } catch (error) {
+      setMovies([]);
+      setMoviesError(error instanceof Error ? error.message : '在售影片加载失败，请稍后重试');
     } finally {
       setLoadingMovies(false);
+    }
+  };
+
+  const selectShow = async (movie: MovieVO) => {
+    if (!selected) return;
+    const date = new Date().toISOString().slice(0, 10);
+    try {
+      await patchLocal(
+        {
+          movieId: movie.movieId,
+          filmTitle: movie.title,
+          cinemaId: selected.cinemaId,
+          date,
+          state: 'SelectShow',
+        },
+        { debounce: false },
+      );
+      history.push(`/booking/shows?movieId=${movie.movieId}&cinemaId=${selected.cinemaId}&date=${date}`);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '暂时无法同步购票草稿，请重试');
     }
   };
 
@@ -46,7 +92,7 @@ const CinemasPage: React.FC = () => {
       <h1>影院</h1>
       <div className={styles.layout}>
         <div className={styles.list}>
-          {cinemas.map((c) => (
+          {loadingCinemas ? <p className={styles.hint}>正在加载影院…</p> : cinemasError ? <div className={styles.hint}><p>影院列表加载失败，请检查网络后重试。</p><button type="button" className="miaoyu-btn-secondary" onClick={() => void loadCinemas()}>重新加载</button></div> : cinemas.map((c) => (
             <div
               key={c.cinemaId}
               className={`${styles.item} ${selected?.cinemaId === c.cinemaId ? styles.active : ''}`}
@@ -62,6 +108,8 @@ const CinemasPage: React.FC = () => {
             <p className={styles.hint}>选择影院查看在售影片</p>
           ) : loadingMovies ? (
             <p>加载中…</p>
+          ) : moviesError ? (
+            <div className={styles.hint}><p>在售影片加载失败，请稍后重试。</p><button type="button" className="miaoyu-btn-secondary" onClick={() => void openCinema(selected)}>重新加载</button></div>
           ) : movies.length === 0 ? (
             <p className={styles.hint}>今日暂无场次</p>
           ) : (
@@ -77,22 +125,7 @@ const CinemasPage: React.FC = () => {
                     type="button"
                     className="miaoyu-btn-primary"
                     style={{ height: 32, marginTop: 8 }}
-                    onClick={async () => {
-                      const date = new Date().toISOString().slice(0, 10);
-                      await patchLocal(
-                        {
-                          movieId: m.movieId,
-                          filmTitle: m.title,
-                          cinemaId: selected.cinemaId,
-                          date,
-                          state: 'SelectShow',
-                        },
-                        { debounce: false },
-                      );
-                      history.push(
-                        `/booking/shows?movieId=${m.movieId}&cinemaId=${selected.cinemaId}&date=${date}`,
-                      );
-                    }}
+                    onClick={() => void selectShow(m)}
                   >
                     选场次
                   </button>

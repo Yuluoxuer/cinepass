@@ -21,6 +21,7 @@ type DetailMovie = MovieVO & {
 
 type DetailCinema = CinemaVO & {
   features?: string[];
+  tags?: string[];
 };
 
 function formatWantCount(count: number) {
@@ -76,7 +77,7 @@ const MovieDetailPage: React.FC = () => {
       });
 
     void catalogApi
-      .listCinemas({ movieId, page: 1, size: 100 })
+      .listCinemas({ movieId, sort: 'price', page: 1, size: 50 })
       .then((result) => {
         if (active) setCinemas(result.items as DetailCinema[]);
       })
@@ -117,7 +118,7 @@ const MovieDetailPage: React.FC = () => {
     const prices = cinemas
       .map((cinema) => cinema.minPrice)
       .filter((price): price is number => price != null);
-    const features = Array.from(new Set(cinemas.flatMap((cinema) => cinema.features || [])));
+    const features = Array.from(new Set(cinemas.flatMap((cinema) => cinema.tags || cinema.features || [])));
     return { minPrice: prices.length ? Math.min(...prices) : null, features };
   }, [cinemas]);
 
