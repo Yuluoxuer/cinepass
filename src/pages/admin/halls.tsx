@@ -1,34 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, Modal, Select, Table, message } from 'antd';
-import { useParams } from 'umi';
+import { Button, Form, Input, Modal, Space, Table, message } from 'antd';
+import { history, useLocation, useParams } from 'umi';
 import * as adminApi from '@/api/admin';
-import type { HallVO, SeatMapVO } from '@/types';
+import type { HallVO } from '@/types';
 
 const HallsPage: React.FC = () => {
   const { cinemaId } = useParams<{ cinemaId: string }>();
+  const location = useLocation();
   const [halls, setHalls] = useState<HallVO[]>([]);
-  const [maps, setMaps] = useState<SeatMapVO[]>([]);
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
 
-  const load = async () => {
-    const [h, m] = await Promise.all([
-      adminApi.listHalls(cinemaId),
-      adminApi.listSeatMaps(),
-    ]);
-    setHalls(h.items);
-    setMaps(m.items);
-  };
+  const load = () => void adminApi.listHalls({ cinemaId, page: 1, size: 50 })
+    .then((r) => setHalls(r.items))
+    .catch(() => setHalls([]));
 
   useEffect(() => {
-    void load();
+    load();
   }, [cinemaId]);
+
+  useEffect(() => {
+    const seatMapId = new URLSearchParams(location.search).get('seatMapId');
+    if (seatMapId) {
+      form.setFieldValue('seatMapId', seatMapId);
+      setOpen(true);
+    }
+  }, [location.search, form]);
 
   return (
     <div>
-      <Button type="primary" style={{ margin: '12px 0' }} onClick={() => setOpen(true)}>
-        + 新建影厅
-      </Button>
+      <Space style={{ margin: '12px 0' }}>
+        <Button type="primary" onClick={() => setOpen(true)}>+ 新建影厅</Button>
+        <Button onClick={() => history.push(`/admin/seat-maps/new?cinemaId=${encodeURIComponent(cinemaId)}`)}>
+          新建座位图
+        </Button>
+      </Space>
       <Table
         rowKey="hallId"
         dataSource={halls}
@@ -39,59 +45,41 @@ const HallsPage: React.FC = () => {
           {
             title: '操作',
             render: (_, r) => (
-              <Button
-                type="link"
-                onClick={() => {
-                  Modal.confirm({
-                    title: '改名',
-                    content: (
-                      <Input
-                        defaultValue={r.name}
-                        id="hall-rename"
-                      />
-                    ),
-                    onOk: async () => {
-                      const el = document.getElementById('hall-rename') as HTMLInputElement;
-                      await adminApi.updateHall(r.hallId, { name: el?.value || r.name });
+              <Button type="link" onClick={() => {
+                let nextName = r.name;
+                Modal.confirm({
+                  title: '修改影厅名称',
+                  content: <Input defaultValue={r.name} onChange={(event) => { nextName = event.target.value; }} />,
+                  onOk: async () => {
+                    try {
+                      await adminApi.updateHall(r.hallId, { name: nextName.trim() || r.name });
                       message.success('已更新');
-                      void load();
-                    },
-                  });
-                }}
-              >
-                改名
-              </Button>
+                      load();
+                    } catch {
+                      // 请求层已处理。
+                    }
+                  },
+                });
+              }}>改名</Button>
             ),
           },
         ]}
       />
-      <Modal
-        title="新建影厅"
-        open={open}
-        onCancel={() => setOpen(false)}
-        onOk={() => form.submit()}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={async (v) => {
-            await adminApi.createHall({ ...v, cinemaId });
+      <Modal title="新建影厅" open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()}>
+        <Form form={form} layout="vertical" onFinish={async (values) => {
+          try {
+            await adminApi.createHall({ ...values, cinemaId });
             message.success('已创建');
             setOpen(false);
             form.resetFields();
-            void load();
-          }}
-        >
-          <Form.Item name="name" label="厅名" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="seatMapId" label="座位图" rules={[{ required: true }]}>
-            <Select
-              options={maps.map((m) => ({
-                value: m.seatMapId,
-                label: `${m.seatMapId} (${m.rows}×${m.cols})`,
-              }))}
-            />
+            load();
+          } catch {
+            // 请求层已处理。
+          }
+        }}>
+          <Form.Item name="name" label="厅名" rules={[{ required: true, whitespace: true, message: '请输入影厅名称' }]}><Input /></Form.Item>
+          <Form.Item name="seatMapId" label="座位图 ID" rules={[{ required: true, whitespace: true, message: '请输入已创建的座位图 ID' }]}>
+            <Input placeholder="例如 sm_sh_xuhui_01" />
           </Form.Item>
         </Form>
       </Modal>

@@ -44,9 +44,9 @@ const ConfirmPage: React.FC = () => {
 
   return (
     <div>
-      <BookingProgress step={5} />
       <div className="miaoyu-container">
         <h2 className={styles.title}>确认订单</h2>
+        <BookingProgress step={5} />
         <div className={styles.confirmGrid}>
           <div className={styles.card}>
             <h3>订单信息</h3>

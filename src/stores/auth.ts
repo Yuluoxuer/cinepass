@@ -96,6 +96,19 @@ export function getAccessToken(): string | null {
   return useAuthStore.getState().accessToken || localStorage.getItem(TOKEN_KEY);
 }
 
+/** JWT 仅用于前端体验层的入口禁用，权限最终仍由服务端校验。 */
+export function getCinemaIdFromAccessToken(token = getAccessToken()): string | undefined {
+  if (!token || token.split('.').length !== 3) return undefined;
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, '=');
+    const cinemaId = JSON.parse(atob(padded))?.cinemaId;
+    return typeof cinemaId === 'string' && cinemaId.trim() ? cinemaId : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function isStaffOrAdmin(role?: UserRole | null): boolean {
   return role === 'staff' || role === 'admin';
 }

@@ -3,6 +3,7 @@ import { defineConfig } from 'umi';
 export default defineConfig({
   plugins: ['@umijs/plugins/dist/antd', '@umijs/plugins/dist/request'],
   routes: [
+    { path: '/error', component: '@/pages/error', layout: false },
     {
       path: '/',
       component: '@/layouts/ClientLayout',

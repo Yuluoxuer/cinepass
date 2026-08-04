@@ -3,8 +3,8 @@ import { Button, DatePicker, Form, InputNumber, Modal, Select, Space, Table, mes
 import dayjs from 'dayjs';
 import * as catalogApi from '@/api/catalog';
 import * as adminApi from '@/api/admin';
-import type { CinemaVO, MovieVO, HallVO, ShowVO, ZonePrice, SeatMapVO } from '@/types';
-import { distinctZones, zoneLabel } from '@/utils/zone';
+import type { CinemaVO, MovieVO, HallVO, ShowVO, ZonePrice } from '@/types';
+import { zoneLabel } from '@/utils/zone';
 
 function formatZonePrices(zonePrices?: ZonePrice[], fallback?: number) {
   if (zonePrices && zonePrices.length > 0) {
@@ -22,7 +22,7 @@ const AdminShowsPage: React.FC = () => {
   const [halls, setHalls] = useState<HallVO[]>([]);
   const [cinemaId, setCinemaId] = useState<string>();
   const [movieId, setMovieId] = useState<string>();
-  const [date, setDate] = useState<string>('');
+  const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
   const [shows, setShows] = useState<ShowVO[]>([]);
   const [open, setOpen] = useState(false);
   const [editShow, setEditShow] = useState<ShowVO | null>(null);
@@ -31,7 +31,6 @@ const AdminShowsPage: React.FC = () => {
   const [formHalls, setFormHalls] = useState<HallVO[]>([]);
   const [formZones, setFormZones] = useState<string[]>([]);
   const [editZones, setEditZones] = useState<string[]>([]);
-  const [seatMapCache, setSeatMapCache] = useState<Record<string, SeatMapVO>>({});
 
   const startTimeValid = (value: dayjs.Dayjs) => value.isAfter(dayjs());
   const localScheduleConflict = (hallId: string, start: dayjs.Dayjs, end: dayjs.Dayjs, excludeShowId?: string) =>
@@ -41,59 +40,35 @@ const AdminShowsPage: React.FC = () => {
     });
 
   useEffect(() => {
-    void catalogApi.listCinemas({ page: 1, size: 50 }).then((r) => setCinemas(r.items));
-    void catalogApi.listMovies({ page: 1, size: 50 }).then((r) => setMovies(r.items));
+    void catalogApi.listCinemas({ sort: 'price', page: 1, size: 50 }).then((r) => setCinemas(r.items)).catch(() => setCinemas([]));
+    void catalogApi.listMovies({ page: 1, size: 50 }).then((r) => setMovies(r.items)).catch(() => setMovies([]));
   }, []);
 
   useEffect(() => {
     if (!cinemaId) return;
-    void adminApi.listHalls(cinemaId).then((r) => setHalls(r.items));
-    if (movieId) void query(cinemaId, movieId, date || undefined);
+    void adminApi.listHalls({ cinemaId }).then((r) => setHalls(r.items)).catch(() => setHalls([]));
   }, [cinemaId]);
 
-  useEffect(() => {
-    if (!movieId || !cinemaId) return;
-    void query(cinemaId, movieId, date || undefined);
-  }, [movieId]);
-
-  useEffect(() => {
-    if (!cinemaId || !movieId) return;
-    void query(cinemaId, movieId, date || undefined);
-  }, [date]);
-
-  const loadSeatMapZones = async (seatMapId: string): Promise<string[]> => {
-    if (seatMapCache[seatMapId]) {
-      const cached = seatMapCache[seatMapId];
-      return cached.zones?.length ? cached.zones : distinctZones(cached.seats);
-    }
-    const map = await adminApi.getSeatMapTemplate(seatMapId);
-    setSeatMapCache((prev) => ({ ...prev, [seatMapId]: map }));
-    return map.zones?.length ? map.zones : distinctZones(map.seats);
+  const onFormHallChange = (hallId: string) => {
+    const hall = formHalls.find((h) => h.hallId === hallId) || halls.find((h) => h.hallId === hallId);
+    setFormZones([]);
+    form.setFieldValue('zonePriceMap', undefined);
+    if (!hall) return;
+    // 当前真实接口未提供按影厅读取座位图分区的能力，不能凭空构造分区价格。
+    message.warning('当前无法读取该影厅的座位图分区，暂不能创建排片。请等待座位图分区读取接口接入。');
   };
 
-  const onFormHallChange = async (hallId: string) => {
-    const hall = formHalls.find((h) => h.hallId === hallId) || halls.find((h) => h.hallId === hallId);
-    if (!hall) {
-      setFormZones([]);
+  const query = async () => {
+    if (!cinemaId || !movieId || !date) {
+      message.warning('请先选齐影院、影片、日期');
       return;
     }
-    const zones = await loadSeatMapZones(hall.seatMapId);
-    setFormZones(zones);
-    const prices: Record<string, number> = {};
-    zones.forEach((z, i) => {
-      prices[z] = 45 + i * 10;
-    });
-    form.setFieldsValue({ zonePriceMap: prices });
-  };
-
-  const query = async (cid?: string, mid?: string, d?: string) => {
-    const c = cid ?? cinemaId;
-    const m = mid ?? movieId;
-    if (!c || !m) return;
-    const params: { cinemaId: string; movieId: string; date?: string } = { cinemaId: c, movieId: m };
-    if (d) params.date = d;
-    const res = await adminApi.adminListShows(params);
-    setShows(res.items);
+    try {
+      const res = await adminApi.adminListShows({ cinemaId, movieId, date });
+      setShows(res.items);
+    } catch {
+      setShows([]);
+    }
   };
 
   const zonePriceFields = useMemo(
@@ -122,11 +97,8 @@ const AdminShowsPage: React.FC = () => {
 
   const openEdit = async (show: ShowVO) => {
     setEditShow(show);
-    const hall = halls.find((h) => h.hallId === show.hallId);
     let zones = show.zonePrices?.map((z) => z.zone) || [];
-    if (hall) {
-      zones = await loadSeatMapZones(hall.seatMapId);
-    }
+    if (!zones.length) zones = ['A'];
     setEditZones(zones);
     const priceMap: Record<string, number> = {};
     for (const z of zones) {
@@ -154,11 +126,12 @@ const AdminShowsPage: React.FC = () => {
           onChange={setMovieId}
         />
         <DatePicker
-          placeholder="按日期筛选（可选）"
-          value={date ? dayjs(date) : null}
-          onChange={(d) => setDate(d ? d.format('YYYY-MM-DD') : '')}
-          allowClear
+          value={dayjs(date)}
+          onChange={(d) => setDate(d ? d.format('YYYY-MM-DD') : date)}
         />
+        <Button type="primary" onClick={query}>
+          查询
+        </Button>
         <Button onClick={openCreate}>+ 新建场次</Button>
       </Space>
       <Table
@@ -180,7 +153,7 @@ const AdminShowsPage: React.FC = () => {
             title: '状态',
             dataIndex: 'status',
             render: (status: ShowVO['status']) =>
-              status === 'cancelled' ? '已停售' : '售票中',
+              status === 'off_sale' ? '已停售' : status === 'cancelled' ? '已取消' : '售票中',
           },
           {
             title: '操作',
@@ -189,58 +162,51 @@ const AdminShowsPage: React.FC = () => {
                 <Button type="link" disabled={r.status !== 'on_sale'} onClick={() => void openEdit(r)}>
                   编辑区价
                 </Button>
-                {r.status === 'on_sale' && (
-                  <Button
-                    type="link"
-                    onClick={() => {
+                <Button
+                  type="link"
+                  disabled={r.status !== 'on_sale'}
+                  onClick={() => {
                     Modal.confirm({
                       title: '确认停售？',
                       content: '停售后将关闭该场次购票，并取消所有未支付订单；已出票订单不受影响。',
                       onOk: async () => {
-                        await adminApi.closeShowSale(r.showId);
-                        message.success('该场次已停售');
-                        await query();
+                        try {
+                          await adminApi.closeShowSale(r.showId);
+                          message.success('该场次已停售');
+                          await query();
+                        } catch {
+                          // 请求层已处理。
+                        }
                       },
                     });
                   }}
                 >
                   停售
                 </Button>
-                )}
-                {r.status === 'cancelled' && (
-                  <Button
-                    type="link"
-                    onClick={() => {
-                      Modal.confirm({
-                        title: '确认恢复出售？',
-                        content: '恢复后该场次将重新开放购票。',
-                        onOk: async () => {
-                          await adminApi.resumeShowSale(r.showId);
-                          message.success('该场次已恢复出售');
-                          await query();
-                        },
-                      });
-                    }}
-                  >
-                    恢复出售
-                  </Button>
-                )}
                 <Button
                   type="link"
                   danger
                   disabled={r.status === 'cancelled'}
                   onClick={async () => {
-                    const impact = await adminApi.getShowImpact(r.showId);
-                    Modal.confirm({
-                      title: '确认取消场次？',
-                      content: `将取消 ${impact.pendingPayCount} 笔待支付订单，并使 ${impact.issuedCount} 张未核销票券失效；已核销 ${impact.usedCount} 笔仅保留记录。`,
-                      okButtonProps: { danger: true },
-                      onOk: async () => {
-                        await adminApi.cancelShow(r.showId);
-                        message.success('场次已取消，关联订单已按规则处理');
-                        await query();
-                      },
-                    });
+                    try {
+                      const impact = await adminApi.getShowImpact(r.showId);
+                      Modal.confirm({
+                        title: '确认取消场次？',
+                        content: `将取消 ${impact.pendingPayCount} 笔待支付订单，并使 ${impact.issuedCount} 张未核销票券失效；已核销 ${impact.usedCount} 笔仅保留记录。`,
+                        okButtonProps: { danger: true },
+                        onOk: async () => {
+                          try {
+                            await adminApi.cancelShow(r.showId);
+                            message.success('场次已取消，关联订单已按规则处理');
+                            await query();
+                          } catch {
+                            // 请求层已处理。
+                          }
+                        },
+                      });
+                    } catch {
+                      // 请求层已处理。
+                    }
                   }}
                 >
                   取消
@@ -264,7 +230,7 @@ const AdminShowsPage: React.FC = () => {
           layout="vertical"
           onFinish={async (v) => {
             if (formZones.length === 0) {
-              message.error('请选择影厅以加载分区');
+              message.error('无法确认影厅座位图分区，不能创建包含未知分区价格的排片');
               return;
             }
             const zonePriceMap = (v.zonePriceMap || {}) as Record<string, number>;
@@ -289,20 +255,24 @@ const AdminShowsPage: React.FC = () => {
             }
             const start = startMoment.format('YYYY-MM-DDTHH:mm:ss+08:00');
             const end = endMoment.format('YYYY-MM-DDTHH:mm:ss+08:00');
-            await adminApi.createShow({
-              movieId: v.movieId,
-              cinemaId: v.cinemaId,
-              hallId: v.hallId,
-              startTime: start,
-              endTime: end,
-              zonePrices,
-            });
-            message.success('已创建（将锁定座位图）');
-            setOpen(false);
-            setCinemaId(v.cinemaId);
-            setMovieId(v.movieId);
-            setDate(dayjs(v.startTime).format('YYYY-MM-DD'));
-            setTimeout(() => void query(), 100);
+            try {
+              await adminApi.createShow({
+                movieId: v.movieId,
+                cinemaId: v.cinemaId,
+                hallId: v.hallId,
+                startTime: start,
+                endTime: end,
+                zonePrices,
+              });
+              message.success('已创建（将锁定座位图）');
+              setOpen(false);
+              setCinemaId(v.cinemaId);
+              setMovieId(v.movieId);
+              setDate(dayjs(v.startTime).format('YYYY-MM-DD'));
+              setTimeout(() => void query(), 100);
+            } catch {
+              // 请求层已处理。
+            }
           }}
         >
           <Form.Item name="cinemaId" label="影院" rules={[{ required: true }]}>
@@ -311,7 +281,7 @@ const AdminShowsPage: React.FC = () => {
               onChange={(v) => {
                 form.setFieldValue('hallId', undefined);
                 setFormZones([]);
-                void adminApi.listHalls(v).then((r) => setFormHalls(r.items));
+                void adminApi.listHalls({ cinemaId: v }).then((r) => setFormHalls(r.items)).catch(() => setFormHalls([]));
               }}
             />
           </Form.Item>
@@ -324,7 +294,7 @@ const AdminShowsPage: React.FC = () => {
                 value: h.hallId,
                 label: h.name,
               }))}
-              onChange={(v) => void onFormHallChange(v)}
+              onChange={onFormHallChange}
             />
           </Form.Item>
           <Form.Item name="startTime" label="开场时间" rules={[{ required: true }]}>
@@ -335,7 +305,7 @@ const AdminShowsPage: React.FC = () => {
             />
           </Form.Item>
           {formZones.length === 0 ? (
-            <p style={{ color: '#999' }}>选择影厅后，将按该座位图分区填写各区价格</p>
+            <p style={{ color: '#999' }}>真实接口暂未提供座位图分区读取，选择影厅后无法生成区价；为避免创建未知分区排片，暂不允许提交。</p>
           ) : (
             <>
               <p style={{ color: '#666', marginBottom: 8 }}>
@@ -380,14 +350,18 @@ const AdminShowsPage: React.FC = () => {
               message.error('与当前列表中的同影厅场次冲突，前后需预留 20 分钟缓冲');
               return;
             }
-            await adminApi.updateShow(editShow.showId, {
-              zonePrices,
-              startTime: startMoment.format('YYYY-MM-DDTHH:mm:ss+08:00'),
-              endTime: endMoment.format('YYYY-MM-DDTHH:mm:ss+08:00'),
-            });
-            message.success('区价已更新');
-            setEditShow(null);
-            void query();
+            try {
+              await adminApi.updateShow(editShow.showId, {
+                zonePrices,
+                startTime: startMoment.format('YYYY-MM-DDTHH:mm:ss+08:00'),
+                endTime: endMoment.format('YYYY-MM-DDTHH:mm:ss+08:00'),
+              });
+              message.success('区价已更新');
+              setEditShow(null);
+              void query();
+            } catch {
+              // 请求层已处理。
+            }
           }}
         >
           <Form.Item name="startTime" label="开场时间" rules={[{ required: true }]}>

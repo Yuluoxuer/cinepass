@@ -30,6 +30,7 @@ export const MOCK_USERS: Array<UserVO & { password: string; phoneRaw?: string }>
     phoneRaw: '13900000002',
     role: 'staff',
     avatarUrl: null,
+    cinemaId: 'c12',
     password: 'demo123456',
   },
   {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { history } from 'umi';
 import { login as loginApi } from '@/api/auth';
-import { isStaffOrAdmin, useAuthStore } from '@/stores/auth';
+import { getCinemaIdFromAccessToken, isStaffOrAdmin, useAuthStore } from '@/stores/auth';
 import type { UserVO } from '@/types';
 import styles from './LoginModal.less';
 
@@ -36,6 +36,7 @@ const LoginModal: React.FC = () => {
         phone: res.phone,
         role: res.role,
         avatarUrl: null,
+        cinemaId: res.cinemaId || getCinemaIdFromAccessToken(res.accessToken),
       };
       setLogin({ accessToken: res.accessToken, expiresIn: res.expiresIn, user });
       close(true);

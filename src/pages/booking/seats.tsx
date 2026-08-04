@@ -21,6 +21,7 @@ const BookingSeatsPage: React.FC = () => {
   const [plans, setPlans] = useState<SeatPlanVO[]>([]);
   const [compromise, setCompromise] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [mapError, setMapError] = useState('');
   const draft = useBookingStore((s) => s.draft);
   const mergeSeatNames = useBookingStore((s) => s.mergeSeatNames);
   const ensureSession = useBookingStore((s) => s.ensureSession);
@@ -30,8 +31,14 @@ const BookingSeatsPage: React.FC = () => {
 
   const refresh = async () => {
     if (!showId) return;
-    const sm = await catalogApi.getSeatMap(showId);
-    setMap(sm);
+    setMapError('');
+    try {
+      const sm = await catalogApi.getSeatMap(showId);
+      setMap(sm);
+    } catch (error) {
+      setMap(null);
+      setMapError(error instanceof Error ? error.message : '座位图加载失败，请稍后重试');
+    }
   };
 
   useEffect(() => {
@@ -126,9 +133,9 @@ const BookingSeatsPage: React.FC = () => {
 
   return (
     <div>
-      <BookingProgress step={4} />
       <div className="miaoyu-container">
         <h2 className={styles.title}>在线选座</h2>
+        <BookingProgress step={4} />
         <div className={styles.seatLayout}>
           <div style={{ background: '#fff', borderRadius: 8 }}>
             {map ? (
@@ -141,7 +148,7 @@ const BookingSeatsPage: React.FC = () => {
                 onToggle={toggle}
               />
             ) : (
-              <div style={{ padding: 40 }}>加载座位图…</div>
+              <div style={{ padding: 40 }}>{mapError ? <><p>座位图加载失败，请检查网络后重试。</p><button type="button" className="miaoyu-btn-secondary" onClick={() => void refresh()}>重新加载</button></> : '加载座位图…'}</div>
             )}
           </div>
           <div className={styles.side}>

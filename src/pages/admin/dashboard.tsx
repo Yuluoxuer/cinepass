@@ -15,13 +15,17 @@ const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     (async () => {
-      const dashboardStats = await adminApi.getDashboardStats(today);
-      setStats({
-        total: dashboardStats.totalOrderCount,
-        pending: dashboardStats.pendingPayOrderCount,
-        issued: dashboardStats.issuedOrderCount,
-        shows: dashboardStats.onSaleShowCount,
-      });
+      try {
+        const dashboardStats = await adminApi.getDashboardStats(today);
+        setStats({
+          total: dashboardStats.totalOrderCount,
+          pending: dashboardStats.pendingPayOrderCount,
+          issued: dashboardStats.issuedOrderCount,
+          shows: dashboardStats.onSaleShowCount,
+        });
+      } catch {
+        // 请求层已处理，保留零值统计。
+      }
     })();
   }, [today]);
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { history, useLocation } from 'umi';
 import { Card, Form, Input, Button, message } from 'antd';
 import * as authApi from '@/api/auth';
-import { useAuthStore, isStaffOrAdmin } from '@/stores/auth';
+import { getCinemaIdFromAccessToken, useAuthStore, isStaffOrAdmin } from '@/stores/auth';
 import type { UserVO } from '@/types';
 import MockToggle from '@/components/MockToggle';
 import '@/styles/tokens.css';
@@ -27,6 +27,7 @@ const AdminLoginPage: React.FC = () => {
         phone: res.phone,
         role: res.role,
         avatarUrl: null,
+        cinemaId: res.cinemaId || getCinemaIdFromAccessToken(res.accessToken),
       };
       setLogin({ accessToken: res.accessToken, expiresIn: res.expiresIn, user });
       history.replace(redirect);

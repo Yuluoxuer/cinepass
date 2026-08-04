@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { message } from 'antd';
 import { history, useLocation } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { ShowVO, MovieVO, CinemaVO } from '@/types';
@@ -36,31 +37,70 @@ const BookingShowsPage: React.FC = () => {
   const [shows, setShows] = useState<ShowVO[]>([]);
   const [movie, setMovie] = useState<MovieVO | null>(null);
   const [cinema, setCinema] = useState<CinemaVO | null>(null);
+  const [showLoading, setShowLoading] = useState(false);
+  const [contextError, setContextError] = useState('');
+  const [showsError, setShowsError] = useState('');
+  const [reloadVersion, setReloadVersion] = useState(0);
   const draft = useBookingStore((s) => s.draft);
   const patchLocal = useBookingStore((s) => s.patchLocal);
   const openDrawer = useAgentStore((s) => s.openDrawer);
   const dateOptions = useMemo(() => datesAhead(5), []);
 
   useEffect(() => {
-    if (movieId) void catalogApi.getMovie(movieId).then(setMovie);
-    if (cinemaId) void catalogApi.getCinema(cinemaId).then(setCinema);
-  }, [movieId, cinemaId]);
+    let active = true;
+    const loadContext = async () => {
+      setContextError('');
+      try {
+        const [loadedMovie, loadedCinema] = await Promise.all([
+          movieId ? catalogApi.getMovie(movieId) : Promise.resolve(null),
+          cinemaId ? catalogApi.getCinema(cinemaId) : Promise.resolve(null),
+        ]);
+        if (!active) return;
+        setMovie(loadedMovie);
+        setCinema(loadedCinema);
+      } catch (error) {
+        if (active) setContextError(error instanceof Error ? error.message : '影片或影院信息加载失败，请稍后重试');
+      }
+    };
+    void loadContext();
+    return () => { active = false; };
+  }, [movieId, cinemaId, reloadVersion]);
 
   useEffect(() => {
     if (!movieId || !cinemaId || !date) return;
-    void catalogApi.listShows({ movieId, cinemaId, date }).then((r) => setShows(r.items));
-  }, [movieId, cinemaId, date]);
+    let active = true;
+    const loadShows = async () => {
+      setShowLoading(true);
+      setShowsError('');
+      try {
+        const result = await catalogApi.listShows({ movieId, cinemaId, date });
+        if (active) setShows(result.items);
+      } catch (error) {
+        if (active) {
+          setShows([]);
+          setShowsError(error instanceof Error ? error.message : '场次加载失败，请稍后重试');
+        }
+      } finally {
+        if (active) setShowLoading(false);
+      }
+    };
+    void loadShows();
+    return () => { active = false; };
+  }, [movieId, cinemaId, date, reloadVersion]);
 
   const onSelect = async (s: ShowVO) => {
-    await patchLocal({ showId: s.showId, date, state: 'SelectSeat' }, { debounce: false });
-    history.push(`/booking/seats?showId=${s.showId}`);
+    try {
+      await patchLocal({ showId: s.showId, date, state: 'SelectSeat' }, { debounce: false });
+      history.push(`/booking/seats?showId=${s.showId}`);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '暂时无法同步购票草稿，请重试');
+    }
   };
 
   const fmt = (iso: string) => iso.slice(11, 16);
 
   return (
     <div className={styles.showWorkspace}>
-      <BookingProgress step={3} />
       <main className={`${styles.showPage} miaoyu-fade-up`}>
         <div className={styles.showHeading}>
           <div>
@@ -69,6 +109,7 @@ const BookingShowsPage: React.FC = () => {
           </div>
           <span className={styles.synced}><i />草稿已同步</span>
         </div>
+        <BookingProgress step={3} />
         <div className={styles.showGrid}>
           <section className={styles.showPanel} aria-label="场次列表">
             <span className={styles.stepLabel}>Step 03</span>
@@ -92,7 +133,8 @@ const BookingShowsPage: React.FC = () => {
               ))}
             </div>
             <div className={styles.showList}>
-              {shows.map((s) => {
+              {contextError ? <div className={styles.emptyShows}>影片或影院信息加载失败，请检查网络后重试。<button type="button" className="miaoyu-btn-secondary" onClick={() => setReloadVersion((version) => version + 1)}>重新加载</button></div> : null}
+              {showLoading ? <div className={styles.emptyShows}>正在加载场次…</div> : showsError ? <div className={styles.emptyShows}>场次加载失败，请检查网络后重试。<button type="button" className="miaoyu-btn-secondary" onClick={() => setReloadVersion((version) => version + 1)}>重新加载</button></div> : shows.map((s) => {
                 const started = new Date(s.startTime).getTime() < Date.now();
                 return (
                   <div key={s.showId} className={`${styles.showRow} ${started ? styles.disabled : ''}`}>
@@ -117,7 +159,7 @@ const BookingShowsPage: React.FC = () => {
                   </div>
                 );
               })}
-              {shows.length === 0 ? <div className={styles.emptyShows}>该日暂无场次，请换一天看看</div> : null}
+              {!contextError && !showLoading && !showsError && shows.length === 0 ? <div className={styles.emptyShows}>该日暂无场次，请换一天看看</div> : null}
             </div>
           </section>
           <aside className={styles.draftPanel} aria-label="当前购票草稿">

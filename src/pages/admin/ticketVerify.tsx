@@ -8,8 +8,12 @@ const TicketVerifyPage: React.FC = () => {
   const [result, setResult] = useState<TicketVerifyVO | null>(null);
 
   const verify = async () => {
-    const res = await adminApi.verifyTicket(payload.trim());
-    setResult(res);
+    try {
+      const res = await adminApi.verifyTicket(payload.trim());
+      setResult(res);
+    } catch {
+      setResult(null);
+    }
   };
 
   return (

@@ -18,6 +18,7 @@ interface TipItem {
 
 const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
   onSelect,
+  cityName,
   initialLng,
   initialLat,
 }) => {
@@ -28,6 +29,10 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
   const mountedRef = useRef(false);
   const searchTimerRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const reverseAbortControllerRef = useRef<AbortController | null>(null);
+  const searchRequestIdRef = useRef(0);
+  const reverseRequestIdRef = useRef(0);
+  const onSelectRef = useRef(onSelect);
   const isInteractingWithDropdown = useRef(false);
 
   const [sdkLoading, setSdkLoading] = useState(true);
@@ -40,6 +45,30 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
   const [showDropdown, setShowDropdown] = useState(false);
   const [tipIndex, setTipIndex] = useState(0);
   const [selectingPoi, setSelectingPoi] = useState(false);
+  const [resolvedCityName, setResolvedCityName] = useState('');
+  const searchCityRef = useRef('');
+  const missingCityWarningRef = useRef(false);
+
+  // 搜索优先采用表单城市；地图点击、定位或 POI 选择后，以逆地理结果作为兜底。
+  searchCityRef.current = cityName?.trim() || resolvedCityName.trim();
+
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
+
+  useEffect(() => {
+    // 城市变更后使旧搜索失效，避免其结果跨城市写回下拉框。
+    searchRequestIdRef.current += 1;
+    if (searchTimerRef.current) {
+      window.clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setSearchTips([]);
+    setShowDropdown(false);
+    setTipIndex(0);
+  }, [cityName, resolvedCityName]);
 
   // ---- 生命周期 ----
   useEffect(() => {
@@ -54,6 +83,8 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
+      reverseAbortControllerRef.current?.abort();
+      reverseAbortControllerRef.current = null;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.destroy();
         mapInstanceRef.current = null;
@@ -130,6 +161,11 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
   // ---- 逆地理编码并填充（点击地图 & 搜索选中都走这里） ----
   const reverseGeocodeAndFill = useCallback(
     (lng: number, lat: number) => {
+      reverseAbortControllerRef.current?.abort();
+      const requestId = reverseRequestIdRef.current + 1;
+      reverseRequestIdRef.current = requestId;
+      const controller = new AbortController();
+      reverseAbortControllerRef.current = controller;
       setGeocoding(true);
 
       const params =
@@ -140,7 +176,9 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
       ];
 
       const fallbackCoords = () => {
-        onSelect({
+        if (!mountedRef.current || reverseRequestIdRef.current !== requestId) return;
+        setGeocoding(false);
+        onSelectRef.current({
           name: `坐标点 (${lng.toFixed(6)}, ${lat.toFixed(6)})`,
           address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
           lat,
@@ -149,25 +187,25 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
       };
 
       const attempt = (idx: number) => {
+        if (!mountedRef.current || controller.signal.aborted || reverseRequestIdRef.current !== requestId) return;
         if (idx >= urls.length) {
-          setGeocoding(false);
-          if (!mountedRef.current) return;
           message.warning('地址解析失败，请检查 Web 服务 Key 是否有效');
           fallbackCoords();
           return;
         }
 
-        fetch(urls[idx])
+        fetch(urls[idx], { signal: controller.signal })
           .then((res) => res.json())
           .then((data: any) => {
-            if (!mountedRef.current) return;
+            if (!mountedRef.current || controller.signal.aborted || reverseRequestIdRef.current !== requestId) return;
 
             if (data.status === '1' && data.regeocode) {
               setGeocoding(false);
               const regeo = data.regeocode;
               const ac = regeo.addressComponent || {};
               const cityName = extractCityName(ac);
-              onSelect({
+              setResolvedCityName(cityName);
+              onSelectRef.current({
                 name: extractNameFromRegeo(regeo),
                 address: extractAddress(regeo),
                 lat,
@@ -182,14 +220,15 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
               attempt(idx + 1);
             }
           })
-          .catch(() => {
+          .catch((error) => {
+            if (error?.name === 'AbortError' || controller.signal.aborted) return;
             attempt(idx + 1);
           });
       };
 
       attempt(0);
     },
-    [onSelect],
+    [],
   );
 
   // ---- 点击地图选址 ----
@@ -290,6 +329,8 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
   // ---- 搜索（REST API inputtips，走 Web 服务 Key，与逆地理编码同一套鉴权） ----
   const handleSearch = useCallback((value: string) => {
     setSearchValue(value);
+    const requestId = searchRequestIdRef.current + 1;
+    searchRequestIdRef.current = requestId;
     if (!value.trim()) {
       setSearchTips([]);
       setShowDropdown(false);
@@ -309,7 +350,18 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
       if (!mountedRef.current) return;
 
       const kw = value.trim();
-      const params = `key=${AMAP_WEB_KEY}&keywords=${encodeURIComponent(kw)}&datatype=all`;
+      const searchCity = searchCityRef.current;
+      if (!searchCity) {
+        setSearchTips([]);
+        setShowDropdown(false);
+        if (!missingCityWarningRef.current) {
+          missingCityWarningRef.current = true;
+          message.warning('请先填写城市，或在地图上点击位置后再搜索');
+        }
+        return;
+      }
+      missingCityWarningRef.current = false;
+      const params = `key=${AMAP_WEB_KEY}&keywords=${encodeURIComponent(kw)}&datatype=all&city=${encodeURIComponent(searchCity)}&citylimit=true`;
 
       // 同时试直连和代理
       const urls = [
@@ -321,6 +373,7 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
       abortControllerRef.current = ac;
 
       const attempt = (idx: number) => {
+        if (!mountedRef.current || ac.signal.aborted || searchRequestIdRef.current !== requestId || searchCityRef.current !== searchCity) return;
         if (idx >= urls.length) {
           console.warn('[search] 所有请求路径均失败');
           return;
@@ -329,7 +382,7 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
         fetch(urls[idx], { signal: ac.signal })
           .then((res) => res.json())
           .then((data: any) => {
-            if (!mountedRef.current) return;
+            if (!mountedRef.current || ac.signal.aborted || searchRequestIdRef.current !== requestId || searchCityRef.current !== searchCity) return;
             console.log('[search] REST inputtips status=', data.status, 'tips=', data.tips?.length);
 
             if (data.status === '1' && data.tips?.length > 0) {

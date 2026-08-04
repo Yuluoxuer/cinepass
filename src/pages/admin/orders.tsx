@@ -10,14 +10,18 @@ const AdminOrdersPage: React.FC = () => {
 
   const search = async (v?: Record<string, string>) => {
     const values = v || form.getFieldsValue();
-    const res = await adminApi.adminListOrders({
-      orderId: values.orderId,
-      userId: values.userId,
-      status: values.status,
-      page: 1,
-      size: 50,
-    });
-    setData(res.items);
+    try {
+      const res = await adminApi.adminListOrders({
+        orderId: values.orderId,
+        userId: values.userId,
+        status: values.status,
+        page: 1,
+        size: 50,
+      });
+      setData(res.items);
+    } catch {
+      setData([]);
+    }
   };
 
   const statusLabel: Record<OrderVO['status'], string> = {
@@ -84,9 +88,13 @@ const AdminOrdersPage: React.FC = () => {
                     title="关闭该待支付订单？"
                     description="关闭后会释放已锁定座位，订单不可恢复。"
                     onConfirm={async () => {
-                      await adminApi.adminCancelOrder(record.orderId);
-                      message.success('订单已关闭，座位已释放');
-                      await search();
+                      try {
+                        await adminApi.adminCancelOrder(record.orderId);
+                        message.success('订单已关闭，座位已释放');
+                        await search();
+                      } catch {
+                        // 请求层已处理。
+                      }
                     }}
                   >
                     <Button type="link" danger>关闭订单</Button>
@@ -97,10 +105,14 @@ const AdminOrdersPage: React.FC = () => {
                     title="确认核销该票券？"
                     description="核销后票券将不可再次使用。"
                     onConfirm={async () => {
-                      const updated = await adminApi.consumeTicket(record.orderId);
-                      setCurrent((item) => (item?.orderId === updated.orderId ? updated : item));
-                      message.success('票券已核销');
-                      await search();
+                      try {
+                        const updated = await adminApi.consumeTicket(record.orderId);
+                        setCurrent((item) => (item?.orderId === updated.orderId ? updated : item));
+                        message.success('票券已核销');
+                        await search();
+                      } catch {
+                        // 请求层已处理。
+                      }
                     }}
                   >
                     <Button type="link">核销</Button>

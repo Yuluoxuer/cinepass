@@ -18,6 +18,8 @@ export interface SelectedLocation {
 export interface AmapLocationPickerProps {
   /** 选址完成回调，返回解析后的位置信息 */
   onSelect: (location: SelectedLocation) => void;
+  /** 当前表单填写的城市名称，优先用于限定地点搜索范围 */
+  cityName?: string;
   /** 初始地图中心经度 */
   initialLng?: number;
   /** 初始地图中心纬度 */
