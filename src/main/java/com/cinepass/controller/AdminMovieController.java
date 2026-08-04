@@ -15,6 +15,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
 
+/**
+ * 运营端电影管理。
+ * <pre>
+ * POST /api/v1/admin/movies
+ * PUT  /api/v1/admin/movies/{movieId}
+ * </pre>
+ */
 @RestController
 @RequestMapping("/api/v1/admin/movies")
 @Staff
@@ -26,11 +33,13 @@ public class AdminMovieController {
         this.movieService = movieService;
     }
 
+    /** 新建影片 */
     @PostMapping
     public Result<MovieVO> create(@Valid @RequestBody MovieCreateDTO body) {
         return Result.success(movieService.create(body));
     }
 
+    /** 部分更新影片 */
     @PutMapping("/{movieId}")
     public Result<MovieVO> update(@PathVariable String movieId,
                                   @Valid @RequestBody MovieUpdateDTO body) {

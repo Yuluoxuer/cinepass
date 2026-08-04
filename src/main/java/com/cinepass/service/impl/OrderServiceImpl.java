@@ -23,6 +23,7 @@ import com.cinepass.service.OrderService;
 import com.cinepass.util.OrderIds;
 import com.cinepass.vo.OrderVO;
 import com.cinepass.vo.PageResult;
+import com.cinepass.vo.SeatPriceSnapshotVO;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -307,6 +308,7 @@ public class OrderServiceImpl implements OrderService {
                 .hallName(o.getHallName())
                 .startTime(format(o.getStartTime()))
                 .seatIds(parseSeatIds(o.getSeatIdsJson()))
+                .seatPrices(parseSeatPrices(o.getSeatPriceSnapshot()))
                 .unitPrice(o.getUnitPrice())
                 .amount(o.getAmount())
                 .status(o.getStatus())
@@ -318,6 +320,35 @@ public class OrderServiceImpl implements OrderService {
                 .payAt(format(o.getPayAt()))
                 .payChannel(o.getPayChannel())
                 .build();
+    }
+
+    /** seat_price_snapshot JSON → SeatPriceSnapshotVO 列表 */
+    private List<SeatPriceSnapshotVO> parseSeatPrices(String json) {
+        if (!StringUtils.hasText(json)) {
+            return Collections.emptyList();
+        }
+        try {
+            JSONArray arr = JSON.parseArray(json);
+            if (arr == null || arr.isEmpty()) {
+                return Collections.emptyList();
+            }
+            List<SeatPriceSnapshotVO> items = new ArrayList<SeatPriceSnapshotVO>();
+            for (int i = 0; i < arr.size(); i++) {
+                JSONObject obj = arr.getJSONObject(i);
+                if (obj == null) {
+                    continue;
+                }
+                items.add(SeatPriceSnapshotVO.builder()
+                        .seatId(obj.getString("seatId"))
+                        .zone(obj.getString("zone"))
+                        .price(obj.getBigDecimal("price"))
+                        .seatName(obj.getString("seatName"))
+                        .build());
+            }
+            return items;
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
     }
 
     /** OffsetDateTime → ISO-8601 字符串；null 保持 null */

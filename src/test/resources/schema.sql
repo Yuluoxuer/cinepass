@@ -109,6 +109,14 @@ CREATE TABLE IF NOT EXISTS seat (
 
 CREATE INDEX IF NOT EXISTS idx_seat_map ON seat (seat_map_id);
 
+CREATE TABLE IF NOT EXISTS show_zone_price (
+  show_id  VARCHAR(32)   NOT NULL,
+  zone     VARCHAR(16)   NOT NULL,
+  price    DECIMAL(10,2) NOT NULL,
+  PRIMARY KEY (show_id, zone),
+  CONSTRAINT chk_show_zone_price CHECK (price > 0)
+);
+
 CREATE TABLE IF NOT EXISTS show_schedule (
   show_id      VARCHAR(32) NOT NULL,
   movie_id     VARCHAR(32) NOT NULL,
@@ -125,3 +133,67 @@ CREATE TABLE IF NOT EXISTS show_schedule (
 );
 
 CREATE INDEX IF NOT EXISTS idx_show_cinema_movie_time ON show_schedule (cinema_id, movie_id, start_time);
+
+CREATE TABLE IF NOT EXISTS seat_status (
+  show_id     VARCHAR(32)    NOT NULL,
+  seat_id     VARCHAR(64)    NOT NULL,
+  status      VARCHAR(16)    NOT NULL,
+  lock_id     VARCHAR(32)    NULL,
+  user_id     VARCHAR(40)    NULL,
+  expire_at   TIMESTAMP WITH TIME ZONE NULL,
+  updated_at  TIMESTAMP WITH TIME ZONE NOT NULL,
+  PRIMARY KEY (show_id, seat_id)
+);
+
+CREATE TABLE IF NOT EXISTS seat_lock (
+  lock_id         VARCHAR(32)    NOT NULL,
+  show_id         VARCHAR(32)    NOT NULL,
+  user_id         VARCHAR(40)    NOT NULL,
+  seat_ids_json   VARCHAR(2048)  NOT NULL,
+  status          VARCHAR(16)    NOT NULL,
+  ttl_seconds     INT            NOT NULL,
+  expire_at       TIMESTAMP WITH TIME ZONE NOT NULL,
+  session_id      VARCHAR(64)    NULL,
+  created_at      TIMESTAMP WITH TIME ZONE NOT NULL,
+  updated_at      TIMESTAMP WITH TIME ZONE NOT NULL,
+  PRIMARY KEY (lock_id)
+);
+
+CREATE TABLE IF NOT EXISTS order_ticket (
+  order_id              VARCHAR(40)    NOT NULL,
+  user_id               VARCHAR(40)    NOT NULL,
+  show_id               VARCHAR(32)    NOT NULL,
+  lock_id               VARCHAR(32)    NOT NULL,
+  movie_title           VARCHAR(128)   NOT NULL,
+  cinema_name           VARCHAR(128)   NOT NULL,
+  hall_name             VARCHAR(64)    NOT NULL,
+  start_time            TIMESTAMP WITH TIME ZONE NOT NULL,
+  seat_ids_json         VARCHAR(2048)  NOT NULL,
+  unit_price            DECIMAL(10,2)  NOT NULL,
+  amount                DECIMAL(10,2)  NOT NULL,
+  seat_price_snapshot   VARCHAR(4096)  NOT NULL,
+  status                VARCHAR(16)    NOT NULL,
+  ticket_code           VARCHAR(64)    NULL,
+  qr_payload            VARCHAR(256)   NULL,
+  pay_channel           VARCHAR(16)    NULL,
+  expire_at             TIMESTAMP WITH TIME ZONE NULL,
+  pay_at                TIMESTAMP WITH TIME ZONE NULL,
+  cancel_reason         VARCHAR(64)    NULL,
+  session_id            VARCHAR(64)    NULL,
+  created_at            TIMESTAMP WITH TIME ZONE NOT NULL,
+  updated_at            TIMESTAMP WITH TIME ZONE NOT NULL,
+  PRIMARY KEY (order_id),
+  CONSTRAINT uk_order_lock UNIQUE (lock_id)
+);
+
+CREATE TABLE IF NOT EXISTS agent_session (
+  session_id   VARCHAR(64)    NOT NULL,
+  user_id      VARCHAR(40)    NULL,
+  source       VARCHAR(16)    NOT NULL,
+  state        VARCHAR(32)    NOT NULL,
+  draft_json   VARCHAR(8192)  NOT NULL,
+  version      BIGINT         NOT NULL DEFAULT 0,
+  created_at   TIMESTAMP WITH TIME ZONE NOT NULL,
+  updated_at   TIMESTAMP WITH TIME ZONE NOT NULL,
+  PRIMARY KEY (session_id)
+);

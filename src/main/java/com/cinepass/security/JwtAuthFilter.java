@@ -108,7 +108,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         try {
             String role = userInfo.getRole();
             SecurityContext.set(userInfo.getUserId(), userInfo.getUsername(),
-                    null, null, userInfo.getRoles(), null, userInfo.getCinemaId());
+                    null, null, userInfo.getRoles(), null);
             SecurityContext.setSession(userInfo.getSid(), userInfo.getJti(), role);
             SecurityContext.setCinemaId(userInfo.getCinemaId());
 
@@ -124,6 +124,38 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             SecurityContext.clear();
             SecurityContextHolder.clearContext();
         }
+    }
+
+    /**
+     * 与 {@link SecurityConfig} 公开路径对齐：无效 Token 时仍放行，避免挡住游客接口。
+     */
+    private boolean isPublicPath(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        if (uri == null) {
+            return false;
+        }
+        if (uri.startsWith("/doc.html") || uri.startsWith("/webjars/")
+                || uri.startsWith("/swagger-resources") || uri.startsWith("/v2/api-docs")
+                || uri.startsWith("/favicon.ico")) {
+            return true;
+        }
+        if (uri.startsWith("/api/v1/auth/login") || uri.startsWith("/api/v1/auth/register")
+                || uri.startsWith("/api/v1/auth/password/change")) {
+            return true;
+        }
+        if (uri.startsWith("/api/v1/booking-drafts")) {
+            return true;
+        }
+        if (uri.startsWith("/api/v1/reco")) {
+            return true;
+        }
+        String method = request.getMethod();
+        if ("GET".equalsIgnoreCase(method)) {
+            return uri.startsWith("/api/v1/movies")
+                    || uri.startsWith("/api/v1/cinemas")
+                    || uri.startsWith("/api/v1/shows");
+        }
+        return false;
     }
 
     /** 判断是否为登出接口（过期 Token 仍允许走登出） */

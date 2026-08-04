@@ -23,6 +23,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * {@link MovieService} 实现。
+ */
 @Service
 public class MovieServiceImpl implements MovieService {
 

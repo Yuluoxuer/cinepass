@@ -58,8 +58,8 @@ class AuthUserIntegrationTest {
         }
         // 经真实注册接口建号（u+uuid7），再按需提升角色；不写死假 user_id
         ensureAccountViaRegister("演示用户甲", "13800000001", "demo123456", "user");
-        ensureAccountViaRegister("运营小李", "13900000002", "ChangeMe123", "staff");
-        ensureAccountViaRegister("系统管理员", "13900000001", "Admin12345", "admin");
+        ensureAccountViaRegister("运营小王", "13900000002", "demo123456", "staff");
+        ensureAccountViaRegister("系统管理员", "13900000001", "demo123456", "admin");
     }
 
     /** 调用 /auth/register 创建账号；非 user 角色用 JDBC 提升（避免再依赖种子 SQL）。 */
@@ -73,7 +73,7 @@ class AuthUserIntegrationTest {
                             .content("{\"nickname\":\"" + nickname + "\",\"phone\":\"" + phone
                                     + "\",\"password\":\"" + password + "\"}"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.userId").value(org.hamcrest.Matchers.matchesPattern("^u[0-9a-f]{32}$")));
+                    .andExpect(jsonPath("$.data.userId").value(org.hamcrest.Matchers.matchesPattern("^u[0-9a-f]{31}$")));
         }
         if (!"user".equals(role)) {
             jdbcTemplate.update("UPDATE user_account SET role = ?, cinema_id = NULL WHERE nickname = ?",
@@ -173,11 +173,11 @@ class AuthUserIntegrationTest {
         mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + userToken))
                 .andExpect(status().isForbidden());
 
-        String staffToken = loginAs("运营小李", "ChangeMe123");
+        String staffToken = loginAs("运营小王", "demo123456");
         mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + staffToken))
                 .andExpect(status().isForbidden());
 
-        String adminToken = loginAs("系统管理员", "Admin12345");
+        String adminToken = loginAs("系统管理员", "demo123456");
         mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
@@ -287,7 +287,7 @@ class AuthUserIntegrationTest {
 
     @Test
     void adminCreate_staffWithoutCinema_shouldParamError() throws Exception {
-        String adminToken = loginAs("系统管理员", "Admin12345");
+        String adminToken = loginAs("系统管理员", "demo123456");
         mockMvc.perform(post("/api/v1/admin/users")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -299,7 +299,7 @@ class AuthUserIntegrationTest {
 
     @Test
     void adminCreate_userWithCinema_shouldParamError() throws Exception {
-        String adminToken = loginAs("系统管理员", "Admin12345");
+        String adminToken = loginAs("系统管理员", "demo123456");
         mockMvc.perform(post("/api/v1/admin/users")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -311,7 +311,7 @@ class AuthUserIntegrationTest {
 
     @Test
     void adminCreate_invalidRole_shouldParamError() throws Exception {
-        String adminToken = loginAs("系统管理员", "Admin12345");
+        String adminToken = loginAs("系统管理员", "demo123456");
         mockMvc.perform(post("/api/v1/admin/users")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -323,7 +323,7 @@ class AuthUserIntegrationTest {
 
     @Test
     void adminCreate_shortPassword_shouldParamError() throws Exception {
-        String adminToken = loginAs("系统管理员", "Admin12345");
+        String adminToken = loginAs("系统管理员", "demo123456");
         mockMvc.perform(post("/api/v1/admin/users")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -335,7 +335,7 @@ class AuthUserIntegrationTest {
 
     @Test
     void adminUpdate_selfDisable_shouldFail() throws Exception {
-        String adminToken = loginAs("系统管理员", "Admin12345");
+        String adminToken = loginAs("系统管理员", "demo123456");
         MvcResult me = mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -351,7 +351,7 @@ class AuthUserIntegrationTest {
 
     @Test
     void adminUpdate_missingUser_shouldNotFound() throws Exception {
-        String adminToken = loginAs("系统管理员", "Admin12345");
+        String adminToken = loginAs("系统管理员", "demo123456");
         mockMvc.perform(put("/api/v1/admin/users/u00000000000000000000000000000000")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -362,7 +362,7 @@ class AuthUserIntegrationTest {
 
     @Test
     void adminPage_boundariesAndFilter_shouldWork() throws Exception {
-        String adminToken = loginAs("系统管理员", "Admin12345");
+        String adminToken = loginAs("系统管理员", "demo123456");
         mockMvc.perform(get("/api/v1/admin/users")
                         .param("page", "0")
                         .param("size", "999")
@@ -376,7 +376,7 @@ class AuthUserIntegrationTest {
 
     @Test
     void adminCreateUpdate_fullLifecycle_staffCinemaAndDisable() throws Exception {
-        String adminToken = loginAs("系统管理员", "Admin12345");
+        String adminToken = loginAs("系统管理员", "demo123456");
         String nick = "lifecycle_" + System.nanoTime();
         String phone = "136" + String.format("%08d", System.nanoTime() % 100000000L);
 

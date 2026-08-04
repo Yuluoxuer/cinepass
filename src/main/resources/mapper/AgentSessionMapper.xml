@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.AgentSessionMapper">
+
+    <resultMap id="SessionMap" type="com.cinepass.model.AgentSession">
+        <id property="sessionId" column="session_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="source" column="source"/>
+        <result property="state" column="state"/>
+        <result property="draftJson" column="draft_json"/>
+        <result property="version" column="version"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- PostgreSQL: draft_json 为 jsonb，须 CAST（同 MovieMapper / UserProfileMapper） -->
+    <insert id="insert" databaseId="postgresql">
+        INSERT INTO agent_session (
+            session_id, user_id, source, state, draft_json, version, created_at, updated_at
+        ) VALUES (
+            #{sessionId}, #{userId}, #{source}, #{state}, CAST(#{draftJson} AS jsonb), #{version},
+            #{createdAt}, #{updatedAt}
+        )
+    </insert>
+    <!-- H2 测试：VARCHAR -->
+    <insert id="insert">
+        INSERT INTO agent_session (
+            session_id, user_id, source, state, draft_json, version, created_at, updated_at
+        ) VALUES (
+            #{sessionId}, #{userId}, #{source}, #{state}, #{draftJson}, #{version},
+            #{createdAt}, #{updatedAt}
+        )
+    </insert>
+
+    <select id="findById" resultMap="SessionMap">
+        SELECT session_id, user_id, source, state, draft_json, version, created_at, updated_at
+        FROM agent_session
+        WHERE session_id = #{sessionId}
+    </select>
+
+    <select id="findByIdForUpdate" databaseId="postgresql" resultMap="SessionMap">
+        SELECT session_id, user_id, source, state, draft_json, version, created_at, updated_at
+        FROM agent_session
+        WHERE session_id = #{sessionId}
+        FOR UPDATE
+    </select>
+    <select id="findByIdForUpdate" resultMap="SessionMap">
+        SELECT session_id, user_id, source, state, draft_json, version, created_at, updated_at
+        FROM agent_session
+        WHERE session_id = #{sessionId}
+    </select>
+
+    <update id="updateCas" databaseId="postgresql">
+        UPDATE agent_session
+        SET user_id = #{userId},
+            source = #{source},
+            state = #{state},
+            draft_json = CAST(#{draftJson} AS jsonb),
+            version = #{version},
+            updated_at = #{updatedAt}
+        WHERE session_id = #{sessionId}
+          AND version = #{version} - 1
+    </update>
+    <update id="updateCas">
+        UPDATE agent_session
+        SET user_id = #{userId},
+            source = #{source},
+            state = #{state},
+            draft_json = #{draftJson},
+            version = #{version},
+            updated_at = #{updatedAt}
+        WHERE session_id = #{sessionId}
+          AND version = #{version} - 1
+    </update>
+</mapper>

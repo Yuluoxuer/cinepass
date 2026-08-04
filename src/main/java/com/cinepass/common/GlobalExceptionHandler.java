@@ -23,12 +23,20 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<Result<Void>> handleBusinessException(BusinessException e) {
+    public ResponseEntity<Result<Object>> handleBusinessException(BusinessException e) {
         log.warn("Business error: code={}, message={}", e.getCode(), e.getMessage());
-        int httpStatus = e.getCode() < 1000 ? e.getCode() : HttpStatus.BAD_REQUEST.value();
+        int code = e.getCode() == null ? ResultCode.BUSINESS_ERROR.getCode() : e.getCode();
+        int httpStatus;
+        if (code == ResultCode.DRAFT_CONFLICT.getCode() || code == ResultCode.CONFLICT.getCode()) {
+            httpStatus = HttpStatus.CONFLICT.value();
+        } else if (code > 0 && code < 1000) {
+            httpStatus = code;
+        } else {
+            httpStatus = HttpStatus.BAD_REQUEST.value();
+        }
         return ResponseEntity
                 .status(httpStatus)
-                .body(Result.fail(e.getCode(), e.getMessage()));
+                .body(Result.fail(code, e.getMessage(), e.getData()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

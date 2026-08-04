@@ -36,4 +36,7 @@ public interface UserAccountMapper {
 
     /** 按角色、状态统计账号总数 */
     long count(@Param("role") String role, @Param("status") Integer status);
+
+    /** 统计绑定某影院的 staff 数量（软删影院前置校验） */
+    long countStaffByCinemaId(@Param("cinemaId") String cinemaId);
 }

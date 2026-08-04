@@ -48,7 +48,7 @@ class CinemaIntegrationTest {
     void setUp() {
         insertCinema(STAFF_CINEMA_ID, "员工所属影院", 31.230400, 121.473700, "地铁 2 号线直达", "[\"杜比\"]");
         insertCinema(OTHER_CINEMA_ID, "其他影院", 31.280400, 121.523700, "公交 88 路", "[\"IMAX\"]");
-        jdbcTemplate.update("UPDATE user_account SET cinema_id = ? WHERE nickname = ?", STAFF_CINEMA_ID, "运营小李");
+        jdbcTemplate.update("UPDATE user_account SET cinema_id = ? WHERE nickname = ?", STAFF_CINEMA_ID, "运营小王");
     }
 
     @Test
@@ -94,7 +94,7 @@ class CinemaIntegrationTest {
                 + "\"lat\":31.240000,\"lng\":121.480000,\"trafficNote\":\"步行可达\",\"tags\":[\"激光\"]}";
 
         mockMvc.perform(post("/api/v1/admin/cinemas")
-                        .header("Authorization", bearer(loginAs("系统管理员", "Admin12345")))
+                        .header("Authorization", bearer(loginAs("系统管理员", "demo123456")))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
@@ -103,7 +103,7 @@ class CinemaIntegrationTest {
                 .andExpect(jsonPath("$.data.name").value("新建影院"));
 
         mockMvc.perform(post("/api/v1/admin/cinemas")
-                        .header("Authorization", bearer(loginAs("运营小李", "ChangeMe123")))
+                        .header("Authorization", bearer(loginAs("运营小王", "demo123456")))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(40301));
@@ -115,7 +115,7 @@ class CinemaIntegrationTest {
                 + "\"lat\":31.240000,\"lng\":121.480000}";
 
         mockMvc.perform(post("/api/v1/admin/cinemas")
-                        .header("Authorization", bearer(loginAs("系统管理员", "Admin12345")))
+                        .header("Authorization", bearer(loginAs("系统管理员", "demo123456")))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(4001));
@@ -123,8 +123,8 @@ class CinemaIntegrationTest {
 
     @Test
     void adminCanSoftDeleteCinemaAndStaffCannot() throws Exception {
-        String adminToken = bearer(loginAs("系统管理员", "Admin12345"));
-        String staffToken = bearer(loginAs("运营小李", "ChangeMe123"));
+        String adminToken = bearer(loginAs("系统管理员", "demo123456"));
+        String staffToken = bearer(loginAs("运营小王", "demo123456"));
         insertHall("h_cinema_test_other", OTHER_CINEMA_ID, "sm_cinema_test_other", "待删除影院影厅");
 
         mockMvc.perform(delete("/api/v1/admin/cinemas/{cinemaId}", OTHER_CINEMA_ID)
@@ -132,7 +132,7 @@ class CinemaIntegrationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(40301));
 
-        jdbcTemplate.update("UPDATE user_account SET cinema_id = ? WHERE nickname = ?", OTHER_CINEMA_ID, "运营小李");
+        jdbcTemplate.update("UPDATE user_account SET cinema_id = ? WHERE nickname = ?", OTHER_CINEMA_ID, "运营小王");
         mockMvc.perform(delete("/api/v1/admin/cinemas/{cinemaId}", OTHER_CINEMA_ID)
                         .header("Authorization", adminToken))
                 .andExpect(status().isBadRequest())
@@ -169,7 +169,7 @@ class CinemaIntegrationTest {
 
     @Test
     void staffCanOnlyManageSeatMapsAndHallsForAssignedCinema() throws Exception {
-        String staffToken = bearer(loginAs("运营小李", "ChangeMe123"));
+        String staffToken = bearer(loginAs("运营小王", "demo123456"));
         String ownSeatMap = "sm_cinema_test_own";
         String ownSeatMapBody = seatMapBodyWithoutCinema(ownSeatMap);
 

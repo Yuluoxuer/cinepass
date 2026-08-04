@@ -34,7 +34,7 @@ class JwtUtilTest {
         assertEquals(userId, info.getUserId());
         assertEquals("alice", info.getUsername());
         assertEquals(Roles.STAFF, info.getRole());
-        assertEquals("c018f3c4e9a7b70c0a1b2c3d4e5f60718", info.getCinemaId());
+        assertEquals("c12", info.getCinemaId());
         assertEquals("sid-001", info.getSid());
         assertNotNull(info.getJti());
         assertEquals(1, info.getRoles().size());

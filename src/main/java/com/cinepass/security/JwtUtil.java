@@ -56,10 +56,10 @@ public class JwtUtil {
                 .claim("username", username)
                 .claim("role", normalizedRole)
                 .claim("roles", Collections.singletonList(normalizedRole))
-                .claim("cinemaId", cinemaId)
                 .claim("sid", sid)
                 .setIssuedAt(now)
                 .setExpiration(new Date(now.getTime() + accessTokenExpireSeconds * 1000L));
+        // 空串不当作有效影院绑定，避免 claim 解析成 ""
         if (cinemaId != null && !cinemaId.isEmpty()) {
             builder.claim("cinemaId", cinemaId);
         }

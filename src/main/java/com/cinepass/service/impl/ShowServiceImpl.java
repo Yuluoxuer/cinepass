@@ -12,6 +12,7 @@ import com.cinepass.model.Movie;
 import com.cinepass.model.ShowSchedule;
 import com.cinepass.service.ShowService;
 import com.cinepass.vo.MovieVO;
+import com.cinepass.vo.PageResult;
 import com.cinepass.vo.ShowDetailVO;
 import com.cinepass.vo.ShowListResult;
 import com.cinepass.vo.ShowVO;
@@ -19,15 +20,24 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+/**
+ * {@link ShowService} 实现。
+ */
 @Service
 public class ShowServiceImpl implements ShowService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+    /** 院→片 nextShowDate 展示时区（与产品本地日历日一致） */
+    private static final ZoneId DISPLAY_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final ShowMapper showMapper;
     private final SeatStatusMapper seatStatusMapper;
@@ -66,6 +76,33 @@ public class ShowServiceImpl implements ShowService {
             }
         }
         return ShowListResult.builder().date(null).items(items).build();
+    }
+
+    @Override
+    public PageResult<MovieVO> listOnSaleMovies(String cinemaId) {
+        if (cinemaMapper.selectById(cinemaId) == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
+        }
+        OffsetDateTime after = OffsetDateTime.now();
+        List<ShowSchedule> earliest = showMapper.listEarliestUpcomingByCinema(cinemaId, after);
+        if (earliest == null || earliest.isEmpty()) {
+            return new PageResult<>(Collections.<MovieVO>emptyList(), 1, 0, 0);
+        }
+        List<MovieVO> items = new ArrayList<>();
+        for (ShowSchedule row : earliest) {
+            if (row == null || row.getMovieId() == null) {
+                continue;
+            }
+            MovieVO vo = buildMovieVO(row.getMovieId());
+            if (vo == null) {
+                continue;
+            }
+            if (row.getStartTime() != null) {
+                vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DISPLAY_ZONE).toLocalDate().toString());
+            }
+            items.add(vo);
+        }
+        return new PageResult<>(items, 1, items.size(), items.size());
     }
 
     @Override
@@ -131,6 +168,7 @@ public class ShowServiceImpl implements ShowService {
                 .cinemaId(c.getCinemaId()).name(c.getName()).address(c.getAddress()).build();
     }
 
+    /** 余座占比阈值：≥40% ample，≥15% tight，否则 almost_full */
     static String calcSeatRemainLevel(int total, int available) {
         if (total <= 0) return "almost_full";
         double ratio = (double) available / total;

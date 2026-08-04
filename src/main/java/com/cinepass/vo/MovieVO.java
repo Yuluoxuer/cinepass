@@ -45,4 +45,10 @@ public class MovieVO {
 
     /** 想看人数 */
     private Integer wantSeeCount;
+
+    /**
+     * 院→片场景：该影院下一场开映的本地日历日（yyyy-MM-dd，Asia/Shanghai）。
+     * 其它列表接口一般为 null。
+     */
+    private String nextShowDate;
 }

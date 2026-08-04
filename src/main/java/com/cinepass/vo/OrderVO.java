@@ -41,6 +41,12 @@ public class OrderVO {
     /** 座位 ID 列表 */
     private List<String> seatIds;
 
+    /**
+     * 座位价区快照（含 seatName）；UI 展示优先用其中 seatName。
+     * 来源：order_ticket.seat_price_snapshot。
+     */
+    private List<SeatPriceSnapshotVO> seatPrices;
+
     /** 均摊单价 */
     private BigDecimal unitPrice;
 

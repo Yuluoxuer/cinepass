@@ -42,6 +42,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
 
+/**
+ * {@link CinemaService} 实现。
+ * <p>数据范围：admin 全量；staff 仅绑定影院。座位图按画布坐标稀疏落库，业务排座号可自动编号。
+ */
 @Service
 public class CinemaServiceImpl implements CinemaService {
     private final CinemaMapper cinemaMapper;
@@ -230,6 +234,7 @@ public class CinemaServiceImpl implements CinemaService {
         return toHallVO(hall);
     }
 
+    /** admin 必须显式传院；staff 强制本院，传其他院则 403 */
     private String resolveAdminCinemaId(String cinemaId) {
         if (SecurityContext.isAdmin()) {
             if (!StringUtils.hasText(cinemaId)) throw new BusinessException(ResultCode.FAIL, "管理员查询影厅时必须提供 cinemaId");
@@ -242,6 +247,7 @@ public class CinemaServiceImpl implements CinemaService {
         return staffCinemaId;
     }
 
+    /** 非 admin 时写操作必须落在绑定影院 */
     private void assertCinemaScope(String cinemaId) {
         if (SecurityContext.isAdmin()) return;
         if (!SecurityContext.hasRole(Roles.STAFF) || !currentStaffCinemaId().equals(cinemaId)) {
@@ -249,6 +255,7 @@ public class CinemaServiceImpl implements CinemaService {
         }
     }
 
+    /** 优先 JWT cinemaId；缺失时回查账号绑定 */
     private String currentStaffCinemaId() {
         String cinemaIdFromToken = SecurityContext.getCurrentCinemaId();
         if (StringUtils.hasText(cinemaIdFromToken)) {
@@ -261,6 +268,7 @@ public class CinemaServiceImpl implements CinemaService {
         return user.getCinemaId();
     }
 
+    /** 创建座位图/影厅时解析目标影院 ID */
     private String resolveWriteCinemaId(String requestedCinemaId) {
         if (SecurityContext.isAdmin()) {
             if (!StringUtils.hasText(requestedCinemaId)) {
@@ -312,6 +320,9 @@ public class CinemaServiceImpl implements CinemaService {
         return result;
     }
 
+    /**
+     * 按画布坐标建座：空行跳过不占业务排号；未传 rowNo/colNo 时同行从左到右编号。
+     */
     private List<Seat> buildSeats(String seatMapId, SeatMapCreateDTO dto) {
         Set<String> graphCoordinates = new HashSet<String>();
         Map<Integer, List<SeatMapSeatDTO>> seatsByGraphRow = new HashMap<Integer, List<SeatMapSeatDTO>>();
@@ -391,6 +402,7 @@ public class CinemaServiceImpl implements CinemaService {
         return result;
     }
 
+    /** 同一 couplePairId 必须恰好两座 */
     private void validateCoupleSeats(List<Seat> seats) {
         Map<String, Integer> pairCounts = new HashMap<String, Integer>();
         for (Seat seat : seats) {
@@ -403,6 +415,7 @@ public class CinemaServiceImpl implements CinemaService {
         }
     }
 
+    /** detail=false 时省略 trafficNote/tags，减轻附近列表体积 */
     private CinemaVO toCinemaVO(Cinema cinema, boolean detail) {
         List<String> tags = StringUtils.hasText(cinema.getTagsJson())
                 ? JSON.parseArray(cinema.getTagsJson(), String.class) : Collections.<String>emptyList();

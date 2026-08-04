@@ -10,11 +10,17 @@ import javax.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * 新建影院入参（admin）。
+ */
 @Data
 public class CinemaCreateDTO {
+
+    /** 可选；空则服务端生成 {@code c + UUID7} */
     @Size(max = 32)
     private String cinemaId;
 
+    /** 城市 ID；空则默认 {@code city_sh} */
     @Size(max = 64)
     private String cityId;
 
@@ -43,5 +49,6 @@ public class CinemaCreateDTO {
     @Size(max = 500)
     private String trafficNote;
 
+    /** 标签列表，落库为 JSON 数组 */
     private List<@Size(max = 32) String> tags;
 }

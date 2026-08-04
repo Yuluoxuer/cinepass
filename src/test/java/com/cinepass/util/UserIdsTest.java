@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UserIdsTest {
 
-    private static final Pattern PATTERN = Pattern.compile("^u[0-9a-f]{32}$");
+    private static final Pattern PATTERN = Pattern.compile("^u[0-9a-f]{31}$");
 
     @Test
     void next_shouldMatchUPlusUuid7Hex() {

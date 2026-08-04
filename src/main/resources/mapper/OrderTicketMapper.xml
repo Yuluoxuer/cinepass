@@ -35,6 +35,22 @@
         session_id, created_at, updated_at
     </sql>
 
+    <!-- PostgreSQL: seat_ids_json / seat_price_snapshot 为 jsonb -->
+    <insert id="insert" databaseId="postgresql">
+        INSERT INTO order_ticket (
+            order_id, user_id, show_id, lock_id, movie_title, cinema_name, hall_name,
+            start_time, seat_ids_json, unit_price, amount, seat_price_snapshot, status,
+            ticket_code, qr_payload, pay_channel, expire_at, pay_at, cancel_reason,
+            session_id, created_at, updated_at
+        ) VALUES (
+            #{orderId}, #{userId}, #{showId}, #{lockId}, #{movieTitle}, #{cinemaName}, #{hallName},
+            #{startTime}, CAST(#{seatIdsJson} AS jsonb), #{unitPrice}, #{amount},
+            CAST(#{seatPriceSnapshot} AS jsonb), #{status},
+            #{ticketCode}, #{qrPayload}, #{payChannel}, #{expireAt}, #{payAt}, #{cancelReason},
+            #{sessionId}, #{createdAt}, #{updatedAt}
+        )
+    </insert>
+    <!-- H2 测试：VARCHAR -->
     <insert id="insert">
         INSERT INTO order_ticket (
             order_id, user_id, show_id, lock_id, movie_title, cinema_name, hall_name,

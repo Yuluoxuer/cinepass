@@ -80,6 +80,19 @@
         ORDER BY s.start_time ASC
     </select>
 
+    <!-- 院→片：当前时刻之后该院在售影片（每片最早一场） -->
+    <select id="listEarliestUpcomingByCinema" resultType="com.cinepass.model.ShowSchedule">
+        <![CDATA[
+        SELECT s.movie_id AS movieId, MIN(s.start_time) AS startTime
+        FROM show_schedule s
+        WHERE s.cinema_id = #{cinemaId}
+          AND s.status = 'on_sale'
+          AND s.start_time >= #{after}
+        GROUP BY s.movie_id
+        ORDER BY MIN(s.start_time) ASC
+        ]]>
+    </select>
+
     <select id="findOverlapping" databaseId="postgresql" resultType="com.cinepass.model.ShowSchedule">
         <![CDATA[
         SELECT show_id AS showId, hall_id AS hallId,

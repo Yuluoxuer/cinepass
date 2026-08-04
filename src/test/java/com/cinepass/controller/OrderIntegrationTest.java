@@ -48,8 +48,8 @@ class OrderIntegrationTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        ensureAccountViaRegister("运营小李", "13900000002", "ChangeMe123", "staff");
-        ensureAccountViaRegister("系统管理员", "13900000001", "Admin12345", "admin");
+        ensureAccountViaRegister("运营小王", "13900000002", "demo123456", "staff");
+        ensureAccountViaRegister("系统管理员", "13900000001", "demo123456", "admin");
 
         String nickname = "ord_user_" + System.nanoTime();
         String phone = "139" + String.format("%08d", System.nanoTime() % 100000000L);
@@ -62,7 +62,7 @@ class OrderIntegrationTest {
         JsonNode data = objectMapper.readTree(register.getResponse().getContentAsString()).path("data");
         token = data.path("accessToken").asText();
         userId = data.path("userId").asText();
-        assertThat(userId).matches("^u[0-9a-f]{32}$");
+        assertThat(userId).matches("^u[0-9a-f]{31}$");
 
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.ofHours(8));
         OffsetDateTime start = now.plusHours(2);
@@ -119,17 +119,17 @@ class OrderIntegrationTest {
                 "SELECT COUNT(1) FROM cinema WHERE cinema_id = ?", Integer.class, "c_ord_1");
         if (cinemas != null && cinemas == 0) {
             jdbcTemplate.update(
-                    "INSERT INTO cinema(cinema_id, city_id, name, address, lat, lng, created_at, updated_at) "
-                            + "VALUES (?,?,?,?,?,?,?,?)",
-                    "c_ord_1", "city_sh", "测试影城", "地址1", 31.2, 121.5, now, now);
+                    "INSERT INTO cinema(cinema_id, city_id, city_name, name, address, lat, lng, created_at, updated_at) "
+                            + "VALUES (?,?,?,?,?,?,?,?,?)",
+                    "c_ord_1", "city_sh", "上海市", "测试影城", "地址1", 31.2, 121.5, now, now);
             jdbcTemplate.update(
-                    "INSERT INTO seat_map(seat_map_id, name, rows_n, cols_n, created_at, updated_at) "
+                    "INSERT INTO seat_map(seat_map_id, cinema_id, rows_n, cols_n, screen_label, mutable) "
                             + "VALUES (?,?,?,?,?,?)",
-                    "sm_ord", "矩形图", 5, 5, now, now);
+                    "sm_ord", "c_ord_1", 5, 5, "银幕", true);
             jdbcTemplate.update(
-                    "INSERT INTO hall(hall_id, cinema_id, name, seat_map_id, created_at, updated_at) "
-                            + "VALUES (?,?,?,?,?,?)",
-                    "h_ord_1", "c_ord_1", "1号厅", "sm_ord", now, now);
+                    "INSERT INTO hall(hall_id, cinema_id, name, seat_map_id) "
+                            + "VALUES (?,?,?,?)",
+                    "h_ord_1", "c_ord_1", "1号厅", "sm_ord");
             jdbcTemplate.update(
                     "INSERT INTO seat(seat_id, seat_map_id, graph_row, graph_col, row_no, col_no, "
                             + "seat_name, seat_type, zone, couple_pair_id, default_status) VALUES "
@@ -373,12 +373,12 @@ class OrderIntegrationTest {
                 .andExpect(status().isForbidden());
 
         // staff 未绑定影院：通过 @Staff 后业务层拒绝
-        String staffToken = loginAs("运营小李", "ChangeMe123");
+        String staffToken = loginAs("运营小王", "demo123456");
         mockMvc.perform(get("/api/v1/admin/orders").header("Authorization", "Bearer " + staffToken))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40301));
 
-        String adminToken = loginAs("系统管理员", "Admin12345");
+        String adminToken = loginAs("系统管理员", "demo123456");
         mockMvc.perform(get("/api/v1/admin/orders")
                         .param("status", "pending_pay")
                         .header("Authorization", "Bearer " + adminToken))
@@ -398,7 +398,7 @@ class OrderIntegrationTest {
         String orderId = objectMapper.readTree(created.getResponse().getContentAsString())
                 .path("data").path("orderId").asText();
 
-        String adminToken = loginAs("系统管理员", "Admin12345");
+        String adminToken = loginAs("系统管理员", "demo123456");
         String sameNick = "staff_same_" + System.nanoTime();
         String otherNick = "staff_other_" + System.nanoTime();
         mockMvc.perform(post("/api/v1/admin/users")
@@ -438,7 +438,7 @@ class OrderIntegrationTest {
                         .content("{\"lockId\":\"lk_ord_1\"}"))
                 .andExpect(status().isOk());
 
-        String adminToken = loginAs("系统管理员", "Admin12345");
+        String adminToken = loginAs("系统管理员", "demo123456");
         LocalDate today = LocalDate.now();
         mockMvc.perform(get("/api/v1/admin/orders")
                         .param("userId", userId)

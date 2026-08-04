@@ -26,6 +26,18 @@ public enum ResultCode {
 
     LOCK_EXPIRED(4101, "锁座已失效或不可用"),
     ORDER_NOT_CANCELLABLE(4102, "订单不可取消"),
+
+    /** Draft CAS 版本冲突（系分 errorCode=DRAFT_CONFLICT） */
+    DRAFT_CONFLICT(-1, "draft version mismatch"),
+
+    /** 座位已被锁/已售（系分 errorCode=SEAT_TAKEN） */
+    SEAT_TAKEN(-1, "seats already taken"),
+
+    /** 情侣座须成对选择（系分 errorCode=COUPLE_RULE） */
+    COUPLE_RULE(-1, "couple seats must be selected together"),
+
+    /** 座位不属于该场次座位图（系分 errorCode=SEAT_INVALID） */
+    SEAT_INVALID(-1, "seat does not belong to show"),
     ;
 
     private final int code;

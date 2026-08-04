@@ -105,9 +105,10 @@ public class SecurityConfig {
                                 "/api/v1/movies", "/api/v1/movies/**",
                                 "/api/v1/cinemas", "/api/v1/cinemas/**",
                                 "/api/v1/shows", "/api/v1/shows/**",
-                                "/api/v1/reco/**",
                                 "/api/v1/tickets/verify"
                         ).permitAll()
+                        .antMatchers("/api/v1/reco", "/api/v1/reco/**").permitAll()
+                        .antMatchers("/api/v1/booking-drafts", "/api/v1/booking-drafts/**").permitAll()
                         .antMatchers(HttpMethod.GET, "/api/v1/orders/*/pay-session").permitAll()
                         .antMatchers(HttpMethod.GET, "/api/v1/orders/*/pay-qrcode").permitAll()
                         // 后台接口：至少 staff；更细粒度由 @Admin / @Staff 控制

@@ -16,6 +16,26 @@
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
 
+    <!-- PostgreSQL: seat_ids_json 为 jsonb，须 CAST -->
+    <insert id="insert" databaseId="postgresql">
+        INSERT INTO seat_lock (
+            lock_id, show_id, user_id, seat_ids_json, status, ttl_seconds,
+            expire_at, session_id, created_at, updated_at
+        ) VALUES (
+            #{lockId}, #{showId}, #{userId}, CAST(#{seatIdsJson} AS jsonb), #{status}, #{ttlSeconds},
+            #{expireAt}, #{sessionId}, #{createdAt}, #{updatedAt}
+        )
+    </insert>
+    <insert id="insert">
+        INSERT INTO seat_lock (
+            lock_id, show_id, user_id, seat_ids_json, status, ttl_seconds,
+            expire_at, session_id, created_at, updated_at
+        ) VALUES (
+            #{lockId}, #{showId}, #{userId}, #{seatIdsJson}, #{status}, #{ttlSeconds},
+            #{expireAt}, #{sessionId}, #{createdAt}, #{updatedAt}
+        )
+    </insert>
+
     <select id="findByIdForUpdate" databaseId="postgresql" resultMap="LockMap">
         SELECT * FROM seat_lock WHERE lock_id = #{lockId} FOR UPDATE
     </select>
@@ -35,6 +55,17 @@
     <update id="markReleased">
         UPDATE seat_lock
         SET status = 'released', updated_at = CURRENT_TIMESTAMP
+        WHERE lock_id = #{lockId} AND status = 'active'
+    </update>
+
+    <update id="markExpired" databaseId="postgresql">
+        UPDATE seat_lock
+        SET status = 'expired', updated_at = NOW()
+        WHERE lock_id = #{lockId} AND status = 'active'
+    </update>
+    <update id="markExpired">
+        UPDATE seat_lock
+        SET status = 'expired', updated_at = CURRENT_TIMESTAMP
         WHERE lock_id = #{lockId} AND status = 'active'
     </update>
 </mapper>

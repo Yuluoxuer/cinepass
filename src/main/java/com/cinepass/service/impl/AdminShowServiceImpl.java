@@ -13,6 +13,7 @@ import com.cinepass.model.Hall;
 import com.cinepass.model.Movie;
 import com.cinepass.model.ShowSchedule;
 import com.cinepass.service.AdminShowService;
+import com.cinepass.service.SeatInventoryService;
 import com.cinepass.service.ShowService;
 import com.cinepass.util.ShowIds;
 import com.cinepass.vo.ShowVO;
@@ -25,9 +26,14 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * {@link AdminShowService} 实现。
+ * <p>同厅排片冲突检测依赖 Mapper；对外错误文案提示 {@link #SHOW_BUFFER_MINUTES} 分钟清场缓冲。
+ */
 @Service
 public class AdminShowServiceImpl implements AdminShowService {
 
+    /** 清场缓冲分钟数（冲突提示与系分约定对齐） */
     private static final int SHOW_BUFFER_MINUTES = 20;
 
     private final ShowMapper showMapper;
@@ -35,17 +41,20 @@ public class AdminShowServiceImpl implements AdminShowService {
     private final CinemaMapper cinemaMapper;
     private final HallMapper hallMapper;
     private final ShowService showService;
+    private final SeatInventoryService seatInventoryService;
 
     public AdminShowServiceImpl(ShowMapper showMapper,
                                 MovieMapper movieMapper,
                                 CinemaMapper cinemaMapper,
                                 HallMapper hallMapper,
-                                ShowService showService) {
+                                ShowService showService,
+                                SeatInventoryService seatInventoryService) {
         this.showMapper = showMapper;
         this.movieMapper = movieMapper;
         this.cinemaMapper = cinemaMapper;
         this.hallMapper = hallMapper;
         this.showService = showService;
+        this.seatInventoryService = seatInventoryService;
     }
 
     @Override
@@ -97,6 +106,8 @@ public class AdminShowServiceImpl implements AdminShowService {
         show.setCreatedAt(now);
         show.setUpdatedAt(now);
         showMapper.insert(show);
+        // 排片后立即播种 seat_status，避免购票侧读到空库存
+        seatInventoryService.ensureSeatStatus(show.getShowId(), show.getSeatMapId());
 
         ShowSchedule saved = showMapper.selectById(show.getShowId());
         return showService.buildShowVO(saved, toZonePriceVOs(dto.getZonePrices(), showPrice));
@@ -112,6 +123,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         if (!"on_sale".equals(show.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "仅可修改在售场次");
         }
+        // 有在途锁座或订单时禁止改期，避免已售座位时间错位
         int activeLocks = showMapper.countActiveLocksOrOrders(showId);
         if (activeLocks > 0) {
             throw new BusinessException(ResultCode.CONFLICT, "场次存在有效锁座，无法修改");
@@ -185,6 +197,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         return showService.buildShowVO(updated, null);
     }
 
+    /** 有分区价取最低价落库；否则用统一价兜底 */
     private BigDecimal computePrice(List<ShowCreateDTO.ZonePriceItem> zonePrices, BigDecimal fallback) {
         if (zonePrices != null && !zonePrices.isEmpty()) {
             return zonePrices.stream()

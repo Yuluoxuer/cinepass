@@ -21,6 +21,16 @@ import java.util.Map;
 
 import javax.validation.Valid;
 
+/**
+ * 运营端排片管理。
+ * <pre>
+ * GET  /api/v1/admin/shows
+ * POST /api/v1/admin/shows
+ * PUT  /api/v1/admin/shows/{showId}
+ * POST .../cancel | close-sale | resume-sale
+ * GET  .../impact
+ * </pre>
+ */
 @RestController
 @RequestMapping("/api/v1/admin/shows")
 @Staff
@@ -34,6 +44,7 @@ public class AdminShowController {
         this.showService = showService;
     }
 
+    /** 排片列表；未传 date 则返回该院该片全部场次 */
     @GetMapping
     public Result<ShowListResult> list(@RequestParam String cinemaId,
                                         @RequestParam String movieId,
@@ -44,32 +55,38 @@ public class AdminShowController {
         return Result.success(showService.listAll(cinemaId, movieId));
     }
 
+    /** 新建场次；同厅时间冲突则 409 */
     @PostMapping
     public Result<ShowVO> create(@Valid @RequestBody ShowCreateDTO body) {
         return Result.success(adminShowService.create(body));
     }
 
+    /** 改开场/散场或分区价；有在途锁座/订单时拒绝改时 */
     @PutMapping("/{showId}")
     public Result<ShowVO> update(@PathVariable String showId,
                                   @Valid @RequestBody ShowUpdateDTO body) {
         return Result.success(adminShowService.update(showId, body));
     }
 
+    /** 取消场次 */
     @PostMapping("/{showId}/cancel")
     public Result<ShowVO> cancel(@PathVariable String showId) {
         return Result.success(adminShowService.cancel(showId));
     }
 
+    /** 停售（保留场次，不可再购） */
     @PostMapping("/{showId}/close-sale")
     public Result<ShowVO> closeSale(@PathVariable String showId) {
         return Result.success(adminShowService.closeSale(showId));
     }
 
+    /** 恢复开售 */
     @PostMapping("/{showId}/resume-sale")
     public Result<ShowVO> resumeSale(@PathVariable String showId) {
         return Result.success(adminShowService.resumeSale(showId));
     }
 
+    /** 改期/取消影响面占位（订单统计待对接） */
     @GetMapping("/{showId}/impact")
     public Result<Map<String, Object>> impact(@PathVariable String showId) {
         Map<String, Object> m = new java.util.HashMap<>();
