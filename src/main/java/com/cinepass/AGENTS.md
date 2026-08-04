@@ -28,7 +28,6 @@
 | `mapper/` | MyBatis Mapper 接口（见 `mapper/AGENTS.md`） |
 | `mq/` | RocketMQ 相关（**已全局禁用**，见 `mq/AGENTS.md`） |
 | `security/` | Spring Security + JWT（见 `security/AGENTS.md`） |
-| `serializer/` | Jackson 序列化器（见 `serializer/AGENTS.md`） |
 | `service/` | 业务逻辑层接口 + 实现（见 `service/AGENTS.md`） |
 | `util/` | 自定义工具类（见 `util/AGENTS.md`） |
 | `vo/` | 视图对象（见 `vo/AGENTS.md`） |

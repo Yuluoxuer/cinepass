@@ -2,9 +2,19 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 必读 Skill（跨 Agent 规范）
+
+新增/修改业务代码前，先加载并遵循：
+
+**`.agents/skills/cinepass-conventions/SKILL.md`**
+
+（与 Cursor / Codex 共用同一文件；本仓库 `.claude/skills/cinepass-conventions` 为 symlink。）
+
+硬性约束摘要：SQL 只写 MyBatis XML；Java 8 only；Controller 必须 `@Admin`/`@Staff`/`@LoginUser`；注释按 skill 内「注释规范」。
+
 ## 项目概述
 
-Mini HR 管理系统（minni-hr）后端，基于 Spring Boot 2.7.18 + MyBatis 2.3.2 + Spring Security + Redis + RocketMQ 构建的 REST API 服务。
+CinePass 票务中台后端，基于 Spring Boot 2.7.18 + MyBatis 2.3.2 + Spring Security + Redis + RocketMQ 构建的 REST API 服务。
 
 **硬性约束：Java 8**，禁止使用 Java 9+ 特性（`var`、模块系统等）。
 

@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * JWT 工具 — HS256。Claims：sub(userId 字符串)/role/sid/jti/exp。
+ * JWT 工具（HS256）。Claims：{@code sub}(userId) / {@code role} / {@code cinemaId} / {@code sid} / {@code jti} / {@code exp}。
  */
 @Slf4j
 @Component
@@ -29,6 +29,7 @@ public class JwtUtil {
     @Value("${jwt.access-token-expire-seconds:3600}")
     private long accessTokenExpireSeconds;
 
+    /** 获取签名密钥；不足 32 字节时右侧补零以满足 HS256 要求 */
     private SecretKey getSigningKey() {
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
@@ -39,15 +40,17 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
+    /** 签发 Access Token（无 cinemaId） */
     public String generateAccessToken(String userId, String username, String role, String sid) {
-        return generateAccessToken(userId, username, role, null, sid);
+        return generateAccessToken(userId, username, role, sid, null);
     }
 
-    public String generateAccessToken(String userId, String username, String role, String cinemaId, String sid) {
+    /** 签发 Access Token，写入 userId、昵称、角色、可选影院与会话 sid */
+    public String generateAccessToken(String userId, String username, String role, String sid, String cinemaId) {
         Date now = new Date();
         String jti = UUID.randomUUID().toString().replace("-", "");
         String normalizedRole = role != null ? role : Roles.USER;
-        return Jwts.builder()
+        io.jsonwebtoken.JwtBuilder builder = Jwts.builder()
                 .setSubject(userId)
                 .setId(jti)
                 .claim("username", username)
@@ -56,16 +59,20 @@ public class JwtUtil {
                 .claim("cinemaId", cinemaId)
                 .claim("sid", sid)
                 .setIssuedAt(now)
-                .setExpiration(new Date(now.getTime() + accessTokenExpireSeconds * 1000L))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-                .compact();
+                .setExpiration(new Date(now.getTime() + accessTokenExpireSeconds * 1000L));
+        if (cinemaId != null && !cinemaId.isEmpty()) {
+            builder.claim("cinemaId", cinemaId);
+        }
+        return builder.signWith(getSigningKey(), SignatureAlgorithm.HS256).compact();
     }
 
+    /** 兼容重载：从角色列表取主角色并自动生成 sid */
     public String generateAccessToken(String userId, String username, List<String> roles) {
         String role = (roles != null && !roles.isEmpty()) ? roles.get(0) : Roles.USER;
-        return generateAccessToken(userId, username, role, null, UUID.randomUUID().toString().replace("-", ""));
+        return generateAccessToken(userId, username, role, UUID.randomUUID().toString().replace("-", ""), null);
     }
 
+    /** 解析 Token 中的 userId（sub）；失败返回 null */
     public String parseUserId(String token) {
         try {
             Claims claims = parseClaims(token);
@@ -76,6 +83,7 @@ public class JwtUtil {
         }
     }
 
+    /** 解析 Access Token 为用户信息；过期或非法返回 null */
     public JwtUserInfo parseAccessToken(String token) {
         try {
             Claims claims = parseClaims(token);
@@ -86,7 +94,7 @@ public class JwtUtil {
         }
     }
 
-    /** 验签；允许过期（静默续期 / 登出）。 */
+    /** 解析 Access Token，允许已过期（用于静默续期 / 登出） */
     public JwtUserInfo parseAccessTokenAllowExpired(String token) {
         try {
             return toUserInfo(parseClaimsAllowExpired(token));
@@ -96,6 +104,7 @@ public class JwtUtil {
         }
     }
 
+    /** 校验 Token 是否合法且未过期 */
     public boolean validateToken(String token) {
         try {
             parseClaims(token);
@@ -105,6 +114,7 @@ public class JwtUtil {
         }
     }
 
+    /** 仅校验签名，忽略过期 */
     public boolean isSignatureValid(String token) {
         try {
             parseClaimsAllowExpired(token);
@@ -114,6 +124,7 @@ public class JwtUtil {
         }
     }
 
+    /** 判断 Token 是否已过期；签名非法时返回 false */
     public boolean isExpired(String token) {
         try {
             parseClaims(token);
@@ -125,10 +136,12 @@ public class JwtUtil {
         }
     }
 
+    /** 返回 Access Token 有效期（秒） */
     public long getExpiresInSeconds() {
         return accessTokenExpireSeconds;
     }
 
+    /** 从 Claims 提取角色列表（当前为单角色包装） */
     public List<String> getRoles(Claims claims) {
         if (claims == null) {
             return Collections.emptyList();
@@ -137,6 +150,7 @@ public class JwtUtil {
         return role != null ? Collections.singletonList(role) : Collections.<String>emptyList();
     }
 
+    /** 从 Claims 解析主角色，缺省为 user */
     @SuppressWarnings("unchecked")
     private String resolveRole(Claims claims) {
         String role = claims.get("role", String.class);
@@ -150,6 +164,7 @@ public class JwtUtil {
         return Roles.USER;
     }
 
+    /** 严格解析 Claims（过期会抛异常） */
     private Claims parseClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
@@ -158,6 +173,7 @@ public class JwtUtil {
                 .getBody();
     }
 
+    /** 解析 Claims，过期时仍返回其中内容 */
     private Claims parseClaimsAllowExpired(String token) {
         try {
             return parseClaims(token);
@@ -166,6 +182,7 @@ public class JwtUtil {
         }
     }
 
+    /** Claims 转为 JwtUserInfo */
     private JwtUserInfo toUserInfo(Claims claims) {
         if (claims == null) {
             return null;
@@ -179,6 +196,7 @@ public class JwtUtil {
                 claims.getId());
     }
 
+    /** Access Token 解析结果：用户身份与会话标识 */
     public static class JwtUserInfo {
         private final String userId;
         private final String username;
@@ -208,6 +226,7 @@ public class JwtUtil {
             return role;
         }
 
+        /** staff 所属影院；其余可为 null */
         public String getCinemaId() {
             return cinemaId;
         }

@@ -25,6 +25,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * JWT 认证过滤器：解析 Bearer Token，注入 SecurityContext 与 Spring Authentication（含 ROLE_ 前缀）。
+ */
 @Slf4j
 public class JwtAuthFilter extends OncePerRequestFilter {
 
@@ -41,6 +44,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         this.userAccountMapper = userAccountMapper;
     }
 
+    /**
+     * 每请求执行：校验 Token / 黑名单 / 过期静默续期，再写入上下文并放行。
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -69,6 +75,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         boolean expired = jwtUtil.isExpired(token);
         boolean logoutPath = isLogout(request);
 
+        // Access 过期但 Refresh 仍有效时，签发新 Access 并挂到 request attribute
         if (expired && !logoutPath) {
             Optional<AuthSessionService.RefreshSession> refresh =
                     authSessionService.getRefresh(userInfo.getSid());
@@ -83,7 +90,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 return;
             }
             String newToken = jwtUtil.generateAccessToken(
-                    account.getUserId(), account.getNickname(), account.getRole(), account.getCinemaId(), userInfo.getSid());
+                    account.getUserId(), account.getNickname(), account.getRole(),
+                    userInfo.getSid(), account.getCinemaId());
             request.setAttribute(AuthTokenAttributes.RENEWED_ACCESS_TOKEN, newToken);
             userInfo = jwtUtil.parseAccessToken(newToken);
             if (userInfo == null) {
@@ -97,6 +105,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             SecurityContext.set(userInfo.getUserId(), userInfo.getUsername(),
                     null, null, userInfo.getRoles(), null, userInfo.getCinemaId());
             SecurityContext.setSession(userInfo.getSid(), userInfo.getJti(), role);
+            SecurityContext.setCinemaId(userInfo.getCinemaId());
 
             List<SimpleGrantedAuthority> authorities = Collections.singletonList(
                     new SimpleGrantedAuthority("ROLE_" + role));
@@ -112,12 +121,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
     }
 
+    /** 判断是否为登出接口（过期 Token 仍允许走登出） */
     private boolean isLogout(HttpServletRequest request) {
         String uri = request.getRequestURI();
         return "POST".equalsIgnoreCase(request.getMethod())
                 && (uri.endsWith("/api/v1/auth/logout") || uri.endsWith("/auth/logout"));
     }
 
+    /** 从 Authorization 头提取 Bearer Token */
     private String extractToken(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith(BEARER_PREFIX)) {
@@ -126,6 +137,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         return null;
     }
 
+    /** 写出 401 JSON 响应 */
     private void writeUnauthorized(HttpServletResponse response) throws IOException {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);

@@ -42,7 +42,7 @@
             <if test="phone != null">phone = #{phone},</if>
             <if test="passwordHash != null">password_hash = #{passwordHash},</if>
             <if test="role != null">role = #{role},</if>
-            cinema_id = #{cinemaId},
+            <if test="updateCinemaId != null and updateCinemaId">cinema_id = #{cinemaId},</if>
             <if test="avatarUrl != null">avatar_url = #{avatarUrl},</if>
             <if test="status != null">status = #{status},</if>
             updated_at = #{updatedAt}

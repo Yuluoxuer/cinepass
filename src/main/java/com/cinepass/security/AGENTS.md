@@ -14,7 +14,7 @@ Spring Security + JWT 认证鉴权包。包含 JWT 过滤器、JWT 工具类、�
 | `JwtUtil.java` | Access Claims：`sub/role/sid/jti`，TTL 默认 3600s |
 | `SecurityContext.java` | 安全上下文（`@Component("securityContext")`） |
 | `SecurityConfig.java` | 路径级规则 + `@EnableGlobalMethodSecurity` |
-| `Roles.java` / `Admin` / `Staff` / `LoginRequired` | 角色常量 `user/staff/admin` 与方法级元注解 |
+| `Roles.java` / `Admin` / `Staff` / `LoginUser` | 角色常量 `user/staff/admin` 与方法级元注解 |
 
 ## For AI Agents
 

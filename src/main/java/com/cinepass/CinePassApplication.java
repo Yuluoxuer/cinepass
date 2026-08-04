@@ -11,9 +11,9 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication
 @MapperScan("com.cinepass.mapper")
 @EnableAsync
-public class MinniHrApplication {
+public class CinePassApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(MinniHrApplication.class, args);
+        SpringApplication.run(CinePassApplication.class, args);
     }
 }
