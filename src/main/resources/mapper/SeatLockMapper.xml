@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.SeatLockMapper">
+
+    <resultMap id="LockMap" type="com.cinepass.model.SeatLock">
+        <id property="lockId" column="lock_id"/>
+        <result property="showId" column="show_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="seatIdsJson" column="seat_ids_json"/>
+        <result property="status" column="status"/>
+        <result property="ttlSeconds" column="ttl_seconds"/>
+        <result property="expireAt" column="expire_at"/>
+        <result property="sessionId" column="session_id"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <select id="findByIdForUpdate" databaseId="postgresql" resultMap="LockMap">
+        SELECT * FROM seat_lock WHERE lock_id = #{lockId} FOR UPDATE
+    </select>
+    <select id="findByIdForUpdate" resultMap="LockMap">
+        SELECT * FROM seat_lock WHERE lock_id = #{lockId}
+    </select>
+
+    <select id="findById" resultMap="LockMap">
+        SELECT * FROM seat_lock WHERE lock_id = #{lockId}
+    </select>
+
+    <update id="markReleased" databaseId="postgresql">
+        UPDATE seat_lock
+        SET status = 'released', updated_at = NOW()
+        WHERE lock_id = #{lockId} AND status = 'active'
+    </update>
+    <update id="markReleased">
+        UPDATE seat_lock
+        SET status = 'released', updated_at = CURRENT_TIMESTAMP
+        WHERE lock_id = #{lockId} AND status = 'active'
+    </update>
+</mapper>

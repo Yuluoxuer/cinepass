@@ -15,6 +15,7 @@ Spring Boot 2.7.18 票务中台，包名 `com.cinepass`，提供电影、影院�
 | `pom.xml` | Maven 配置（Java 8, Spring Boot 2.7.18, MyBatis, Redis, RocketMQ, Knife4j, JWT） |
 | `schema.sql` | 完整数据库 DDL（电影/影院/场次/座位/订单/用户等业务表） |
 | `CLAUDE.md` | AI 专用架构约定：安全架构、MyBatis 拦截器、AOP、测试模式完整说明 |
+| `.agents/skills/cinepass-conventions/SKILL.md` | **跨 Agent 开发规范**（包放置 / SQL 仅 XML / 权限注解 / 注释）；编码前必读 |
 | `README.md` | 中文项目文档与快速启动 |
 | `README.en.md` | 英文项目文档 |
 
@@ -31,9 +32,16 @@ Spring Boot 2.7.18 票务中台，包名 `com.cinepass`，提供电影、影院�
 
 ## For AI Agents
 
+### Required skill（所有 Agent）
+编码 / 改 Controller / Mapper / 权限 / 注释前，**先读并遵循**：
+
+`.agents/skills/cinepass-conventions/SKILL.md`
+
+（Cursor / Claude Code 另有 symlink：`.cursor/skills/`、`.claude/skills/` → 同一正文，勿复制多份。）
+
 ### Working In This Directory
 - **Java 版本**：严格 Java 8，禁止 `var`、`instanceof` 模式匹配、模块系统等 Java 9+ 语法
-- **包名**：新类放在 `com.chainpass.*` 对应子包，不要用 `com.cinepass`
+- **包名**：新类放在 `com.cinepass.*` 对应子包
 - **敏感信息**：DB_PASSWORD / REDIS_PASSWORD / JWT_SECRET 必须从环境变量读取，禁止硬编码提交
 - **响应格式**：所有 Controller 返回 `Result<T>`，分页接口返回 `PageResult<T>`
 - **异常处理**：Service 层抛 `BusinessException`，Controller 不 try-catch 拼 JSON

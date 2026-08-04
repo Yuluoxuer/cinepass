@@ -1,80 +1,81 @@
 package com.cinepass.controller;
 
 import com.cinepass.common.Result;
-import com.cinepass.mapper.CinemaMapper;
-import com.cinepass.mapper.HallMapper;
-import com.cinepass.model.Cinema;
-import com.cinepass.model.Hall;
+import com.cinepass.dto.CinemaCreateDTO;
+import com.cinepass.dto.CinemaUpdateDTO;
+import com.cinepass.security.Admin;
+import com.cinepass.security.Staff;
+import com.cinepass.service.CinemaService;
+import com.cinepass.vo.CinemaVO;
 import com.cinepass.vo.PageResult;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import javax.validation.Valid;
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.Min;
+import java.math.BigDecimal;
 
-/**
- * 最小只读接口 — 仅供管理端排片工作台查询影院列表，非独立模块。
- */
+@Api(tags = "影院管理")
+@Validated
 @RestController
-@RequestMapping("/api/v1/cinemas")
+@RequestMapping("/api/v1")
 public class CinemaController {
+    private final CinemaService cinemaService;
+    public CinemaController(CinemaService cinemaService) { this.cinemaService = cinemaService; }
 
-    private final CinemaMapper cinemaMapper;
-    private final HallMapper hallMapper;
-
-    public CinemaController(CinemaMapper cinemaMapper, HallMapper hallMapper) {
-        this.cinemaMapper = cinemaMapper;
-        this.hallMapper = hallMapper;
+    @ApiOperation("查询附近影院")
+    @GetMapping("/cinemas")
+    @PreAuthorize("permitAll()")
+    public Result<PageResult<CinemaVO>> list(
+            @RequestParam(required = false) String movieId,
+            @RequestParam(required = false) @DecimalMin("-90.0") @DecimalMax("90.0") BigDecimal lat,
+            @RequestParam(required = false) @DecimalMin("-180.0") @DecimalMax("180.0") BigDecimal lng,
+            @RequestParam(required = false) Integer radiusMeters,
+            @RequestParam(defaultValue = "distance") String sort,
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) int size) {
+        return Result.success(cinemaService.listCinemas(movieId, lat, lng, radiusMeters, sort, page, size));
     }
 
-    @GetMapping
-    public Result<PageResult<Object>> list(@RequestParam(defaultValue = "1") int page,
-                                           @RequestParam(defaultValue = "50") int size) {
-        // 简单全量返回，供前端 Select 下拉使用
-        List<Cinema> all = cinemaMapper.listAll(0, 200);
-        List<Object> items = new ArrayList<>();
-        if (all != null) {
-            for (Cinema c : all) {
-                items.add(new CinemaBrief(c.getCinemaId(), c.getName(), c.getAddress()));
-            }
-        }
-        return Result.success(new PageResult<>(items, page, size, items.size()));
+    @ApiOperation("查询影院详情")
+    @GetMapping("/cinemas/{cinemaId}")
+    @PreAuthorize("permitAll()")
+    public Result<CinemaVO> get(@PathVariable String cinemaId) {
+        return Result.success(cinemaService.getCinema(cinemaId));
     }
 
-    @GetMapping("/{cinemaId}")
-    public Result<Map<String, Object>> get(@PathVariable String cinemaId) {
-        Cinema c = cinemaMapper.selectById(cinemaId);
-        if (c == null) return Result.fail("影院不存在");
-        Map<String, Object> m = new HashMap<>();
-        m.put("cinemaId", c.getCinemaId());
-        m.put("name", c.getName());
-        m.put("address", c.getAddress());
-        m.put("distanceMeters", null);
-        m.put("minPrice", null);
-        m.put("trafficNote", null);
-        List<Hall> halls = hallMapper.selectByCinemaId(cinemaId);
-        List<Map<String, String>> hallBriefs = new ArrayList<>();
-        if (halls != null) {
-            for (Hall h : halls) {
-                Map<String, String> hb = new HashMap<>();
-                hb.put("hallId", h.getHallId());
-                hb.put("name", h.getName());
-                hallBriefs.add(hb);
-            }
-        }
-        m.put("halls", hallBriefs);
-        return Result.success(m);
+    @ApiOperation("新建影院")
+    @PostMapping("/admin/cinemas")
+    @Admin
+    public Result<CinemaVO> create(@Valid @RequestBody CinemaCreateDTO body) {
+        return Result.success(cinemaService.createCinema(body));
     }
 
-    @lombok.Value
-    private static class CinemaBrief {
-        String cinemaId;
-        String name;
-        String address;
+    @ApiOperation("更新影院")
+    @PutMapping("/admin/cinemas/{cinemaId}")
+    @Staff
+    public Result<CinemaVO> update(@PathVariable String cinemaId, @Valid @RequestBody CinemaUpdateDTO body) {
+        return Result.success(cinemaService.updateCinema(cinemaId, body));
+    }
+
+    @ApiOperation("删除影院")
+    @DeleteMapping("/admin/cinemas/{cinemaId}")
+    @Admin
+    public Result<Void> delete(@PathVariable String cinemaId) {
+        cinemaService.deleteCinema(cinemaId);
+        return Result.success();
     }
 }

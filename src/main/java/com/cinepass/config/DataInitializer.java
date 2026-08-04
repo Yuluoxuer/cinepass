@@ -16,6 +16,8 @@ import java.time.OffsetDateTime;
 @Component
 public class DataInitializer implements CommandLineRunner {
 
+    private static final String DEMO_CINEMA_ID = "c_demo_01";
+
     private final UserAccountMapper userAccountMapper;
     private final UserProfileMapper userProfileMapper;
     private final PasswordEncoder passwordEncoder;

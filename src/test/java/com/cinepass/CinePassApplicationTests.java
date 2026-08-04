@@ -11,7 +11,7 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 @ActiveProfiles("test")
 @Import(MockInfrastructureConfig.class)
-class MinniHrApplicationTests {
+class CinePassApplicationTests {
 
     @Test
     void contextLoads() {

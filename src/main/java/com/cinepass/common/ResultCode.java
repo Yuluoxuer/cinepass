@@ -23,6 +23,9 @@ public enum ResultCode {
 
     UNAUTHORIZED_TOKEN(40101, "未认证或令牌无效"),
     FORBIDDEN_PERMISSION(40301, "权限不足"),
+
+    LOCK_EXPIRED(4101, "锁座已失效或不可用"),
+    ORDER_NOT_CANCELLABLE(4102, "订单不可取消"),
     ;
 
     private final int code;

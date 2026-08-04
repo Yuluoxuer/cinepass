@@ -1,35 +1,30 @@
 package com.cinepass.controller;
 
 import com.cinepass.common.Result;
+import com.cinepass.dto.SeatMapCreateDTO;
 import com.cinepass.security.Staff;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import com.cinepass.service.CinemaService;
+import com.cinepass.vo.SeatMapVO;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import javax.validation.Valid;
 
-/**
- * 最小只读接口 — 仅供排片工作台加载影厅所绑座位图的分区信息。实际数据来自 seat_map + seat 表（座位管理模块负责）。
- */
+@Api(tags = "座位图运营")
 @RestController
 @RequestMapping("/api/v1/seat-maps")
 @Staff
 public class SeatMapController {
+    private final CinemaService cinemaService;
+    public SeatMapController(CinemaService cinemaService) { this.cinemaService = cinemaService; }
 
-    @GetMapping("/{id}")
-    public Result<Map<String, Object>> get(@PathVariable String id) {
-        // 兜底：返回默认座位图结构，含一个 default 分区
-        Map<String, Object> m = new HashMap<>();
-        m.put("seatMapId", id);
-        m.put("rows", 10);
-        m.put("cols", 16);
-        m.put("screenLabel", "银幕");
-        m.put("zones", Arrays.asList("C"));
-        m.put("seats", java.util.Collections.emptyList());
-        m.put("mutable", true);
-        return Result.success(m);
+    @ApiOperation("创建稀疏座位图")
+    @PostMapping
+    public Result<SeatMapVO> create(@Valid @RequestBody SeatMapCreateDTO body) {
+        return Result.success(cinemaService.createSeatMap(body));
     }
 }

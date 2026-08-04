@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.OrderTicketMapper">
+
+    <resultMap id="OrderMap" type="com.cinepass.model.OrderTicket">
+        <id property="orderId" column="order_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="showId" column="show_id"/>
+        <result property="lockId" column="lock_id"/>
+        <result property="movieTitle" column="movie_title"/>
+        <result property="cinemaName" column="cinema_name"/>
+        <result property="hallName" column="hall_name"/>
+        <result property="startTime" column="start_time"/>
+        <result property="seatIdsJson" column="seat_ids_json"/>
+        <result property="unitPrice" column="unit_price"/>
+        <result property="amount" column="amount"/>
+        <result property="seatPriceSnapshot" column="seat_price_snapshot"/>
+        <result property="status" column="status"/>
+        <result property="ticketCode" column="ticket_code"/>
+        <result property="qrPayload" column="qr_payload"/>
+        <result property="payChannel" column="pay_channel"/>
+        <result property="expireAt" column="expire_at"/>
+        <result property="payAt" column="pay_at"/>
+        <result property="cancelReason" column="cancel_reason"/>
+        <result property="sessionId" column="session_id"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="OrderCols">
+        order_id, user_id, show_id, lock_id, movie_title, cinema_name, hall_name,
+        start_time, seat_ids_json, unit_price, amount, seat_price_snapshot, status,
+        ticket_code, qr_payload, pay_channel, expire_at, pay_at, cancel_reason,
+        session_id, created_at, updated_at
+    </sql>
+
+    <insert id="insert">
+        INSERT INTO order_ticket (
+            order_id, user_id, show_id, lock_id, movie_title, cinema_name, hall_name,
+            start_time, seat_ids_json, unit_price, amount, seat_price_snapshot, status,
+            ticket_code, qr_payload, pay_channel, expire_at, pay_at, cancel_reason,
+            session_id, created_at, updated_at
+        ) VALUES (
+            #{orderId}, #{userId}, #{showId}, #{lockId}, #{movieTitle}, #{cinemaName}, #{hallName},
+            #{startTime}, #{seatIdsJson}, #{unitPrice}, #{amount}, #{seatPriceSnapshot}, #{status},
+            #{ticketCode}, #{qrPayload}, #{payChannel}, #{expireAt}, #{payAt}, #{cancelReason},
+            #{sessionId}, #{createdAt}, #{updatedAt}
+        )
+    </insert>
+
+    <select id="findById" resultMap="OrderMap">
+        SELECT <include refid="OrderCols"/> FROM order_ticket WHERE order_id = #{orderId}
+    </select>
+
+    <select id="findByIdForUpdate" databaseId="postgresql" resultMap="OrderMap">
+        SELECT <include refid="OrderCols"/> FROM order_ticket WHERE order_id = #{orderId} FOR UPDATE
+    </select>
+    <select id="findByIdForUpdate" resultMap="OrderMap">
+        SELECT <include refid="OrderCols"/> FROM order_ticket WHERE order_id = #{orderId}
+    </select>
+
+    <select id="findByLockId" resultMap="OrderMap">
+        SELECT <include refid="OrderCols"/> FROM order_ticket WHERE lock_id = #{lockId}
+    </select>
+
+    <select id="countByUser" resultType="long">
+        SELECT COUNT(1) FROM order_ticket
+        WHERE user_id = #{userId}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <select id="listByUser" resultMap="OrderMap">
+        SELECT <include refid="OrderCols"/> FROM order_ticket
+        WHERE user_id = #{userId}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        ORDER BY created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAdmin" resultType="long">
+        SELECT COUNT(1) FROM order_ticket o
+        <if test="cinemaId != null and cinemaId != ''">
+            INNER JOIN show_schedule s ON s.show_id = o.show_id
+        </if>
+        WHERE 1 = 1
+        <if test="cinemaId != null and cinemaId != ''">
+            AND s.cinema_id = #{cinemaId}
+        </if>
+        <if test="userId != null and userId != ''">
+            AND o.user_id = #{userId}
+        </if>
+        <if test="status != null and status != ''">
+            AND o.status = #{status}
+        </if>
+        <if test="dateFrom != null">
+            AND CAST(o.created_at AS DATE) &gt;= #{dateFrom}
+        </if>
+        <if test="dateTo != null">
+            AND CAST(o.created_at AS DATE) &lt;= #{dateTo}
+        </if>
+    </select>
+
+    <select id="countAdmin" databaseId="postgresql" resultType="long">
+        SELECT COUNT(1) FROM order_ticket o
+        <if test="cinemaId != null and cinemaId != ''">
+            INNER JOIN show_schedule s ON s.show_id = o.show_id
+        </if>
+        WHERE 1 = 1
+        <if test="cinemaId != null and cinemaId != ''">
+            AND s.cinema_id = #{cinemaId}
+        </if>
+        <if test="userId != null and userId != ''">
+            AND o.user_id = #{userId}
+        </if>
+        <if test="status != null and status != ''">
+            AND o.status = #{status}
+        </if>
+        <if test="dateFrom != null">
+            AND o.created_at &gt;= CAST(#{dateFrom} AS timestamp)
+        </if>
+        <if test="dateTo != null">
+            AND o.created_at &lt; (CAST(#{dateTo} AS timestamp) + INTERVAL '1 day')
+        </if>
+    </select>
+
+    <select id="listAdmin" resultMap="OrderMap">
+        SELECT o.order_id, o.user_id, o.show_id, o.lock_id, o.movie_title, o.cinema_name, o.hall_name,
+               o.start_time, o.seat_ids_json, o.unit_price, o.amount, o.seat_price_snapshot, o.status,
+               o.ticket_code, o.qr_payload, o.pay_channel, o.expire_at, o.pay_at, o.cancel_reason,
+               o.session_id, o.created_at, o.updated_at
+        FROM order_ticket o
+        <if test="cinemaId != null and cinemaId != ''">
+            INNER JOIN show_schedule s ON s.show_id = o.show_id
+        </if>
+        WHERE 1 = 1
+        <if test="cinemaId != null and cinemaId != ''">
+            AND s.cinema_id = #{cinemaId}
+        </if>
+        <if test="userId != null and userId != ''">
+            AND o.user_id = #{userId}
+        </if>
+        <if test="status != null and status != ''">
+            AND o.status = #{status}
+        </if>
+        <if test="dateFrom != null">
+            AND CAST(o.created_at AS DATE) &gt;= #{dateFrom}
+        </if>
+        <if test="dateTo != null">
+            AND CAST(o.created_at AS DATE) &lt;= #{dateTo}
+        </if>
+        ORDER BY o.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="listAdmin" databaseId="postgresql" resultMap="OrderMap">
+        SELECT o.order_id, o.user_id, o.show_id, o.lock_id, o.movie_title, o.cinema_name, o.hall_name,
+               o.start_time, o.seat_ids_json, o.unit_price, o.amount, o.seat_price_snapshot, o.status,
+               o.ticket_code, o.qr_payload, o.pay_channel, o.expire_at, o.pay_at, o.cancel_reason,
+               o.session_id, o.created_at, o.updated_at
+        FROM order_ticket o
+        <if test="cinemaId != null and cinemaId != ''">
+            INNER JOIN show_schedule s ON s.show_id = o.show_id
+        </if>
+        WHERE 1 = 1
+        <if test="cinemaId != null and cinemaId != ''">
+            AND s.cinema_id = #{cinemaId}
+        </if>
+        <if test="userId != null and userId != ''">
+            AND o.user_id = #{userId}
+        </if>
+        <if test="status != null and status != ''">
+            AND o.status = #{status}
+        </if>
+        <if test="dateFrom != null">
+            AND o.created_at &gt;= CAST(#{dateFrom} AS timestamp)
+        </if>
+        <if test="dateTo != null">
+            AND o.created_at &lt; (CAST(#{dateTo} AS timestamp) + INTERVAL '1 day')
+        </if>
+        ORDER BY o.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <update id="updateCancelled" databaseId="postgresql">
+        UPDATE order_ticket
+        SET status = 'cancelled',
+            cancel_reason = #{cancelReason},
+            expire_at = NULL,
+            updated_at = NOW()
+        WHERE order_id = #{orderId}
+          AND status = 'pending_pay'
+    </update>
+    <update id="updateCancelled">
+        UPDATE order_ticket
+        SET status = 'cancelled',
+            cancel_reason = #{cancelReason},
+            expire_at = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE order_id = #{orderId}
+          AND status = 'pending_pay'
+    </update>
+</mapper>

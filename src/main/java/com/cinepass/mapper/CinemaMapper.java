@@ -4,16 +4,33 @@ import com.cinepass.model.Cinema;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * 内部Mapper — 仅供Show模块查询影院基本信息，非独立模块。
- */
 @Mapper
 public interface CinemaMapper {
     Cinema selectById(@Param("cinemaId") String cinemaId);
 
-    List<Cinema> listAll(@Param("offset") int offset, @Param("limit") int limit);
+    boolean exists(@Param("cinemaId") String cinemaId);
 
-    int insert(@Param("cinema") Cinema cinema);
+    boolean existsActive(@Param("cinemaId") String cinemaId);
+
+    List<Cinema> selectNearby(@Param("movieId") String movieId,
+                              @Param("lat") BigDecimal lat,
+                              @Param("lng") BigDecimal lng,
+                              @Param("radiusMeters") Integer radiusMeters,
+                              @Param("sort") String sort,
+                              @Param("offset") int offset,
+                              @Param("limit") int limit);
+
+    long countNearby(@Param("movieId") String movieId,
+                     @Param("lat") BigDecimal lat,
+                     @Param("lng") BigDecimal lng,
+                     @Param("radiusMeters") Integer radiusMeters);
+
+    int insert(Cinema cinema);
+
+    int update(Cinema cinema);
+
+    int softDelete(@Param("cinemaId") String cinemaId);
 }
