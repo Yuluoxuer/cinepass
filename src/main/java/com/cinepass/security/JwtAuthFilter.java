@@ -103,7 +103,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         try {
             String role = userInfo.getRole();
             SecurityContext.set(userInfo.getUserId(), userInfo.getUsername(),
-                    null, null, userInfo.getRoles(), null);
+                    null, null, userInfo.getRoles(), null, userInfo.getCinemaId());
             SecurityContext.setSession(userInfo.getSid(), userInfo.getJti(), role);
             SecurityContext.setCinemaId(userInfo.getCinemaId());
 

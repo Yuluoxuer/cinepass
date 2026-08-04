@@ -56,6 +56,13 @@
         <if test="excludeUserId != null">AND user_id &lt;&gt; #{excludeUserId}</if>
     </select>
 
+    <select id="countStaffByCinemaId" resultType="long" flushCache="true" useCache="false">
+        SELECT COUNT(1)
+        FROM user_account
+        WHERE role = 'staff'
+          AND cinema_id = #{cinemaId}
+    </select>
+
     <select id="page" resultMap="UserAccountMap">
         SELECT <include refid="cols"/> FROM user_account
         <where>

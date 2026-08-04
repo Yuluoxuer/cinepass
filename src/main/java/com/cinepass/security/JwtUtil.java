@@ -56,6 +56,7 @@ public class JwtUtil {
                 .claim("username", username)
                 .claim("role", normalizedRole)
                 .claim("roles", Collections.singletonList(normalizedRole))
+                .claim("cinemaId", cinemaId)
                 .claim("sid", sid)
                 .setIssuedAt(now)
                 .setExpiration(new Date(now.getTime() + accessTokenExpireSeconds * 1000L));

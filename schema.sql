@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS user_account (
   role           VARCHAR(16)    NOT NULL,
   cinema_id      VARCHAR(32)    NULL,
   avatar_url     VARCHAR(512)   NULL,
+  cinema_id      VARCHAR(32)    NULL,
   status         SMALLINT       NOT NULL DEFAULT 1,
   created_at     TIMESTAMPTZ(3) NOT NULL,
   updated_at     TIMESTAMPTZ(3) NOT NULL,
@@ -62,10 +63,14 @@ CREATE INDEX IF NOT EXISTS idx_movie_title ON movie (title);
 CREATE TABLE IF NOT EXISTS cinema (
   cinema_id   VARCHAR(32)    NOT NULL,
   city_id     VARCHAR(32)    NOT NULL,
+  city_name   VARCHAR(64)    NOT NULL DEFAULT U&'\4E0A\6D77\5E02',
   name        VARCHAR(128)   NOT NULL,
   address     VARCHAR(256)   NOT NULL,
   lat         DECIMAL(10,6)  NOT NULL,
   lng         DECIMAL(10,6)  NOT NULL,
+  is_delete   BOOLEAN        NOT NULL DEFAULT FALSE,
+  traffic_note VARCHAR(256)   NULL,
+  tags_json    JSONB           NOT NULL DEFAULT '[]'::jsonb,
   created_at  TIMESTAMPTZ(3) NOT NULL,
   updated_at  TIMESTAMPTZ(3) NOT NULL,
   PRIMARY KEY (cinema_id)
@@ -79,8 +84,11 @@ CREATE TABLE IF NOT EXISTS seat_map (
   rows_n        INT         NOT NULL,
   cols_n        INT         NOT NULL,
   screen_label  VARCHAR(32) NOT NULL DEFAULT '银幕',
+  mutable       BOOLEAN     NOT NULL DEFAULT TRUE,
   PRIMARY KEY (seat_map_id)
 );
+CREATE INDEX IF NOT EXISTS idx_seat_map_cinema ON seat_map (cinema_id);
+
 CREATE INDEX IF NOT EXISTS idx_seat_map_cinema ON seat_map (cinema_id);
 
 CREATE TABLE IF NOT EXISTS hall (

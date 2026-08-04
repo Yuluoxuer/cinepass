@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.CinemaMapper">
+    <sql id="cinemaColumns">
+        c.cinema_id AS cinemaId, c.city_id AS cityId, c.city_name AS cityName, c.name, c.address,
+        c.lat, c.lng, c.traffic_note AS trafficNote, c.tags_json AS tagsJson,
+        c.created_at AS createdAt, c.updated_at AS updatedAt
+    </sql>
+
+    <sql id="distanceExpression">
+        6371000 * ACOS(COS(RADIANS(#{lat})) * COS(RADIANS(c.lat))
+        * COS(RADIANS(c.lng) - RADIANS(#{lng})) + SIN(RADIANS(#{lat})) * SIN(RADIANS(c.lat)))
+    </sql>
+
+    <sql id="minPriceExpression">
+        (SELECT MIN(s.price) FROM show_schedule s
+        WHERE s.cinema_id = c.cinema_id
+          AND s.status = 'on_sale'
+          AND s.start_time &gt;= CURRENT_TIMESTAMP
+          <if test="movieId != null and movieId != ''">AND s.movie_id = #{movieId}</if>)
+    </sql>
+
+    <select id="selectById" resultType="com.cinepass.model.Cinema">
+        SELECT <include refid="cinemaColumns" />,
+               (SELECT MIN(s.price) FROM show_schedule s
+                WHERE s.cinema_id = c.cinema_id
+                  AND s.status = 'on_sale'
+                  AND s.start_time &gt;= CURRENT_TIMESTAMP) AS minPrice
+        FROM cinema c
+        WHERE c.cinema_id = #{cinemaId}
+          AND c.is_delete = FALSE
+    </select>
+
+    <select id="exists" resultType="boolean">
+        SELECT COUNT(1) &gt; 0 FROM cinema WHERE cinema_id = #{cinemaId}
+    </select>
+
+    <select id="existsActive" resultType="boolean">
+        SELECT COUNT(1) &gt; 0
+        FROM cinema
+        WHERE cinema_id = #{cinemaId}
+          AND is_delete = FALSE
+    </select>
+
+    <select id="selectNearby" resultType="com.cinepass.model.Cinema">
+        SELECT <include refid="cinemaColumns" />,
+               <choose>
+                   <when test="lat != null and lng != null"><include refid="distanceExpression" /> AS distanceMeters,</when>
+                   <otherwise>NULL AS distanceMeters,</otherwise>
+               </choose>
+               <include refid="minPriceExpression" /> AS minPrice
+        FROM cinema c
+        WHERE c.is_delete = FALSE
+        <if test="lat != null and lng != null">
+            AND <include refid="distanceExpression" /> &lt;= #{radiusMeters}
+        </if>
+        <if test="movieId != null and movieId != ''">
+            AND EXISTS (SELECT 1 FROM show_schedule s
+                        WHERE s.cinema_id = c.cinema_id
+                          AND s.movie_id = #{movieId}
+                          AND s.status = 'on_sale'
+                          AND s.start_time &gt;= CURRENT_TIMESTAMP)
+        </if>
+        ORDER BY
+        <choose>
+            <when test="sort == 'price'">
+                CASE WHEN <include refid="minPriceExpression" /> IS NULL THEN 1 ELSE 0 END ASC,
+                <include refid="minPriceExpression" /> ASC
+                <if test="lat != null and lng != null">, distanceMeters ASC</if>
+            </when>
+            <otherwise>distanceMeters ASC, minPrice ASC</otherwise>
+        </choose>
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countNearby" resultType="long">
+        SELECT COUNT(1)
+        FROM cinema c
+        WHERE c.is_delete = FALSE
+        <if test="lat != null and lng != null">
+            AND <include refid="distanceExpression" /> &lt;= #{radiusMeters}
+        </if>
+        <if test="movieId != null and movieId != ''">
+            AND EXISTS (SELECT 1 FROM show_schedule s
+                        WHERE s.cinema_id = c.cinema_id
+                          AND s.movie_id = #{movieId}
+                          AND s.status = 'on_sale'
+                          AND s.start_time &gt;= CURRENT_TIMESTAMP)
+        </if>
+    </select>
+
+    <insert id="insert" parameterType="com.cinepass.model.Cinema">
+        INSERT INTO cinema (cinema_id, city_id, city_name, name, address, lat, lng, traffic_note, tags_json,
+                            created_at, updated_at)
+        VALUES (#{cinemaId}, #{cityId}, #{cityName}, #{name}, #{address}, #{lat}, #{lng}, #{trafficNote}, CAST(#{tagsJson} AS JSON),
+                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    </insert>
+
+    <update id="update" parameterType="com.cinepass.model.Cinema">
+        UPDATE cinema
+        <set>
+            <if test="cityId != null">city_id = #{cityId},</if>
+            <if test="cityName != null">city_name = #{cityName},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="lat != null">lat = #{lat},</if>
+            <if test="lng != null">lng = #{lng},</if>
+            <if test="trafficNote != null">traffic_note = #{trafficNote},</if>
+            <if test="tagsJson != null">tags_json = CAST(#{tagsJson} AS JSON),</if>
+            updated_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE cinema_id = #{cinemaId}
+          AND is_delete = FALSE
+    </update>
+
+    <update id="softDelete">
+        UPDATE cinema
+        SET is_delete = TRUE,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE cinema_id = #{cinemaId}
+          AND is_delete = FALSE
+    </update>
+</mapper>
