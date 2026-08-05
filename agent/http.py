@@ -9,6 +9,14 @@ from agent.request_context import get_authorization
 from agent.settings import get_agent_settings
 
 
+def backend_url(path: str) -> str:
+    """把相对路径拼到 ``BACKEND_BASE_URL``（如 ``/api/v1/auth/me``）。"""
+    base = get_agent_settings().backend_base_url.rstrip("/")
+    if not path.startswith("/"):
+        path = f"/{path}"
+    return f"{base}{path}"
+
+
 def _merge_auth_headers(headers: dict[str, str] | None) -> dict[str, str]:
     merged = dict(headers or {})
     # 调用方显式传入时不覆盖

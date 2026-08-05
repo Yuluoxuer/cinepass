@@ -1,7 +1,8 @@
 """Agent 本地 Tools（LangChain StructuredTool）。"""
+from agent.tools.backend_tools import get_current_user
 from agent.tools.sample_tools import auth_status, authorized_get, echo_text, get_current_time
 
-HELPER_TOOLS = [get_current_time, echo_text, auth_status]
+HELPER_TOOLS = [get_current_time, echo_text, auth_status, get_current_user]
 
 __all__ = [
     "HELPER_TOOLS",
@@ -9,4 +10,5 @@ __all__ = [
     "authorized_get",
     "echo_text",
     "get_current_time",
+    "get_current_user",
 ]

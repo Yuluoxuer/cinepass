@@ -1,6 +1,7 @@
 """通用对话 SubAgent（LangChain 1.x ``create_agent``）。"""
 from __future__ import annotations
 
+from json import tool
 from typing import AsyncIterator
 
 from langchain.agents import create_agent
@@ -10,7 +11,6 @@ from agent.subagent.base import SubAgent
 from agent.subagent.lc_runtime import astream_agent_text, history_to_messages
 
 _SYSTEM = "你是简洁友好的中文助手，回答短而清晰。"
-
 
 class ChatSubAgent(SubAgent):
     name = "chat"
