@@ -21,6 +21,9 @@ spring:
     password: ${REDIS_PASSWORD:}
     database: 0
 
+  elasticsearch:
+    uris: http://${ES_HOST:8.166.137.17}:${ES_PORT:9200}
+
 mybatis:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
