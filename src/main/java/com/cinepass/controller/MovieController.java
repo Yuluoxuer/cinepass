@@ -4,6 +4,9 @@ import com.cinepass.common.Result;
 import com.cinepass.service.MovieService;
 import com.cinepass.vo.MovieVO;
 import com.cinepass.vo.PageResult;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import com.cinepass.security.Public;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,10 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * C 端电影查询（公开）。
  * <pre>
- * GET /api/v1/movies
- * GET /api/v1/movies/{movieId}
+ * GET /api/v1/movies             搜索/筛选影片（ES 全文检索 + 状态过滤）
+ * GET /api/v1/movies/{movieId}   影片详情
  * </pre>
  */
+@Api(tags = "影片搜索")
 @RestController
 @RequestMapping("/api/v1/movies")
 public class MovieController {
@@ -27,19 +31,26 @@ public class MovieController {
         this.movieService = movieService;
     }
 
-    /** 分页筛选：status / 关键词 q / genre */
+    /**
+     * 搜索影片：q 非空时走 ES multi_match(title^4/cast^2/description)；
+     * 可按 status（hot_showing/coming_soon/off）和 genre 筛选。
+     */
+    @ApiOperation("搜索/筛选影片（q 走 ES 全文检索，可选 status/genre 过滤）")
     @GetMapping
+    @Public
     public Result<PageResult<MovieVO>> page(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String genre,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         return Result.success(movieService.page(status, q, genre, page, size));
     }
 
     /** 电影详情 */
+    @ApiOperation("电影详情")
     @GetMapping("/{movieId}")
+    @Public
     public Result<MovieVO> get(@PathVariable String movieId) {
         return Result.success(movieService.get(movieId));
     }

@@ -2,10 +2,13 @@ package com.cinepass.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.cinepass.service.EsSearchService;
+import com.cinepass.service.EsIndexService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -22,6 +25,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 /**
  * 影院、影厅和座位图接口的端到端权限与查询测试。
@@ -43,6 +50,12 @@ class CinemaIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @MockBean
+    private EsSearchService esSearchService;
+
+    @MockBean
+    private EsIndexService esIndexService;
 
     @BeforeEach
     void setUp() {
@@ -77,6 +90,33 @@ class CinemaIntegrationTest {
     }
 
     @Test
+    void cinemaKeywordSearchFallsBackToMysqlWithKeywordFilterWhenEsFails() throws Exception {
+        when(esSearchService.searchCinemas(eq("员工所属"), isNull(), isNull(), isNull(),
+                isNull(), isNull(), eq(1), eq(10)))
+                .thenThrow(new RuntimeException("ES unavailable"));
+
+        mockMvc.perform(get("/api/v1/cinemas")
+                        .param("q", "员工所属")
+                        .param("page", "1")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].cinemaId").value(STAFF_CINEMA_ID));
+    }
+
+    @Test
+    void defaultCinemaListFallsBackToMysqlWhenEsFails() throws Exception {
+        when(esSearchService.searchCinemas(isNull(), isNull(), isNull(), isNull(),
+                isNull(), isNull(), eq(1), eq(10)))
+                .thenThrow(new RuntimeException("ES unavailable"));
+
+        mockMvc.perform(get("/api/v1/cinemas"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.items").isArray());
+    }
+
+    @Test
     void publicCinemaListCanSortByPriceWithoutLocation() throws Exception {
         mockMvc.perform(get("/api/v1/cinemas")
                         .param("sort", "price")
@@ -93,14 +133,18 @@ class CinemaIntegrationTest {
         String body = "{\"cityId\":\"city_test\",\"cityName\":\"上海市\",\"name\":\"新建影院\",\"address\":\"测试路 1 号\","
                 + "\"lat\":31.240000,\"lng\":121.480000,\"trafficNote\":\"步行可达\",\"tags\":[\"激光\"]}";
 
-        mockMvc.perform(post("/api/v1/admin/cinemas")
+        MvcResult created = mockMvc.perform(post("/api/v1/admin/cinemas")
                         .header("Authorization", bearer(loginAs("系统管理员", "demo123456")))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.cinemaId").value(org.hamcrest.Matchers.startsWith("c")))
                 .andExpect(jsonPath("$.data.cityName").value("上海市"))
-                .andExpect(jsonPath("$.data.name").value("新建影院"));
+                .andExpect(jsonPath("$.data.name").value("新建影院"))
+                .andReturn();
+        String createdCinemaId = objectMapper.readTree(created.getResponse().getContentAsString())
+                .path("data").path("cinemaId").asText();
+        verify(esIndexService).syncCinema(createdCinemaId);
 
         mockMvc.perform(post("/api/v1/admin/cinemas")
                         .header("Authorization", bearer(loginAs("运营小王", "demo123456")))
@@ -146,6 +190,7 @@ class CinemaIntegrationTest {
                         .header("Authorization", adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
+        verify(esIndexService).deleteCinema(OTHER_CINEMA_ID);
 
         mockMvc.perform(get("/api/v1/cinemas/{cinemaId}", OTHER_CINEMA_ID))
                 .andExpect(status().isNotFound())

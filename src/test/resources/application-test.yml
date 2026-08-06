@@ -44,3 +44,7 @@ logging:
   level:
     com.cinepass: warn
     org.springframework: warn
+
+search:
+  elasticsearch:
+    sync-enabled: false
