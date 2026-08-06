@@ -8,6 +8,7 @@ import type {
   WeeklyHotResult,
   PersonalRecoResult,
   SeatRecoResult,
+  SearchSuggestionResult,
 } from '@/types';
 
 export function listMovies(params?: {
@@ -38,6 +39,7 @@ export function listWantSee(params?: { page?: number; size?: number }) {
 
 export function listCinemas(params?: {
   movieId?: string;
+  q?: string;
   lat?: number;
   lng?: number;
   radiusMeters?: number;
@@ -81,4 +83,9 @@ export function recommendSeats(body: {
   together?: boolean;
 }) {
   return post<SeatRecoResult>('/reco/seats', body);
+}
+
+/** 搜索联想：ES Completion Suggester，返回候选词数组 */
+export function searchSuggestions(q: string, size = 8) {
+  return get<SearchSuggestionResult>('/search/suggestions', { q, size }, { silent: true });
 }

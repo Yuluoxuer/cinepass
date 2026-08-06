@@ -471,4 +471,11 @@ export interface AdminUserVO {
   status: 'active' | 'disabled' | 0 | 1;
 }
 
+export interface SearchSuggestionItem {
+  text: string;
+}
+
+/** ES Completion Suggester 返回的候选词 */
+export type SearchSuggestionResult = string[];
+
 export type SeatNameMap = Record<string, string>;

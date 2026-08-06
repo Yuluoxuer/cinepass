@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { message } from 'antd';
-import { history } from 'umi';
+import { history, useLocation } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { CinemaVO, MovieVO } from '@/types';
 import { useBookingStore } from '@/stores/booking';
@@ -9,6 +9,8 @@ import { localDateISO } from '@/utils/format';
 import styles from './cinemas.less';
 
 const CinemasPage: React.FC = () => {
+  const location = useLocation();
+  const requestedCinemaId = new URLSearchParams(location.search).get('cinemaId');
   const [cinemas, setCinemas] = useState<CinemaVO[]>([]);
   const [selected, setSelected] = useState<CinemaVO | null>(null);
   const [movies, setMovies] = useState<MovieVO[]>([]);
@@ -32,8 +34,6 @@ const CinemasPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { void loadCinemas(); }, []);
-
   const openCinema = async (c: CinemaVO) => {
     setSelected(c);
     setLoadingMovies(true);
@@ -49,6 +49,16 @@ const CinemasPage: React.FC = () => {
       setLoadingMovies(false);
     }
   };
+
+  useEffect(() => {
+    void loadCinemas();
+    if (requestedCinemaId) {
+      void catalogApi.getCinema(requestedCinemaId)
+        .then((cinema) => openCinema(cinema))
+        .catch(() => undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedCinemaId]);
 
   const selectShow = async (movie: MovieVO) => {
     if (!selected) return;
