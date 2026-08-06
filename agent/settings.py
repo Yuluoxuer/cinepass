@@ -23,6 +23,9 @@ class AgentSettings(BaseSettings):
     # LangGraph 短期记忆（PostgresSaver）；空则禁用
     postgres_uri: str = ""
 
+    # 票务中台后端地址
+    backend_base_url: str = "http://localhost:8080/api/v1"
+
 
 @lru_cache
 def get_agent_settings() -> AgentSettings:
