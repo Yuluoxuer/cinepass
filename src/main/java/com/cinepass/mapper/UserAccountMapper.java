@@ -15,6 +15,9 @@ public interface UserAccountMapper {
     /** 按用户 ID 查询账号 */
     UserAccount findById(@Param("userId") String userId);
 
+    /** 按用户 ID 批量查询账号（订单列表填充昵称用） */
+    List<UserAccount> findByIds(@Param("userIds") List<String> userIds);
+
     /** 按昵称查询账号（唯一性校验） */
     UserAccount findByNickname(@Param("nickname") String nickname);
 

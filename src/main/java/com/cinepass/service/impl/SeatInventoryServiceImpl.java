@@ -6,18 +6,27 @@ import com.cinepass.mapper.SeatMapMapper;
 import com.cinepass.mapper.SeatMapper;
 import com.cinepass.mapper.SeatStatusMapper;
 import com.cinepass.mapper.ShowMapper;
+import com.cinepass.mapper.ShowZonePriceMapper;
 import com.cinepass.model.Seat;
 import com.cinepass.model.SeatMap;
 import com.cinepass.model.SeatStatus;
 import com.cinepass.model.ShowSchedule;
+import com.cinepass.model.ShowZonePrice;
 import com.cinepass.service.SeatInventoryService;
 import com.cinepass.vo.SeatVO;
 import com.cinepass.vo.ShowSeatMapVO;
+import com.cinepass.vo.ShowVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -34,15 +43,18 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
     private final SeatMapMapper seatMapMapper;
     private final SeatMapper seatMapper;
     private final SeatStatusMapper seatStatusMapper;
+    private final ShowZonePriceMapper showZonePriceMapper;
 
     public SeatInventoryServiceImpl(ShowMapper showMapper,
                                     SeatMapMapper seatMapMapper,
                                     SeatMapper seatMapper,
-                                    SeatStatusMapper seatStatusMapper) {
+                                    SeatStatusMapper seatStatusMapper,
+                                    ShowZonePriceMapper showZonePriceMapper) {
         this.showMapper = showMapper;
         this.seatMapMapper = seatMapMapper;
         this.seatMapper = seatMapper;
         this.seatStatusMapper = seatStatusMapper;
+        this.showZonePriceMapper = showZonePriceMapper;
     }
 
     @Override
@@ -100,6 +112,10 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
             }
         }
 
+        Map<String, BigDecimal> zonePriceMap = loadZonePriceMap(show.getShowId());
+        BigDecimal basePrice = show.getPrice() != null ? show.getPrice() : BigDecimal.ZERO;
+        List<ShowVO.ZonePriceVO> zonePrices = toZonePriceVos(zonePriceMap, basePrice);
+
         List<SeatVO> seatVos = new ArrayList<SeatVO>();
         if (seats != null) {
             for (Seat seat : seats) {
@@ -112,6 +128,7 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
                         && !ss.getExpireAt().isAfter(now)) {
                     status = "available";
                 }
+                BigDecimal seatPrice = resolveSeatPrice(seat.getZone(), zonePriceMap, basePrice);
                 seatVos.add(SeatVO.builder()
                         .seatId(seat.getSeatId())
                         .seatName(seat.getSeatName())
@@ -121,6 +138,7 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
                         .graphCol(seat.getGraphCol())
                         .type(seat.getSeatType())
                         .zone(seat.getZone())
+                        .price(seatPrice)
                         .status(status)
                         .couplePairId(seat.getCouplePairId())
                         .build());
@@ -140,9 +158,54 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
                 .cols(seatMap != null ? seatMap.getColsN() : null)
                 .screenLabel(seatMap != null && StringUtils.hasText(seatMap.getScreenLabel())
                         ? seatMap.getScreenLabel() : "银幕")
-                .price(show.getPrice())
+                .price(basePrice)
+                .zonePrices(zonePrices)
                 .legend(Collections.unmodifiableMap(legend))
                 .seats(seatVos)
                 .build();
+    }
+
+    private Map<String, BigDecimal> loadZonePriceMap(String showId) {
+        Map<String, BigDecimal> map = new HashMap<String, BigDecimal>();
+        List<ShowZonePrice> rows = showZonePriceMapper.selectByShowId(showId);
+        if (rows == null) {
+            return map;
+        }
+        for (ShowZonePrice row : rows) {
+            if (row != null && StringUtils.hasText(row.getZone()) && row.getPrice() != null) {
+                String normalizedZone = row.getZone().trim().toLowerCase();
+                map.put(normalizedZone, row.getPrice());
+            }
+        }
+        return map;
+    }
+
+    private BigDecimal resolveSeatPrice(String zone, Map<String, BigDecimal> zonePriceMap, BigDecimal basePrice) {
+        if (!StringUtils.hasText(zone)) {
+            return basePrice;
+        }
+        String normalizedZone = zone.trim().toLowerCase();
+        BigDecimal zonePrice = zonePriceMap.get(normalizedZone);
+        if (zonePrice != null) {
+            return zonePrice;
+        }
+        return basePrice;
+    }
+
+    private List<ShowVO.ZonePriceVO> toZonePriceVos(Map<String, BigDecimal> zonePriceMap, BigDecimal basePrice) {
+        if (zonePriceMap == null || zonePriceMap.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<String> zones = new ArrayList<String>(zonePriceMap.keySet());
+        Collections.sort(zones);
+        List<ShowVO.ZonePriceVO> vos = new ArrayList<ShowVO.ZonePriceVO>();
+        for (String zone : zones) {
+            BigDecimal price = zonePriceMap.get(zone);
+            vos.add(ShowVO.ZonePriceVO.builder()
+                    .zone(zone)
+                    .price(price != null ? price : basePrice)
+                    .build());
+        }
+        return vos;
     }
 }

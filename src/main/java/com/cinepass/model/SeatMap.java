@@ -14,6 +14,9 @@ public class SeatMap implements Serializable {
     /** 座位图 ID */
     private String seatMapId;
 
+    /** 座位图名称（运营展示用） */
+    private String name;
+
     /** 所属影院 ID */
     private String cinemaId;
 

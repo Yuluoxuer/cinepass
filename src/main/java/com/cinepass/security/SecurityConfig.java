@@ -105,7 +105,8 @@ public class SecurityConfig {
                                 "/api/v1/movies", "/api/v1/movies/**",
                                 "/api/v1/cinemas", "/api/v1/cinemas/**",
                                 "/api/v1/shows", "/api/v1/shows/**",
-                                "/api/v1/tickets/verify"
+                                "/api/v1/tickets/verify",
+                                "/uploads/**"
                         ).permitAll()
                         .antMatchers("/api/v1/reco", "/api/v1/reco/**").permitAll()
                         .antMatchers("/api/v1/booking-drafts", "/api/v1/booking-drafts/**").permitAll()

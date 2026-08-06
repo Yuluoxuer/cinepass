@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -71,6 +72,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Result<Void>> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException e) {
         String message = String.format("参数 '%s' 类型不匹配", e.getName());
         log.warn("Type mismatch: {}", message);
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Result.fail(ResultCode.PARAM_ERROR.getCode(), message));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Result<Void>> handleMissingParameter(MissingServletRequestParameterException e) {
+        String message = String.format("缺少必需参数 '%s'", e.getParameterName());
+        log.warn("Missing parameter: {}", message);
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(Result.fail(ResultCode.PARAM_ERROR.getCode(), message));

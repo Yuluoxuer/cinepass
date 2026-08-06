@@ -13,10 +13,12 @@ import com.cinepass.mapper.OrderTicketMapper;
 import com.cinepass.mapper.SeatLockMapper;
 import com.cinepass.mapper.SeatStatusMapper;
 import com.cinepass.mapper.ShowScheduleMapper;
+import com.cinepass.mapper.UserAccountMapper;
 import com.cinepass.model.OrderTicket;
 import com.cinepass.model.SeatLock;
 import com.cinepass.model.SeatPriceRow;
 import com.cinepass.model.ShowSnapshot;
+import com.cinepass.model.UserAccount;
 import com.cinepass.security.Roles;
 import com.cinepass.security.SecurityContext;
 import com.cinepass.service.OrderService;
@@ -56,15 +58,18 @@ public class OrderServiceImpl implements OrderService {
     private final SeatLockMapper seatLockMapper;
     private final SeatStatusMapper seatStatusMapper;
     private final ShowScheduleMapper showScheduleMapper;
+    private final UserAccountMapper userAccountMapper;
 
     public OrderServiceImpl(OrderTicketMapper orderTicketMapper,
                             SeatLockMapper seatLockMapper,
                             SeatStatusMapper seatStatusMapper,
-                            ShowScheduleMapper showScheduleMapper) {
+                            ShowScheduleMapper showScheduleMapper,
+                            UserAccountMapper userAccountMapper) {
         this.orderTicketMapper = orderTicketMapper;
         this.seatLockMapper = seatLockMapper;
         this.seatStatusMapper = seatStatusMapper;
         this.showScheduleMapper = showScheduleMapper;
+        this.userAccountMapper = userAccountMapper;
     }
 
     /** 由有效锁座创建订单；同 lockId 幂等返回已有单 */
@@ -285,23 +290,45 @@ public class OrderServiceImpl implements OrderService {
         return new ArrayList<String>(ordered);
     }
 
-    /** 批量转为 OrderVO */
+    /** 批量转为 OrderVO；批量查询用户昵称避免 N+1 */
     private List<OrderVO> toVoList(List<OrderTicket> rows) {
         List<OrderVO> items = new ArrayList<OrderVO>();
-        if (rows == null) {
+        if (rows == null || rows.isEmpty()) {
             return items;
         }
+        // 收集所有 userId，批量查询昵称
+        Set<String> userIds = new LinkedHashSet<String>();
         for (OrderTicket row : rows) {
-            items.add(toVo(row));
+            if (StringUtils.hasText(row.getUserId())) {
+                userIds.add(row.getUserId());
+            }
+        }
+        Map<String, String> nicknameMap = new HashMap<String, String>();
+        if (!userIds.isEmpty()) {
+            List<UserAccount> users = userAccountMapper.findByIds(new ArrayList<String>(userIds));
+            if (users != null) {
+                for (UserAccount u : users) {
+                    nicknameMap.put(u.getUserId(), u.getNickname());
+                }
+            }
+        }
+        for (OrderTicket row : rows) {
+            items.add(toVo(row, nicknameMap.get(row.getUserId())));
         }
         return items;
     }
 
     /** OrderTicket → OrderVO；时间格式化为 ISO-8601 */
     private OrderVO toVo(OrderTicket o) {
+        return toVo(o, null);
+    }
+
+    /** OrderTicket → OrderVO；可传入昵称 */
+    private OrderVO toVo(OrderTicket o, String nickname) {
         return OrderVO.builder()
                 .orderId(o.getOrderId())
                 .userId(o.getUserId())
+                .nickname(nickname)
                 .showId(o.getShowId())
                 .movieTitle(o.getMovieTitle())
                 .cinemaName(o.getCinemaName())

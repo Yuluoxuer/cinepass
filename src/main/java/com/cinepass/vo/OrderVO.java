@@ -23,6 +23,9 @@ public class OrderVO {
     /** 下单用户 ID */
     private String userId;
 
+    /** 下单用户昵称（运营列表展示用） */
+    private String nickname;
+
     /** 场次 ID */
     private String showId;
 
