@@ -33,6 +33,8 @@ async def chat(
         history=_history_dicts(body),
         authorization=authorization,
         session_id=body.session_id,
+        latitude=body.latitude,
+        longitude=body.longitude,
     )
     return ChatResponse(
         route=result["route"],
@@ -56,6 +58,8 @@ async def chat_stream(
                 history=_history_dicts(body),
                 authorization=authorization,
                 session_id=body.session_id,
+                latitude=body.latitude,
+                longitude=body.longitude,
             ):
                 etype = event.get("type", "message")
                 payload = {k: v for k, v in event.items() if k != "type"}

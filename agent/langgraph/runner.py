@@ -60,6 +60,8 @@ async def run_chat(
     history: list[dict[str, str]] | None = None,
     authorization: str | None = None,
     session_id: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
 ) -> dict[str, Any]:
     """跑完一轮，返回 route / reply / events / session_id。"""
     graph = _graph()
@@ -70,6 +72,8 @@ async def run_chat(
         payload: dict[str, Any] = {
             "message": message,
             "authorization": auth,
+            "latitude": latitude,
+            "longitude": longitude,
             "events": [],
         }
         if seed:
@@ -90,6 +94,8 @@ async def stream_chat(
     history: list[dict[str, str]] | None = None,
     authorization: str | None = None,
     session_id: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """流式事件：route → token* → done。
 
@@ -117,7 +123,12 @@ async def stream_chat(
 
         agent = get_subagents()[route]
         parts: list[str] = []
-        async for token in agent.astream(message, history=prev_history):
+        async for token in agent.astream(
+            message,
+            history=prev_history,
+            latitude=latitude,
+            longitude=longitude,
+        ):
             parts.append(token)
             yield {"type": "token", "content": token}
 
