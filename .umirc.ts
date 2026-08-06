@@ -10,6 +10,7 @@ export default defineConfig({
       routes: [
         { path: '/', component: '@/pages/home/index' },
         { path: '/movies', component: '@/pages/movies/index' },
+        { path: '/search', component: '@/pages/search/index' },
         { path: '/movies/:movieId', component: '@/pages/movies/detail' },
         { path: '/cinemas', component: '@/pages/cinemas/index' },
         { path: '/booking/cinemas', component: '@/pages/booking/cinemas' },

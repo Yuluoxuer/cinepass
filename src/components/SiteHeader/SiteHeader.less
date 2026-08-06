@@ -81,6 +81,10 @@
   flex-shrink: 0;
 }
 
+.searchWrap {
+  position: relative;
+}
+
 .search {
   display: flex;
   align-items: center;
@@ -105,6 +109,46 @@
 
 .search input::placeholder {
   color: #7a8494;
+}
+
+/* ---- 搜索联想下拉 ---- */
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 6px;
+  background: #1a2332;
+  border: 1px solid #313d50;
+  border-radius: 12px;
+  padding: 6px 0;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.dropdownLoading {
+  padding: 10px 16px;
+  color: #7a8494;
+  font-size: 12px;
+}
+
+.dropdownItem {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #cbd5e1;
+  padding: 9px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  transition: background 0.1s, color 0.1s;
+}
+
+.dropdownItem:hover {
+  background: #253448;
+  color: #fff;
 }
 
 .agentBtn {
@@ -171,7 +215,7 @@
 }
 
 @media (max-width: 980px) {
-  .search {
+  .searchWrap {
     display: none;
   }
 

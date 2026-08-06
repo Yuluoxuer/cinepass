@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { history, useLocation } from 'umi';
 import { useAgentStore } from '@/stores/agent';
 import { isStaffOrAdmin, useAuthStore } from '@/stores/auth';
+import { searchSuggestions } from '@/api/catalog';
 import styles from './SiteHeader.less';
 
 const NAV = [
@@ -18,9 +19,62 @@ const SiteHeader: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const openLogin = useAuthStore((s) => s.openLoginModal);
 
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // 点击外部关闭下拉
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setQ(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!value.trim()) {
+      setSuggestions([]);
+      setShowDropdown(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      setShowDropdown(true);
+      try {
+        const result = await searchSuggestions(value.trim());
+        setSuggestions(result);
+        setShowDropdown(result.length > 0);
+      } catch {
+        setSuggestions([]);
+        setShowDropdown(false);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  };
+
+  // 回车：直接跳搜索页
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    history.push(`/movies?q=${encodeURIComponent(q.trim())}`);
+    setShowDropdown(false);
+    const trimmed = q.trim();
+    if (!trimmed) return;
+    history.push(`/search?q=${encodeURIComponent(trimmed)}`);
+  };
+
+  // 点击联想条目：回填 → 关闭下拉 → 跳搜索
+  const onSuggestionClick = (text: string) => {
+    setQ(text);
+    setShowDropdown(false);
+    history.push(`/search?q=${encodeURIComponent(text)}`);
   };
 
   const avatarChar = user?.nickname?.slice(0, 1) || '登';
@@ -45,15 +99,39 @@ const SiteHeader: React.FC = () => {
           ))}
         </nav>
         <div className={styles.actions}>
-          <form className={styles.search} onSubmit={onSearch}>
-            <span aria-hidden>⌕</span>
-            <input
-              aria-label="搜索电影或影院"
-              placeholder="搜索电影或影院"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </form>
+          <div className={styles.searchWrap} ref={searchContainerRef}>
+            <form className={styles.search} onSubmit={onSearch}>
+              <span aria-hidden>⌕</span>
+              <input
+                aria-label="搜索电影或影院"
+                placeholder="搜索电影或影院"
+                value={q}
+                onChange={onChange}
+                onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
+              />
+            </form>
+
+            {/* 下拉联想弹窗 */}
+            {showDropdown && (
+              <div className={styles.dropdown}>
+                {loading ? (
+                  <div className={styles.dropdownLoading}>搜索中…</div>
+                ) : (
+                  suggestions.map((text, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={styles.dropdownItem}
+                      onMouseDown={() => onSuggestionClick(text)}
+                    >
+                      {text}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
           <button type="button" className={styles.agentBtn} onClick={() => openDrawer()}>
             <span className={styles.spark} aria-hidden>
               ✦
