@@ -15,14 +15,28 @@ _SYSTEM = "你是简洁友好的中文助手，回答短而清晰。"
 class ChatSubAgent(SubAgent):
     name = "chat"
 
-    async def run(self, message: str, *, history: list[dict[str, str]] | None = None) -> str:
+    async def run(
+        self,
+        message: str,
+        *,
+        history: list[dict[str, str]] | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+    ) -> str:
         chunks: list[str] = []
-        async for piece in self.astream(message, history=history):
+        async for piece in self.astream(
+            message, history=history, latitude=latitude, longitude=longitude
+        ):
             chunks.append(piece)
         return "".join(chunks)
 
     async def astream(
-        self, message: str, *, history: list[dict[str, str]] | None = None
+        self,
+        message: str,
+        *,
+        history: list[dict[str, str]] | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
     ) -> AsyncIterator[str]:
         model = get_chat_model()
         if model is None:

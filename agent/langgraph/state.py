@@ -17,6 +17,8 @@ class GraphState(TypedDict, total=False):
     # 经 Checkpointer 按 thread_id 持久化；每轮节点用 operator.add 追加本轮 user/assistant
     history: Annotated[list[dict[str, str]], operator.add]
     authorization: str | None
+    latitude: float | None
+    longitude: float | None
     route: str
     reply: str
     events: Annotated[list[str], _replace]

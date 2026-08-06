@@ -69,3 +69,42 @@ curl -s http://localhost:8001/api/v1/chat \
 SSE 事件：`route` → `token*` → `done`（出错为 `error`）；`session_id` 会出现在事件里。
 
 未配置 `OPENAI_API_KEY` 时走离线回退；含「时间 / echo / 我是谁」的消息路由到 `helper` SubAgent。
+
+### 影院查询
+
+`CinemaAgent` 使用 `.env` 中的 `BACKEND_BASE_URL` 调用票务中台的只读接口：
+`GET /api/v1/cinemas` 和 `GET /api/v1/cinemas/{cinemaId}`。查询附近影院时，Body 必须同时传
+`latitude`、`longitude`（WGS84 坐标）；普通聊天与其他 Tool 不需要这两个字段。
+
+```bash
+# 查询附近影院（按距离排序）
+curl -s http://localhost:8001/api/v1/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"附近有什么影院","latitude":31.2989,"longitude":121.5140}'
+
+# 查询指定影院详情（当前版本需要在消息中带影院 ID）
+curl -s http://localhost:8001/api/v1/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"查看影院详情 cinemaId=c12"}'
+```
+
+未配置 `OPENAI_API_KEY` 时，影院查询仍会按规则调用中台并返回格式化的纯文本结果；配置模型后，
+模型仅可调用 `searchCinemas`、`getCinema` 两个影院只读 Tool。
+
+### 终端直接对话
+
+不需要启动 FastAPI；在项目根目录运行：
+
+```powershell
+.\.venv\python.exe cli.py
+```
+
+输入普通问题即可在终端看到流式回复。查询附近影院前，先设置位置：
+
+```text
+/location 31.2989 121.5140
+帮我查附近影院
+```
+
+输入 `/location` 查看当前位置，输入 `/quit` 或 `/exit` 退出。若 `.env` 配置了
+`POSTGRES_URI`，终端入口也会自动启用同一套对话记忆。
