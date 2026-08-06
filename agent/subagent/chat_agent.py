@@ -1,6 +1,7 @@
 """通用对话 SubAgent（LangChain 1.x ``create_agent``）。"""
 from __future__ import annotations
 
+from json import tool
 from typing import AsyncIterator
 
 from langchain.agents import create_agent
@@ -11,18 +12,31 @@ from agent.subagent.lc_runtime import astream_agent_text, history_to_messages
 
 _SYSTEM = "你是简洁友好的中文助手，回答短而清晰。"
 
-
 class ChatSubAgent(SubAgent):
     name = "chat"
 
-    async def run(self, message: str, *, history: list[dict[str, str]] | None = None) -> str:
+    async def run(
+        self,
+        message: str,
+        *,
+        history: list[dict[str, str]] | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+    ) -> str:
         chunks: list[str] = []
-        async for piece in self.astream(message, history=history):
+        async for piece in self.astream(
+            message, history=history, latitude=latitude, longitude=longitude
+        ):
             chunks.append(piece)
         return "".join(chunks)
 
     async def astream(
-        self, message: str, *, history: list[dict[str, str]] | None = None
+        self,
+        message: str,
+        *,
+        history: list[dict[str, str]] | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
     ) -> AsyncIterator[str]:
         model = get_chat_model()
         if model is None:

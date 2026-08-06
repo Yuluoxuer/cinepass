@@ -3,7 +3,7 @@
 # cinepass_leijieming_aiagent（独立 Agent 服务）
 
 ## Purpose
-基于 FastAPI + LangGraph 的独立 Agent 框架服务。HTTP/SSE 在 `fastapi/`，编排与子 Agent 在 `agent/`。不调用票务中台。
+基于 FastAPI + LangGraph 的独立 Agent 框架服务。HTTP/SSE 在 `fapi/`，编排与子 Agent 在 `agent/`。不调用票务中台。
 
 ## Key Files
 
@@ -17,7 +17,7 @@
 
 | Directory | Purpose |
 |-----------|---------|
-| `fastapi/` | FastAPI：REST + SSE（见 `fastapi/AGENTS.md`） |
+| `fapi/` | FastAPI：REST + SSE（见 `fapi/AGENTS.md`） |
 | `agent/` | LangGraph 工作流 + SubAgent + Tools（见 `agent/AGENTS.md`） |
 
 ## For AI Agents
@@ -25,9 +25,10 @@
 ### Working In This Directory
 - **Python 环境**：使用 uv 或 conda（修改前先询问用户），不要私自 `pip install`
 - **服务启动**：`uvicorn fapi.main:app --reload --port 8001`
-- **健康检查**：`curl http://localhost:8001/health` → `{"status":"ok",...}`
+- **健康检查**：`curl http://localhost:8001/health` → `{"status":"ok",...}`（含 `checkpoint`）
 - 包名不要使用 `fastapi` / `langchain`（会遮蔽 PyPI）；HTTP 用 `fapi`，编排用 `agent`
 - 新增能力：优先在 `agent/subagent` + `agent/langgraph` 扩展；`fapi` 只加薄路由
+- **短期记忆**：`.env` 的 `POSTGRES_URI` → 官方 `AsyncPostgresSaver`；`session_id` 即 `thread_id`
 
 ### Testing Requirements
 - `pytest`（需激活对应 Python 环境）

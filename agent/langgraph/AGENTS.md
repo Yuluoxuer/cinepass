@@ -11,9 +11,11 @@
 | File | Description |
 |------|-------------|
 | `state.py` | `GraphState` |
+| `checkpoint.py` | 官方 `AsyncPostgresSaver`（`POSTGRES_URI`） |
 | `graph.py` | 编译图：START→router→chat\|helper→END |
-| `runner.py` | `run_chat`（ainvoke）；`stream_chat`（SSE 事件流） |
+| `runner.py` | `run_chat` / `stream_chat`；`session_id`→`thread_id` |
 
 ## For AI Agents
 - 新节点：`add_node` + 在 router / conditional_edges 注册
-- `stream_chat` 为 SSE 优化：先确定性路由，再 SubAgent.astream；与 `run_chat` 路由规则保持一致
+- `stream_chat` 为 SSE 优化：先确定性路由，再 SubAgent.astream；有 checkpoint 时用 `aupdate_state` 落盘
+- Checkpointer 由 `fapi.main` lifespan 启动；业务代码用 `get_checkpointer()`，不要自己建连接

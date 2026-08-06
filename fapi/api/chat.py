@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from agent import run_chat, stream_chat
-from fastapi.deps import get_authorization
-from fastapi.models.chat import ChatRequest, ChatResponse
+from fapi.deps import get_authorization
+from fapi.models.chat import ChatRequest, ChatResponse
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -23,17 +23,24 @@ async def chat(
     body: ChatRequest,
     authorization: str | None = Depends(get_authorization),
 ) -> ChatResponse:
-    """非流式：跑完一轮返回完整回复。JWT 经 Authorization 透传给 SubAgent。"""
+    """非流式：跑完一轮返回完整回复。JWT 经 Authorization 透传给 SubAgent。
+
+    ``session_id`` 映射为 LangGraph ``thread_id``（Postgres Checkpointer 短期记忆）。
+    未传时服务端生成并回写；多轮请带回同一个 session_id。
+    """
     result = await run_chat(
         body.message,
         history=_history_dicts(body),
         authorization=authorization,
+        session_id=body.session_id,
+        latitude=body.latitude,
+        longitude=body.longitude,
     )
     return ChatResponse(
         route=result["route"],
         reply=result["reply"],
         events=result.get("events") or [],
-        session_id=body.session_id,
+        session_id=result.get("session_id") or body.session_id,
     )
 
 
@@ -50,11 +57,12 @@ async def chat_stream(
                 body.message,
                 history=_history_dicts(body),
                 authorization=authorization,
+                session_id=body.session_id,
+                latitude=body.latitude,
+                longitude=body.longitude,
             ):
                 etype = event.get("type", "message")
                 payload = {k: v for k, v in event.items() if k != "type"}
-                if body.session_id is not None and etype == "done":
-                    payload["session_id"] = body.session_id
                 yield f"event: {etype}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
         except Exception as exc:  # noqa: BLE001 — 流式通道需把错误推给客户端
             err = {"message": str(exc)}

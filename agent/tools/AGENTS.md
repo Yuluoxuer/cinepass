@@ -10,8 +10,9 @@ SubAgent 可调用的本地工具函数，不依赖外部服务。`__init__.py` 
 
 | File | Description |
 |------|-------------|
-| `__init__.py` | 导出 `get_current_time`、`echo_text` |
-| `sample_tools.py` | `get_current_time(tz_name)`：返回当前时间字符串；`echo_text(text)`：原样回显 |
+| `__init__.py` | 导出 HELPER_TOOLS 与各 Tool |
+| `sample_tools.py` | 本地 Tool：时间 / echo / JWT 状态 |
+| `backend_tools.py` | 中台 HTTP Tool 示例（自动带 JWT） |
 
 ## For AI Agents
 
@@ -41,3 +42,9 @@ __all__ = [..., "new_tool"]
 - 仅标准库（`datetime`）
 
 <!-- MANUAL: Any manually added notes below this line are preserved on regeneration -->
+
+## Backend Tools（需 JWT）
+
+- `backend_tools.py`：调用票务中台；JWT 由前端 `Authorization` → `fapi` → `use_authorization` → `agent.http` 自动附带
+- 示例：`get_current_user` → `GET {BACKEND_BASE_URL}/api/v1/auth/me`
+- 新增中台 Tool：在 `backend_tools.py` 用 `backend_url("/api/v1/...")` + `await get/post(...)`；不要手写 Authorization

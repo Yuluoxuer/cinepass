@@ -11,14 +11,28 @@ class SubAgent(ABC):
     name: str = "SubAgent"
 
     @abstractmethod
-    async def run(self, message: str, *, history: list[dict[str, str]] | None = None) -> str:
+    async def run(
+        self,
+        message: str,
+        *,
+        history: list[dict[str, str]] | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+    ) -> str:
         """跑完一轮，返回完整回复。"""
 
     async def astream(
-        self, message: str, *, history: list[dict[str, str]] | None = None
+        self,
+        message: str,
+        *,
+        history: list[dict[str, str]] | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
     ) -> AsyncIterator[str]:
         """默认：整段回复后一次性 yield；有 LLM 的子类可覆盖为 token 流。"""
-        reply = await self.run(message, history=history)
+        reply = await self.run(
+            message, history=history, latitude=latitude, longitude=longitude
+        )
         if reply:
             yield reply
 
