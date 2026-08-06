@@ -21,6 +21,7 @@ const SeatMapEditorPage: React.FC = () => {
   const [cinemas, setCinemas] = useState<CinemaVO[]>([]);
   const [rows, setRows] = useState(8);
   const [cols, setCols] = useState(12);
+  const [name, setName] = useState('');
   const [screenLabel, setScreenLabel] = useState('银幕');
   const [id, setId] = useState('');
   const [mutable, setMutable] = useState(true);
@@ -63,6 +64,7 @@ const SeatMapEditorPage: React.FC = () => {
       .then((map) => {
         setRows(map.rows);
         setCols(map.cols);
+        setName(map.name || '');
         setScreenLabel(map.screenLabel || '银幕');
         setId(map.seatMapId);
         setCinemaId(map.cinemaId || '');
@@ -167,6 +169,9 @@ const SeatMapEditorPage: React.FC = () => {
     if (normalizedId.length > 32) { message.warning('座位图 ID 不能超过 32 个字符'); return; }
     const seats = toSeats();
     if (!cinemaId) { message.warning('请选择所属影院'); return; }
+    const normalizedName = name.trim();
+    if (!normalizedName) { message.warning('请填写座位图名称'); return; }
+    if (normalizedName.length > 64) { message.warning('座位图名称不能超过 64 个字符'); return; }
     if (!seats.length) { message.warning('请至少添加一个座位'); return; }
     const pairCounts = new Map<string, number>();
     seats.filter((seat) => seat.type === 'couple').forEach((seat) => {
@@ -178,11 +183,11 @@ const SeatMapEditorPage: React.FC = () => {
     }
     try {
       if (isNew) {
-        const created = await adminApi.createSeatMap({ seatMapId: normalizedId || undefined, cinemaId, rows, cols, screenLabel, seats });
+        const created = await adminApi.createSeatMap({ seatMapId: normalizedId || undefined, cinemaId, name: normalizedName, rows, cols, screenLabel, seats });
         message.success('已创建座位图');
         history.replace('/admin/seat-maps');
       } else {
-        await adminApi.updateSeatMap(seatMapId!, { rows, cols, screenLabel, seats });
+        await adminApi.updateSeatMap(seatMapId!, { name: normalizedName, rows, cols, screenLabel, seats });
         message.success('已保存');
         history.replace('/admin/seat-maps');
       }
@@ -207,6 +212,7 @@ const SeatMapEditorPage: React.FC = () => {
     ) : null}
     <Space wrap style={{ marginBottom: 16 }}>
       <Select placeholder="所属影院" style={{ width: 220 }} value={cinemaId || undefined} disabled={!isNew || !!queryCinemaId || !!staffCinemaId} options={cinemas.map((cinema) => ({ value: cinema.cinemaId, label: cinema.name }))} onChange={setCinemaId} />
+      <Input style={{ width: 180 }} value={name} maxLength={64} disabled={readOnly} onChange={(event) => setName(event.target.value)} placeholder="座位图名称" />
       <span>行</span><InputNumber min={1} max={30} value={rows} disabled={readOnly} onChange={(value) => { const nextRows = value || 1; setRows(nextRows); resizeGrid(nextRows, cols); }} />
       <span>列</span><InputNumber min={1} max={40} value={cols} disabled={readOnly} onChange={(value) => { const nextCols = value || 1; setCols(nextCols); resizeGrid(rows, nextCols); }} />
       <Button onClick={generate} disabled={readOnly}>生成画布</Button>

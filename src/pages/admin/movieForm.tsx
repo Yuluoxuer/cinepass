@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Button, DatePicker, Form, Input, InputNumber, Select, message } from 'antd';
+import { Button, DatePicker, Form, Input, InputNumber, Select, Upload, message } from 'antd';
+import type { UploadProps } from 'antd';
+import { InboxOutlined } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
@@ -30,6 +32,30 @@ const MovieFormPage: React.FC = () => {
   const isNew = !movieId || movieId === 'new';
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const posterUrl = Form.useWatch('posterUrl', form);
+
+  const beforeUpload: UploadProps['beforeUpload'] = async (file) => {
+    setUploading(true);
+    try {
+      const url = await adminApi.uploadPoster(file);
+      form.setFieldValue('posterUrl', url);
+      message.success('海报上传成功');
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '上传失败');
+    } finally {
+      setUploading(false);
+    }
+    return false;
+  };
+
+  const uploadProps: UploadProps = {
+    beforeUpload,
+    accept: 'image/jpeg,image/png,image/webp,image/gif',
+    maxCount: 1,
+    showUploadList: false,
+    disabled: uploading,
+  };
 
   useEffect(() => {
     if (!isNew && movieId) {
@@ -88,19 +114,40 @@ const MovieFormPage: React.FC = () => {
             {
               validator: async (_, value) => {
                 if (!value) return;
+                const v = String(value).trim();
+                // 允许相对路径（如 /uploads/posters/xxx.jpg）
+                if (v.startsWith('/')) return;
                 try {
-                  const url = new URL(String(value).trim());
+                  const url = new URL(v);
                   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
                     throw new Error('协议不支持');
                   }
                 } catch {
-                  throw new Error('请输入有效的 http(s) 海报 URL');
+                  throw new Error('请输入有效的 http(s) 海报 URL 或上传图片');
                 }
               },
             },
           ]}
         >
           <Input />
+        </Form.Item>
+        {posterUrl ? (
+          <div style={{ marginBottom: 16, textAlign: 'center' }}>
+            <img
+              src={String(posterUrl).startsWith('/') ? String(posterUrl) : String(posterUrl)}
+              alt="海报预览"
+              style={{ maxWidth: 200, maxHeight: 300, borderRadius: 8, border: '1px solid #e8e8e8' }}
+            />
+          </div>
+        ) : null}
+        <Form.Item label="上传新海报">
+          <Upload.Dragger {...uploadProps}>
+            <p className="ant-upload-drag-icon">
+              <InboxOutlined />
+            </p>
+            <p className="ant-upload-text">{uploading ? '上传中…' : '点击或拖拽图片到此处上传'}</p>
+            <p className="ant-upload-hint">支持 JPEG / PNG / WebP / GIF，单文件不超过 5MB</p>
+          </Upload.Dragger>
         </Form.Item>
         <Form.Item
           name="genres"

@@ -3,6 +3,7 @@ import { ApiError, type BookingDraft, type BookingState, type SeatNameMap } from
 import * as draftApi from '@/api/draft';
 import { firstIncompleteStep, progressFromDraft } from '@/utils/bookingProgress';
 import { useAgentStore } from '@/stores/agent';
+import { getAccessToken, useAuthStore } from '@/stores/auth';
 
 const SESSION_KEY = 'miaoyu_sessionId';
 
@@ -137,6 +138,17 @@ export const useBookingStore = create<BookingStateStore>((set, get) => ({
       if (bodyPatch.state == null) {
         bodyPatch.state = firstIncompleteStep({ ...current, ...p } as BookingDraft);
       }
+
+      // draft 已绑定用户但当前无 token → 先引导登录再继续修改
+      if (current.userId && !getAccessToken()) {
+        const ok = await useAuthStore.getState().openLoginModal();
+        if (!ok) {
+          // 用户取消登录，仅保留乐观态
+          return get().draft || withDerivedState(current, bodyPatch);
+        }
+        // 登录成功，继续发请求（此时有了新 token）
+      }
+
       let updated: BookingDraft;
       try {
         updated = await draftApi.updateDraft(current.sessionId, {
@@ -144,23 +156,55 @@ export const useBookingStore = create<BookingStateStore>((set, get) => ({
           patch: bodyPatch,
         });
       } catch (error) {
-        if (!(error instanceof ApiError) || error.errorCode !== 'DRAFT_CONFLICT') {
+        // token 过期/无效（401）：引导登录后重试一次
+        if (error instanceof ApiError && (error.code === 40101 || error.code === 401 || error.httpStatus === 401)) {
+          const ok = await useAuthStore.getState().openLoginModal();
+          if (!ok) {
+            return get().draft || withDerivedState(current, bodyPatch);
+          }
+          try {
+            updated = await draftApi.updateDraft(current.sessionId, {
+              version: current.version,
+              patch: bodyPatch,
+            });
+          } catch {
+            return get().draft || withDerivedState(current, bodyPatch);
+          }
+        } else if (!(error instanceof ApiError) || error.errorCode !== 'DRAFT_CONFLICT') {
+          // Draft 归属冲突（不同用户）：丢弃本地 session，重建后再试一次
+          if (error instanceof ApiError && (error.code === 40301 || error.errorCode === 'FORBIDDEN')) {
+            localStorage.removeItem(SESSION_KEY);
+            set({ draft: null });
+            try {
+              const fresh = await get().ensureSession();
+              updated = await draftApi.updateDraft(fresh.sessionId, {
+                version: fresh.version,
+                patch: bodyPatch,
+              });
+              set({ draft: updated });
+              syncAgentProgress(updated);
+              return updated;
+            } catch {
+              return get().draft || withDerivedState(current, bodyPatch);
+            }
+          }
           // 拦截器已可视化提示；保留乐观态，不向上抛避免 Umi 红屏
           return get().draft || withDerivedState(current, bodyPatch);
-        }
-        try {
-          // Draft 使用 CAS。冲突后先以服务端完整状态为准，再重放本次用户操作。
-          const serverDraft = await draftApi.getDraft(current.sessionId);
-          const retryPatch = { ...bodyPatch };
-          if (retryPatch.state == null) {
-            retryPatch.state = firstIncompleteStep({ ...serverDraft, ...retryPatch } as BookingDraft);
+        } else {
+          try {
+            // Draft 使用 CAS。冲突后先以服务端完整状态为准，再重放本次用户操作。
+            const serverDraft = await draftApi.getDraft(current.sessionId);
+            const retryPatch = { ...bodyPatch };
+            if (retryPatch.state == null) {
+              retryPatch.state = firstIncompleteStep({ ...serverDraft, ...retryPatch } as BookingDraft);
+            }
+            updated = await draftApi.updateDraft(serverDraft.sessionId, {
+              version: serverDraft.version,
+              patch: retryPatch,
+            });
+          } catch {
+            return get().draft || withDerivedState(current, bodyPatch);
           }
-          updated = await draftApi.updateDraft(serverDraft.sessionId, {
-            version: serverDraft.version,
-            patch: retryPatch,
-          });
-        } catch {
-          return get().draft || withDerivedState(current, bodyPatch);
         }
       }
       set({ draft: updated });

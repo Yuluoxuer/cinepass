@@ -31,13 +31,29 @@ const STATUS_LABEL: Record<string, string> = {
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-function stubParts(iso: string) {
+/**
+ * 票根时间：取订单开场时间（order.startTime）的墙钟月/日/时分。
+ * 按 ISO 字符串解析，避免 new Date() 受浏览器时区偏移。
+ */
+function stubParts(iso?: string | null) {
+  if (!iso) return { month: '—', day: '—', time: '', label: '' };
+  const matched = iso.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (matched) {
+    const monthIdx = Number(matched[2]) - 1;
+    return {
+      month: MONTHS[monthIdx] || '—',
+      day: matched[3],
+      time: `${matched[4]}:${matched[5]}`,
+      label: `${matched[1]}-${matched[2]}-${matched[3]} ${matched[4]}:${matched[5]}`,
+    };
+  }
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return { month: '—', day: '—', time: '' };
+  if (Number.isNaN(d.getTime())) return { month: '—', day: '—', time: '', label: '' };
   return {
     month: MONTHS[d.getMonth()],
     day: String(d.getDate()).padStart(2, '0'),
     time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+    label: '',
   };
 }
 
@@ -99,14 +115,15 @@ const OrdersPage: React.FC = () => {
       </div>
 
       {orders.map((o) => {
+        // 票根展示场次开场时间（非下单时间）
         const stub = stubParts(o.startTime);
         const muted = o.status === 'cancelled';
         return (
           <div key={o.orderId} className={`${styles.orderCard} ${muted ? styles.muted : ''}`}>
-            <div className={styles.ticketStub}>
+            <div className={styles.ticketStub} title="电影开场时间">
               <span>{stub.month}</span>
               <strong>{stub.day}</strong>
-              <small>{stub.time}</small>
+              <small>{stub.time || '—'}</small>
             </div>
             <div className={styles.orderInfo}>
               <span className={`${styles.status} ${STATUS_CLASS[o.status] || ''}`}>
@@ -117,6 +134,7 @@ const OrdersPage: React.FC = () => {
                 {o.cinemaName ? `${o.cinemaName} · ` : ''}
                 {o.hallName}
               </p>
+              <p>开场 {stub.label || stub.time || '—'}</p>
               <p>{formatOrderSeatLabels(o, seatNameById) || '座位信息待确认'}</p>
             </div>
             <div className={styles.orderPrice}>

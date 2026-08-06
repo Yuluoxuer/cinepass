@@ -63,6 +63,8 @@ export interface HallCreateBody {
 
 export interface HallUpdateBody {
   name: string;
+  /** 换绑座位图；不传则保持原绑定 */
+  seatMapId?: string;
 }
 
 export function createHall(body: HallCreateBody) {
@@ -76,6 +78,7 @@ export function updateHall(hallId: string, body: HallUpdateBody) {
 export interface SeatMapCreateBody {
   seatMapId?: string;
   cinemaId?: string;
+  name: string;
   rows: number;
   cols: number;
   screenLabel?: string;
@@ -121,8 +124,11 @@ export function createShow(body: {
   return post<ShowVO>('/admin/shows', body);
 }
 
-export function adminListShows(params: { cinemaId: string; movieId: string; date?: string }) {
-  return get<ShowListResult>('/admin/shows', params);
+export function adminListShows(params: { cinemaId: string; movieId?: string; date?: string }) {
+  const query: Record<string, string> = { cinemaId: params.cinemaId };
+  if (params.movieId) query.movieId = params.movieId;
+  if (params.date) query.date = params.date;
+  return get<ShowListResult>('/admin/shows', query);
 }
 
 export function updateShow(
@@ -208,4 +214,22 @@ export function updateUser(
 
 export function verifyTicket(payload: string) {
   return get<TicketVerifyVO>('/tickets/verify', { payload });
+}
+
+/** 上传海报图片，返回可访问的 URL 路径。 */
+export async function uploadPoster(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { getAccessToken } = await import('@/stores/auth');
+  const token = getAccessToken();
+  const resp = await fetch('/api/v1/admin/upload/poster', {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  const json = await resp.json();
+  if (json.code !== 200) {
+    throw new Error(json.message || '上传失败');
+  }
+  return json.data as string;
 }

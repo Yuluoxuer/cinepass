@@ -10,5 +10,5 @@ export function getDraft(sessionId: string) {
 }
 
 export function updateDraft(sessionId: string, body: DraftPatchBody) {
-  return put<BookingDraft>(`/booking-drafts/${sessionId}`, body);
+  return put<BookingDraft>(`/booking-drafts/${sessionId}`, body, { skipAuthRedirect: true });
 }

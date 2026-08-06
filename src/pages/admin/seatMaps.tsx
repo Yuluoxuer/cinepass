@@ -51,9 +51,10 @@ const SeatMapsPage: React.FC = () => {
   }, [cinemaId]);
 
   const seatMapDisplayName = (seatMap: SeatMapVO) => {
+    const name = (seatMap.name || '').trim();
+    if (name) return name;
     const label = (seatMap.screenLabel || '').trim();
-    if (label && label !== '银幕') return label;
-    return `${label || '银幕'}（${seatMap.rows}×${seatMap.cols}）`;
+    return label || '未命名座位图';
   };
 
   const requestDelete = (seatMap: SeatMapVO) => {

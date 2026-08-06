@@ -72,7 +72,7 @@ const BookingCinemasPage: React.FC = () => {
         <p className={styles.hint}>日期请在下一页「选场次」中选择</p>
         <BookingProgress step={2} />
         <div className={styles.list}>
-          {loading ? <div className={styles.emptyShows}>正在加载可购影院…</div> : error ? <div className={styles.emptyShows}>影院信息加载失败，请检查网络后重试。<button type="button" className="miaoyu-btn-secondary" onClick={() => setReloadVersion((version) => version + 1)}>重新加载</button></div> : cinemas.map((c) => (
+          {loading ? <div className={styles.emptyShows}>正在加载可购影院…</div> : error ? <div className={styles.emptyShows}>影院信息加载失败，请检查网络后重试。<button type="button" className="miaoyu-btn-secondary" onClick={() => setReloadVersion((version) => version + 1)}>重新加载</button></div> : cinemas.length === 0 ? <div className={styles.emptyShows}>暂无影院上映该电影</div> : cinemas.map((c) => (
             <div key={c.cinemaId} className={styles.row}>
               <div className={styles.info}>
                 <h3>{c.name}</h3>

@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, DatePicker, Empty, Form, InputNumber, Modal, Select, Space, Table, message } from 'antd';
+import { Button, DatePicker, Empty, Form, InputNumber, Modal, Segmented, Select, Space, Table, message } from 'antd';
 import dayjs from 'dayjs';
 import * as catalogApi from '@/api/catalog';
 import * as adminApi from '@/api/admin';
 import type { CinemaVO, MovieVO, HallVO, ShowVO, ZonePrice } from '@/types';
 import { distinctZones, zoneLabel } from '@/utils/zone';
 import { getCinemaIdFromAccessToken, useAuthStore } from '@/stores/auth';
+
+/** 场次筛选：全部 / 未开始 / 已开始 / 已取消 */
+type ShowFilter = 'all' | 'upcoming' | 'started' | 'cancelled';
 
 function formatZonePrices(zonePrices?: ZonePrice[], fallback?: number) {
   if (zonePrices && zonePrices.length > 0) {
@@ -25,8 +28,9 @@ const AdminShowsPage: React.FC = () => {
   const [movies, setMovies] = useState<MovieVO[]>([]);
   const [halls, setHalls] = useState<HallVO[]>([]);
   const [cinemaId, setCinemaId] = useState<string | undefined>(staffCinemaId);
-  const [movieId, setMovieId] = useState<string>();
-  const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
+  const [movieId, setMovieId] = useState<string | undefined>();
+  const [date, setDate] = useState<string | undefined>();
+  const [showFilter, setShowFilter] = useState<ShowFilter>('all');
   const [shows, setShows] = useState<ShowVO[]>([]);
   const [querying, setQuerying] = useState(false);
   const [queried, setQueried] = useState(false);
@@ -37,6 +41,46 @@ const AdminShowsPage: React.FC = () => {
   const [formHalls, setFormHalls] = useState<HallVO[]>([]);
   const [formZones, setFormZones] = useState<string[]>([]);
   const [editZones, setEditZones] = useState<string[]>([]);
+
+  const movieTitleById = useMemo(() => {
+    const map = new Map<string, string>();
+    movies.forEach((m) => map.set(m.movieId, m.title));
+    return map;
+  }, [movies]);
+
+  const displayedShows = useMemo(() => {
+    const now = dayjs();
+    if (showFilter === 'all') return shows;
+    if (showFilter === 'cancelled') {
+      return shows.filter((s) => s.status === 'cancelled');
+    }
+    if (showFilter === 'upcoming') {
+      return shows.filter((s) => s.status !== 'cancelled' && dayjs(s.startTime).isAfter(now));
+    }
+    // 已开始：开场时间已到且未取消
+    return shows.filter((s) => s.status !== 'cancelled' && !dayjs(s.startTime).isAfter(now));
+  }, [shows, showFilter]);
+
+  const filterCounts = useMemo(() => {
+    const now = dayjs();
+    let upcoming = 0;
+    let started = 0;
+    let cancelled = 0;
+    for (const s of shows) {
+      if (s.status === 'cancelled') {
+        cancelled += 1;
+        continue;
+      }
+      if (dayjs(s.startTime).isAfter(now)) upcoming += 1;
+      else started += 1;
+    }
+    return {
+      all: shows.length,
+      upcoming,
+      started,
+      cancelled,
+    };
+  }, [shows]);
 
   const startTimeValid = (value: dayjs.Dayjs) => value.isAfter(dayjs());
   const localScheduleConflict = (hallId: string, start: dayjs.Dayjs, end: dayjs.Dayjs, excludeShowId?: string) =>
@@ -59,10 +103,7 @@ const AdminShowsPage: React.FC = () => {
       .catch(() => setCinemas([]));
     void catalogApi
       .listMovies({ page: 1, size: 50 })
-      .then((r) => {
-        setMovies(r.items);
-        if (!movieId && r.items[0]) setMovieId(r.items[0].movieId);
-      })
+      .then((r) => setMovies(r.items))
       .catch(() => setMovies([]));
   }, [staffCinemaId]);
 
@@ -74,12 +115,12 @@ const AdminShowsPage: React.FC = () => {
     void adminApi.listHalls({ cinemaId }).then((r) => setHalls(r.items)).catch(() => setHalls([]));
   }, [cinemaId]);
 
-  const query = async (override?: { cinemaId?: string; movieId?: string; date?: string }) => {
+  const query = async (override?: { cinemaId?: string; movieId?: string | null; date?: string | null }) => {
     const nextCinemaId = override?.cinemaId ?? cinemaId;
-    const nextMovieId = override?.movieId ?? movieId;
-    const nextDate = override?.date ?? date;
-    if (!nextCinemaId || !nextMovieId || !nextDate) {
-      message.warning('请先选齐影院、影片、日期');
+    const nextMovieId = override && 'movieId' in override ? override.movieId || undefined : movieId;
+    const nextDate = override && 'date' in override ? override.date || undefined : date;
+    if (!nextCinemaId) {
+      message.warning('请先选择影院');
       return;
     }
     setQuerying(true);
@@ -98,9 +139,9 @@ const AdminShowsPage: React.FC = () => {
     }
   };
 
-  // 筛选项齐全后自动查询，避免空表一直像「加载中」
+  // 选定影院后自动查询（影片/日期可空 = 该院全部排片）
   useEffect(() => {
-    if (!cinemaId || !movieId || !date) {
+    if (!cinemaId) {
       setShows([]);
       setQueried(false);
       return;
@@ -160,19 +201,36 @@ const AdminShowsPage: React.FC = () => {
 
   const openEdit = async (show: ShowVO) => {
     setEditShow(show);
-    let zones = show.zonePrices?.map((z) => z.zone) || [];
+    let zones = show.zonePrices?.map((z) => z.zone).filter(Boolean) || [];
+    // 以座位图实际分区为准（含自定义区名）；已存分区价作价格回填
+    try {
+      let hall = halls.find((h) => h.hallId === show.hallId);
+      if (!hall?.seatMapId) {
+        const hallPage = await adminApi.listHalls({ cinemaId: show.cinemaId, page: 1, size: 100 });
+        hall = (hallPage.items || []).find((h) => h.hallId === show.hallId);
+      }
+      if (hall?.seatMapId) {
+        const map = await adminApi.getSeatMapTemplate(hall.seatMapId);
+        const fromMap = distinctZones(map.seats || []);
+        if (fromMap.length) {
+          zones = fromMap;
+        }
+      }
+    } catch {
+      // 请求层已处理；退回已有 zonePrices / 兜底 A
+    }
     if (!zones.length) zones = ['A'];
     setEditZones(zones);
     const priceMap: Record<string, number> = {};
+    const saved = new Map((show.zonePrices || []).map((z) => [z.zone, z.price]));
     for (const z of zones) {
-      const hit = show.zonePrices?.find((p) => p.zone === z);
-      priceMap[z] = hit?.price ?? show.price;
+      priceMap[z] = saved.has(z) ? Number(saved.get(z)) : show.price;
     }
     editForm.setFieldsValue({ zonePriceMap: priceMap, startTime: dayjs(show.startTime) });
   };
 
-  const emptyText = !cinemaId || !movieId || !date
-    ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="请先选择影院、影片和日期" />
+  const emptyText = !cinemaId
+    ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="请先选择影院" />
     : querying
       ? '查询中…'
       : queried
@@ -191,31 +249,52 @@ const AdminShowsPage: React.FC = () => {
           onChange={(v) => setCinemaId(v)}
         />
         <Select
-          placeholder="影片"
+          placeholder="全部影片"
           style={{ width: 200 }}
+          allowClear
           options={movies.map((m) => ({ value: m.movieId, label: m.title }))}
           value={movieId}
           onChange={(v) => setMovieId(v)}
         />
         <DatePicker
-          value={dayjs(date)}
-          onChange={(d) => setDate(d ? d.format('YYYY-MM-DD') : date)}
+          placeholder="全部日期"
+          allowClear
+          value={date ? dayjs(date) : null}
+          onChange={(d) => setDate(d ? d.format('YYYY-MM-DD') : undefined)}
         />
         <Button type="primary" loading={querying} onClick={() => void query()}>
           查询
         </Button>
         <Button onClick={openCreate}>+ 新建场次</Button>
       </Space>
+      <div style={{ marginBottom: 16 }}>
+        <span style={{ marginRight: 12, color: 'rgba(0,0,0,0.65)' }}>场次状态</span>
+        <Segmented
+          value={showFilter}
+          onChange={(v) => setShowFilter(v as ShowFilter)}
+          options={[
+            { value: 'all', label: `全部 (${filterCounts.all})` },
+            { value: 'upcoming', label: `未开始 (${filterCounts.upcoming})` },
+            { value: 'started', label: `已开始 (${filterCounts.started})` },
+            { value: 'cancelled', label: `已取消 (${filterCounts.cancelled})` },
+          ]}
+        />
+      </div>
       <Table
         rowKey="showId"
         loading={querying}
-        dataSource={shows}
+        dataSource={displayedShows}
         locale={{ emptyText }}
         columns={[
           {
             title: '开场',
             dataIndex: 'startTime',
             render: (t: string) => t.replace('T', ' ').slice(0, 16),
+          },
+          {
+            title: '影片',
+            dataIndex: 'movieId',
+            render: (id: string) => movieTitleById.get(id) || id,
           },
           { title: '影厅', dataIndex: 'hallName' },
           {
@@ -341,8 +420,7 @@ const AdminShowsPage: React.FC = () => {
               message.success('已创建（将锁定座位图）');
               setOpen(false);
               setCinemaId(v.cinemaId);
-              setMovieId(v.movieId);
-              setDate(dayjs(v.startTime).format('YYYY-MM-DD'));
+              await query({ cinemaId: v.cinemaId, movieId, date });
             } catch {
               // 请求层已处理。
             }

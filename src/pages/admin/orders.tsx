@@ -86,7 +86,7 @@ const AdminOrdersPage: React.FC = () => {
           { title: '订单号', dataIndex: 'orderId' },
           { title: '影片', dataIndex: 'movieTitle' },
           { title: '影院', dataIndex: 'cinemaName' },
-          { title: '用户', dataIndex: 'userId' },
+          { title: '用户', dataIndex: 'nickname', render: (v: string, r: OrderVO) => v || r.userId },
           { title: '金额', dataIndex: 'amount' },
           {
             title: '状态',

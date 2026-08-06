@@ -84,12 +84,16 @@ const SeatMap: React.FC<SeatMapProps> = ({
       </div>
       <div className={styles.legend}>
         <span><i className={styles.available} />可选</span>
-        {zones.map((z) => (
-          <span key={z}>
-            <i style={{ background: zoneColor(z), display: 'inline-block', width: 12, height: 12, borderRadius: 2, marginRight: 4 }} />
-            {legend?.[z] || zoneLabel(z)}
-          </span>
-        ))}
+        {zones.map((z) => {
+          const zoneSeat = seats.find((s) => s.zone === z && s.price != null);
+          const priceLabel = zoneSeat?.price != null ? ` ¥${zoneSeat.price}` : '';
+          return (
+            <span key={z}>
+              <i style={{ background: zoneColor(z), display: 'inline-block', width: 12, height: 12, borderRadius: 2, marginRight: 4 }} />
+              {legend?.[z] || zoneLabel(z)}{priceLabel}
+            </span>
+          );
+        })}
         <span><i className={styles.couple} />情侣</span>
         <span><i className={styles.selected} />已选</span>
         <span><i className={styles.sold} />已售</span>

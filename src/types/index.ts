@@ -179,6 +179,8 @@ export interface SeatVO {
 export interface SeatMapVO {
   seatMapId: string;
   cinemaId?: string;
+  /** 座位图名称（运营展示） */
+  name: string;
   rows: number;
   cols: number;
   screenLabel: string;
@@ -229,6 +231,7 @@ export interface LockVO {
 export interface OrderVO {
   orderId: string;
   userId: string;
+  nickname?: string;
   showId: string;
   movieTitle: string;
   cinemaName: string;

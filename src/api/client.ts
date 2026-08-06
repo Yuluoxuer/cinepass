@@ -5,6 +5,7 @@ import { getAccessToken, useAuthStore } from '@/stores/auth';
 
 interface ClientRequestConfig extends AxiosRequestConfig {
   silent?: boolean;
+  skipAuthRedirect?: boolean;
 }
 
 function getSessionIdHeader(): string | null {
@@ -29,6 +30,8 @@ export interface RequestOptions {
   silent?: boolean;
   /** 不携带登录凭据。 */
   skipAuth?: boolean;
+  /** 401 时不自动弹登录框/挂起 Promise，由调用方自行处理。 */
+  skipAuthRedirect?: boolean;
 }
 
 function isEnvelope(value: unknown): value is ApiEnvelope<unknown> {
@@ -65,7 +68,7 @@ function pendingAuthRedirect<T>(): Promise<T> {
 }
 
 /** 将后端响应统一转换为 ApiError；业务页面不再自行判断 HTTP/业务错误码。 */
-function toApiError(envelope: ApiEnvelope<unknown>, httpStatus?: number): ApiError {
+function toApiError(envelope: ApiEnvelope<unknown>, httpStatus?: number, skipAuthRedirect?: boolean): ApiError {
   const data = envelope.data && typeof envelope.data === 'object' ? envelope.data as { errorCode?: string } : undefined;
   const errorCode = data?.errorCode;
   const apiError = new ApiError(envelope.message || '请求失败', {
@@ -75,20 +78,20 @@ function toApiError(envelope: ApiEnvelope<unknown>, httpStatus?: number): ApiErr
     httpStatus,
   });
 
-  if (errorCode === 'UNAUTHORIZED' || httpStatus === 401 || envelope.code === 401 || envelope.code === 40101) {
+  if (!skipAuthRedirect && (errorCode === 'UNAUTHORIZED' || httpStatus === 401 || envelope.code === 401 || envelope.code === 40101)) {
     handleUnauthorized();
   }
   return apiError;
 }
 
-function toNetworkError(error: unknown): ApiError {
+function toNetworkError(error: unknown, skipAuthRedirect?: boolean): ApiError {
   const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
   const responseData = axiosError.response?.data;
-  if (isEnvelope(responseData)) return toApiError(responseData, axiosError.response?.status);
+  if (isEnvelope(responseData)) return toApiError(responseData, axiosError.response?.status, skipAuthRedirect);
 
   const status = axiosError.response?.status;
   const apiError = new ApiError(axiosError.message || '网络异常，请检查网络后重试', { httpStatus: status });
-  if (status === 401) handleUnauthorized();
+  if (!skipAuthRedirect && status === 401) handleUnauthorized();
   return apiError;
 }
 
@@ -97,12 +100,12 @@ function isRequestCancelled(error: unknown) {
 }
 
 /** 响应拦截器是唯一的错误码处理入口，同时保留 Promise 失败语义供页面落地错误态。 */
-function rejectApiError(error: ApiError, silent?: boolean): Promise<never> {
+function rejectApiError(error: ApiError, silent?: boolean, skipAuthRedirect?: boolean): Promise<never> {
   const mute = Boolean(silent) || Boolean(error.silent);
   error.silent = mute;
   presentApiError(error, mute);
   redirectToRequestError(error);
-  if (isUnauthorizedError(error)) {
+  if (isUnauthorizedError(error) && !skipAuthRedirect) {
     return pendingAuthRedirect();
   }
   return Promise.reject(error);
@@ -114,10 +117,11 @@ http.interceptors.response.use(
     if (isEnvelope(envelope) && envelope.code !== 200) {
       const config = response.config as ClientRequestConfig;
       const method = (config.method || 'get').toUpperCase();
-      const apiError = toApiError(envelope, response.status);
+      const skipAuthRedirect = Boolean(config.skipAuthRedirect);
+      const apiError = toApiError(envelope, response.status, skipAuthRedirect);
       // GET 404 默认静默，由页面用空白形状占位
       const silent = Boolean(config.silent) || (method === 'GET' && isNotFoundError(apiError));
-      return rejectApiError(apiError, silent);
+      return rejectApiError(apiError, silent, skipAuthRedirect);
     }
     if (envelope?.accessToken) useAuthStore.getState().setAccessToken(envelope.accessToken);
     return response;
@@ -128,10 +132,11 @@ http.interceptors.response.use(
       const cancelled = new ApiError('请求已取消');
       return rejectApiError(cancelled, true);
     }
-    const apiError = error instanceof ApiError ? error : toNetworkError(error);
+    const skipAuthRedirect = Boolean(config?.skipAuthRedirect);
+    const apiError = error instanceof ApiError ? error : toNetworkError(error, skipAuthRedirect);
     const method = (config?.method || 'get').toUpperCase();
     const silent = Boolean(config?.silent) || (method === 'GET' && isNotFoundError(apiError));
-    return rejectApiError(apiError, silent);
+    return rejectApiError(apiError, silent, skipAuthRedirect);
   },
 );
 
@@ -156,6 +161,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     data: options.data,
     headers,
     silent: options.silent,
+    skipAuthRedirect: options.skipAuthRedirect,
   };
   return http.request<ApiEnvelope<T>>(config)
     .then((response) => response.data.data)

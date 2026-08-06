@@ -47,10 +47,11 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
   const [selectingPoi, setSelectingPoi] = useState(false);
   const [resolvedCityName, setResolvedCityName] = useState('');
   const searchCityRef = useRef('');
-  const missingCityWarningRef = useRef(false);
 
-  // 搜索优先采用表单城市；地图点击、定位或 POI 选择后，以逆地理结果作为兜底。
-  searchCityRef.current = cityName?.trim() || resolvedCityName.trim();
+  // 搜索仅采用表单城市（用户显式填写）；自动定位得到的 resolvedCityName 不限制搜索范围，
+  // 避免用户物理位置（如湘潭）干扰对其他城市（如上海）的搜索。
+  // 地图点击/POI 选中后逆地理会通过 onSelect 回填表单 cityName，后续搜索自然限定到该城市。
+  searchCityRef.current = cityName?.trim() || '';
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -326,6 +327,12 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
     );
   }, [handleMapClick]);
 
+  // ---- 地图就绪后自动定位到当前位置（无初始坐标时） ----
+  useEffect(() => {
+    if (!mapReady || initialLng || initialLat) return;
+    handleLocateMe();
+  }, [mapReady, initialLng, initialLat, handleLocateMe]);
+
   // ---- 搜索（REST API inputtips，走 Web 服务 Key，与逆地理编码同一套鉴权） ----
   const handleSearch = useCallback((value: string) => {
     setSearchValue(value);
@@ -351,17 +358,11 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
 
       const kw = value.trim();
       const searchCity = searchCityRef.current;
-      if (!searchCity) {
-        setSearchTips([]);
-        setShowDropdown(false);
-        if (!missingCityWarningRef.current) {
-          missingCityWarningRef.current = true;
-          message.warning('请先填写城市，或在地图上点击位置后再搜索');
-        }
-        return;
-      }
-      missingCityWarningRef.current = false;
-      const params = `key=${AMAP_WEB_KEY}&keywords=${encodeURIComponent(kw)}&datatype=all&city=${encodeURIComponent(searchCity)}&citylimit=true`;
+      // 无城市时全国搜索，不传 city/citylimit 参数
+      const cityParam = searchCity
+        ? `&city=${encodeURIComponent(searchCity)}&citylimit=true`
+        : '';
+      const params = `key=${AMAP_WEB_KEY}&keywords=${encodeURIComponent(kw)}&datatype=all${cityParam}`;
 
       // 同时试直连和代理
       const urls = [
@@ -387,14 +388,18 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
 
             if (data.status === '1' && data.tips?.length > 0) {
               const tips: TipItem[] = (data.tips as any[])
-                .filter((t: any) => t.id && t.name && t.location)
+                .filter((t: any) => t.id && t.name)
                 .map((t: any) => ({
                   id: t.id,
                   name: t.name,
                   district: t.district || '',
                   address: t.address || '',
-                  location: t.location, // "lng,lat" 字符串
+                  location: t.location || '',
                 }));
+              const withCoord = tips.filter((t) => t.location);
+              if (withCoord.length === 0 && tips.length > 0) {
+                message.info('搜索结果缺少精确坐标，请尝试更具体的关键词或点击地图选址');
+              }
               setSearchTips(tips);
               setShowDropdown(tips.length > 0);
               setTipIndex(0);
@@ -420,7 +425,11 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
       setShowDropdown(false);
       setSearchValue(tip.name);
 
-      // REST API 返回的 location 是 "lng,lat" 字符串
+      // REST API 返回的 location 是 "lng,lat" 字符串，部分提示项无坐标
+      if (typeof tip.location !== 'string' || !tip.location.includes(',')) {
+        message.warning('该地点缺少坐标信息，请选择其他结果或点击地图选址');
+        return;
+      }
       const [lngStr, latStr] = tip.location.split(',');
       const lng = parseFloat(lngStr);
       const lat = parseFloat(latStr);
@@ -567,8 +576,11 @@ function extractAddress(regeo: any): string {
 
 function extractCityName(ac: any): string {
   if (!ac) return '';
-  const city = Array.isArray(ac.city) ? ac.city[0] : ac.city;
-  return city || ac.province || ac.district || '';
+  const pick = (v: unknown): string => {
+    if (Array.isArray(v)) return v[0] ? String(v[0]) : '';
+    return v ? String(v) : '';
+  };
+  return pick(ac.city) || pick(ac.province) || pick(ac.district) || '';
 }
 
 function extractNameFromRegeo(regeo: any): string {

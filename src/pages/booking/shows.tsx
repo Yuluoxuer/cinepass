@@ -74,7 +74,15 @@ const BookingShowsPage: React.FC = () => {
       setShowsError('');
       try {
         const result = await catalogApi.listShows({ movieId, cinemaId, date });
-        if (active) setShows(result.items);
+        if (active) {
+          // 防御：仅展示可售且未开场的场次（后端也应过滤 cancelled）
+          const now = Date.now();
+          setShows(
+            (result.items || []).filter(
+              (s) => s.status !== 'cancelled' && s.status !== 'off_sale' && new Date(s.startTime).getTime() >= now,
+            ),
+          );
+        }
       } catch (error) {
         if (active) {
           setShows([]);
@@ -134,10 +142,8 @@ const BookingShowsPage: React.FC = () => {
             </div>
             <div className={styles.showList}>
               {contextError ? <div className={styles.emptyShows}>影片或影院信息加载失败，请检查网络后重试。<button type="button" className="miaoyu-btn-secondary" onClick={() => setReloadVersion((version) => version + 1)}>重新加载</button></div> : null}
-              {showLoading ? <div className={styles.emptyShows}>正在加载场次…</div> : showsError ? <div className={styles.emptyShows}>场次加载失败，请检查网络后重试。<button type="button" className="miaoyu-btn-secondary" onClick={() => setReloadVersion((version) => version + 1)}>重新加载</button></div> : shows.map((s) => {
-                const started = new Date(s.startTime).getTime() < Date.now();
-                return (
-                  <div key={s.showId} className={`${styles.showRow} ${started ? styles.disabled : ''}`}>
+              {showLoading ? <div className={styles.emptyShows}>正在加载场次…</div> : showsError ? <div className={styles.emptyShows}>场次加载失败，请检查网络后重试。<button type="button" className="miaoyu-btn-secondary" onClick={() => setReloadVersion((version) => version + 1)}>重新加载</button></div> : shows.map((s) => (
+                  <div key={s.showId} className={styles.showRow}>
                     <div className={styles.time}>
                       {fmt(s.startTime)} - {fmt(s.endTime)}
                     </div>
@@ -151,15 +157,13 @@ const BookingShowsPage: React.FC = () => {
                       type="button"
                       className="miaoyu-btn-primary"
                       style={{ height: 36, padding: '0 18px', fontSize: 13 }}
-                      disabled={started}
                       onClick={() => onSelect(s)}
                     >
                       选座
                     </button>
                   </div>
-                );
-              })}
-              {!contextError && !showLoading && !showsError && shows.length === 0 ? <div className={styles.emptyShows}>该日暂无场次，请换一天看看</div> : null}
+              ))}
+              {!contextError && !showLoading && !showsError && shows.length === 0 ? <div className={styles.emptyShows}>该日暂无可售场次，请换一天看看</div> : null}
             </div>
           </section>
           <aside className={styles.draftPanel} aria-label="当前购票草稿">

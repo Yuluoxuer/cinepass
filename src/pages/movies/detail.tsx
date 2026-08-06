@@ -33,6 +33,9 @@ function getCastMembers(movie: DetailMovie): CastMember[] {
   if (movie.castMembers?.length) {
     return movie.castMembers.filter((member) => !member.role?.includes('导演'));
   }
+  if (!movie.cast) {
+    return [];
+  }
   return movie.cast
     .split(/[、,，/]/)
     .map((name) => name.trim())

@@ -11,7 +11,19 @@ import { useBookingStore } from '@/stores/booking';
 import { getSessionId } from '@/stores/booking';
 import { useAuthStore } from '@/stores/auth';
 import { useAgentStore } from '@/stores/agent';
+import { zoneLabel } from '@/utils/zone';
 import styles from './booking.less';
+
+function seatUnitPrice(seat: SeatVO, map: SeatMapVO | null): number {
+  if (seat.price != null && !Number.isNaN(Number(seat.price))) {
+    return Number(seat.price);
+  }
+  const fromZone = map?.zonePrices?.find((z) => z.zone === seat.zone)?.price;
+  if (fromZone != null && !Number.isNaN(Number(fromZone))) {
+    return Number(fromZone);
+  }
+  return Number(map?.price ?? 0);
+}
 
 const BookingSeatsPage: React.FC = () => {
   const loc = useLocation();
@@ -129,7 +141,10 @@ const BookingSeatsPage: React.FC = () => {
     }
   };
 
-  const total = selected.reduce((sum, seat) => sum + (seat.price ?? map?.price ?? 0), 0);
+  const total = selected.reduce((sum, seat) => sum + seatUnitPrice(seat, map), 0);
+  const selectedLabel = selected.length
+    ? selected.map((s) => `${s.seatName}(${zoneLabel(s.zone)}¥${seatUnitPrice(s, map)})`).join('、')
+    : '—';
 
   return (
     <div className={styles.seatPage}>
@@ -173,8 +188,8 @@ const BookingSeatsPage: React.FC = () => {
       </div>
       <div className={styles.seatBar}>
         <div>
-          已选 {selected.map((s) => s.seatName).join('、') || '—'}
-          {selected.length ? ` · ¥${total}` : ''}
+          已选 {selectedLabel}
+          {selected.length ? ` · 合计 ¥${total}` : ''}
         </div>
         <button type="button" className="miaoyu-btn-primary" disabled={!selected.length || loading} onClick={confirm}>
           {loading ? '提交中…' : '确认选座'}

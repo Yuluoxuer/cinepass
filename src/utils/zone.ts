@@ -25,6 +25,8 @@ export function zoneLabel(zone: string): string {
   if (!zone) return '未分区';
   if (zone === 'golden') return '黄金区';
   if (zone === 'normal') return '普通区';
+  // 自定义区名若已带「区」则不再追加
+  if (/区$/.test(zone)) return zone;
   return `${zone}区`;
 }
 
