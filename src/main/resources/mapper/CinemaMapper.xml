@@ -32,6 +32,29 @@
           AND c.is_delete = FALSE
     </select>
 
+    <select id="selectByIds" resultType="com.cinepass.model.Cinema">
+        SELECT <include refid="cinemaColumns" />
+        FROM cinema c
+        WHERE c.cinema_id IN
+        <foreach collection="cinemaIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+          AND c.is_delete = FALSE
+    </select>
+
+    <select id="listAllForSearch" resultType="com.cinepass.model.Cinema">
+        SELECT <include refid="cinemaColumns" />,
+               <include refid="minPriceExpression" /> AS minPrice
+        FROM cinema c
+        WHERE c.is_delete = FALSE
+    </select>
+
+    <select id="selectForSearchById" resultType="com.cinepass.model.Cinema">
+        SELECT <include refid="cinemaColumns" />,
+               <include refid="minPriceExpression" /> AS minPrice
+        FROM cinema c
+        WHERE c.cinema_id = #{cinemaId}
+          AND c.is_delete = FALSE
+    </select>
+
     <select id="exists" resultType="boolean">
         SELECT COUNT(1) &gt; 0 FROM cinema WHERE cinema_id = #{cinemaId}
     </select>
@@ -52,6 +75,9 @@
                <include refid="minPriceExpression" /> AS minPrice
         FROM cinema c
         WHERE c.is_delete = FALSE
+        <if test="q != null and q != ''">
+            AND (c.name LIKE '%' || #{q} || '%' OR c.address LIKE '%' || #{q} || '%')
+        </if>
         <if test="lat != null and lng != null">
             AND <include refid="distanceExpression" /> &lt;= #{radiusMeters}
         </if>
@@ -78,6 +104,9 @@
         SELECT COUNT(1)
         FROM cinema c
         WHERE c.is_delete = FALSE
+        <if test="q != null and q != ''">
+            AND (c.name LIKE '%' || #{q} || '%' OR c.address LIKE '%' || #{q} || '%')
+        </if>
         <if test="lat != null and lng != null">
             AND <include refid="distanceExpression" /> &lt;= #{radiusMeters}
         </if>

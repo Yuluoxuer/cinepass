@@ -33,6 +33,13 @@ public interface ShowMapper {
                                                      @Param("after") OffsetDateTime after);
 
     /**
+     * 批量查询多部影片的最近排片日期。
+     * 仅填充 {@code movieId}、{@code startTime}。
+     */
+    List<ShowSchedule> listEarliestByMovieIds(@Param("movieIds") List<String> movieIds,
+                                               @Param("after") OffsetDateTime after);
+
+    /**
      * 同厅时间重叠检测（含清场缓冲由调用方扩展 endTime）。
      * {@code excludeShowId} 用于改期时排除自身。
      */

@@ -21,10 +21,12 @@ import java.math.BigDecimal;
 public interface CinemaService {
 
     /**
-     * 附近影院分页。
-     * {@code sort} 仅 distance / price；distance 时 lat/lng 必填；radius 默认 5000，上限 50000。
+     * 附近影院分页 / ES 全文搜索。
+     * {@code q} 非空时走 ES multi_match(name^4, address)；空时走 MySQL 地理距离/价格排序。
+     * {@code sort}：distance / price / 不传（ES _score 或 MySQL 默认 distance）。
+     * distance 时 lat/lng 必填；radius 默认 5000，上限 50000（仅 MySQL 路径使用）。
      */
-    PageResult<CinemaVO> listCinemas(String movieId, BigDecimal lat, BigDecimal lng,
+    PageResult<CinemaVO> listCinemas(String q, String movieId, BigDecimal lat, BigDecimal lng,
                                      Integer radiusMeters, String sort, int page, int size);
 
     /** 影院详情，附带下属影厅 */

@@ -30,3 +30,7 @@ mybatis:
 logging:
   level:
     com.cinepass: debug
+
+search:
+  elasticsearch:
+    sync-enabled: false

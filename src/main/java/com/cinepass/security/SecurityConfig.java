@@ -105,6 +105,7 @@ public class SecurityConfig {
                                 "/api/v1/movies", "/api/v1/movies/**",
                                 "/api/v1/cinemas", "/api/v1/cinemas/**",
                                 "/api/v1/shows", "/api/v1/shows/**",
+                                "/api/v1/search", "/api/v1/search/**",
                                 "/api/v1/tickets/verify",
                                 "/uploads/**"
                         ).permitAll()

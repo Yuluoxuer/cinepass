@@ -40,15 +40,21 @@ public class MovieVO {
     /** 剧情简介 */
     private String description;
 
-    /** 演职人员文案 */
+    /** 演职人员文案（逗号分隔） */
     private String cast;
+
+    /** 导演姓名；ES 索引中有则返回，无则为 null */
+    private String director;
+
+    /** 结构化演职人员列表；数据来源 ES 或 DB cast_text 解析，无法解析时为空列表 */
+    private List<CastMemberVO> castMembers;
 
     /** 想看人数 */
     private Integer wantSeeCount;
 
     /**
-     * 院→片场景：该影院下一场开映的本地日历日（yyyy-MM-dd，Asia/Shanghai）。
-     * 其它列表接口一般为 null。
+     * 最近一场排片日期（yyyy-MM-dd，Asia/Shanghai）。
+     * 从 show_schedule 表聚合，无排片时为 null。
      */
     private String nextShowDate;
 }

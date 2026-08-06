@@ -97,6 +97,17 @@
         ]]>
     </select>
 
+    <!-- 批量：多部影片的最近排片日期 -->
+    <select id="listEarliestByMovieIds" resultType="com.cinepass.model.ShowSchedule">
+        SELECT s.movie_id AS movieId, MIN(s.start_time) AS startTime
+        FROM show_schedule s
+        WHERE s.movie_id IN
+        <foreach collection="movieIds" item="mid" open="(" separator="," close=")">#{mid}</foreach>
+          AND s.status = 'on_sale'
+          AND s.start_time &gt;= #{after}
+        GROUP BY s.movie_id
+    </select>
+
     <select id="findOverlapping" databaseId="postgresql" resultType="com.cinepass.model.ShowSchedule">
         <![CDATA[
         SELECT show_id AS showId, hall_id AS hallId,

@@ -24,6 +24,8 @@ import com.cinepass.model.UserAccount;
 import com.cinepass.security.Roles;
 import com.cinepass.security.SecurityContext;
 import com.cinepass.service.CinemaService;
+import com.cinepass.service.EsIndexService;
+import com.cinepass.service.EsSearchService;
 import com.cinepass.util.CinemaIds;
 import com.cinepass.vo.CinemaVO;
 import com.cinepass.vo.HallVO;
@@ -31,6 +33,8 @@ import com.cinepass.vo.PageResult;
 import com.cinepass.vo.SeatMapDeletedVO;
 import com.cinepass.vo.SeatMapVO;
 import com.cinepass.vo.SeatMapSeatVO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -39,38 +43,58 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.HashMap;
 
 /**
  * {@link CinemaService} 实现。
+ * <p>影院搜索：有 q 或 sort 为空时走 ES；纯地理距离/价格排序走 MySQL。
  * <p>数据范围：admin 全量；staff 仅绑定影院。座位图按画布坐标稀疏落库，业务排座号可自动编号。
  */
 @Service
 public class CinemaServiceImpl implements CinemaService {
+
+    private static final Logger log = LoggerFactory.getLogger(CinemaServiceImpl.class);
+
     private final CinemaMapper cinemaMapper;
     private final HallMapper hallMapper;
     private final SeatMapMapper seatMapMapper;
     private final SeatMapper seatMapper;
     private final ShowMapper showMapper;
     private final UserAccountMapper userAccountMapper;
+    private final EsSearchService esSearchService;
+    private final EsIndexService esIndexService;
 
     public CinemaServiceImpl(CinemaMapper cinemaMapper, HallMapper hallMapper, SeatMapMapper seatMapMapper,
-                             SeatMapper seatMapper, ShowMapper showMapper, UserAccountMapper userAccountMapper) {
+                             SeatMapper seatMapper, ShowMapper showMapper, UserAccountMapper userAccountMapper,
+                             EsSearchService esSearchService, EsIndexService esIndexService) {
         this.cinemaMapper = cinemaMapper;
         this.hallMapper = hallMapper;
         this.seatMapMapper = seatMapMapper;
         this.seatMapper = seatMapper;
         this.showMapper = showMapper;
         this.userAccountMapper = userAccountMapper;
+        this.esSearchService = esSearchService;
+        this.esIndexService = esIndexService;
     }
 
     @Override
-    public PageResult<CinemaVO> listCinemas(String movieId, BigDecimal lat, BigDecimal lng,
+    public PageResult<CinemaVO> listCinemas(String q, String movieId, BigDecimal lat, BigDecimal lng,
                                              Integer radiusMeters, String sort, int page, int size) {
+        if (radiusMeters != null && (radiusMeters < 1 || radiusMeters > 50000)) {
+            throw new BusinessException(ResultCode.FAIL, "radiusMeters 必须在 1 到 50000 之间");
+        }
+        // 使用 ES 的场景：有搜索词，或未指定排序（ES _score 默认）
+        boolean useEs = StringUtils.hasText(q) || !StringUtils.hasText(sort);
+
+        if (useEs) {
+            return searchViaEs(q, movieId, lat, lng, radiusMeters, sort, page, size);
+        }
+
+        // MySQL 路径：仅支持 distance / price 排序
         if (!"distance".equals(sort) && !"price".equals(sort)) {
             throw new BusinessException(ResultCode.FAIL, "sort 仅支持 distance 或 price");
         }
@@ -83,19 +107,101 @@ public class CinemaServiceImpl implements CinemaService {
         int actualPage = normalizePage(page);
         int actualSize = normalizeSize(size);
         int radius = radiusMeters == null ? 5000 : radiusMeters;
-        if (radius < 1 || radius > 50000) {
-            throw new BusinessException(ResultCode.FAIL, "radiusMeters 必须在 1 到 50000 之间");
-        }
-        long total = cinemaMapper.countNearby(movieId, lat, lng, radius);
-        List<Cinema> rows = cinemaMapper.selectNearby(movieId, lat, lng, radius, sort,
+        long total = cinemaMapper.countNearby(q, movieId, lat, lng, radius);
+        List<Cinema> rows = cinemaMapper.selectNearby(q, movieId, lat, lng, radius, sort,
                 (actualPage - 1) * actualSize, actualSize);
-        List<CinemaVO> items = new ArrayList<CinemaVO>();
+        List<CinemaVO> items = new ArrayList<>();
         if (rows != null) {
             for (Cinema row : rows) {
                 items.add(toCinemaVO(row, false));
             }
         }
-        return new PageResult<CinemaVO>(items, actualPage, actualSize, total);
+        return new PageResult<>(items, actualPage, actualSize, total);
+    }
+
+    /** ES 搜索 + MySQL 字段补充（cityName、trafficNote、distanceMeters） */
+    private PageResult<CinemaVO> searchViaEs(String q, String movieId, BigDecimal lat, BigDecimal lng,
+                                             Integer radiusMeters, String sort, int page, int size) {
+        // distance 排序需验证坐标
+        if ("distance".equals(sort) && (lat == null || lng == null)) {
+            throw new BusinessException(ResultCode.FAIL, "distance requires lat and lng");
+        }
+
+        int actualPage = normalizePage(page);
+        int actualSize = normalizeSize(size);
+
+        PageResult<CinemaVO> esResult;
+        try {
+            esResult = esSearchService.searchCinemas(q, movieId, lat, lng, radiusMeters,
+                    sort, actualPage, actualSize);
+        } catch (Exception e) {
+            log.warn("ES 影院搜索失败，降级到 MySQL: q={}", q, e);
+            return searchViaMysqlFallback(q, movieId, lat, lng, radiusMeters,
+                    sort, actualPage, actualSize);
+        }
+
+        List<CinemaVO> items = esResult.getItems();
+        if (items == null || items.isEmpty()) {
+            return esResult;
+        }
+
+        // 收集 cinemaId，批量查 MySQL 补充 cityName / trafficNote / tags / lat / lng
+        List<String> cinemaIds = new ArrayList<>();
+        for (CinemaVO vo : items) {
+            if (vo.getCinemaId() != null) {
+                cinemaIds.add(vo.getCinemaId());
+            }
+        }
+        Map<String, Cinema> cinemaMap = batchGetCinemas(cinemaIds);
+
+        for (CinemaVO vo : items) {
+            if (vo.getCinemaId() == null) continue;
+            Cinema db = cinemaMap.get(vo.getCinemaId());
+            if (db != null) {
+                if (vo.getCityName() == null) vo.setCityName(db.getCityName());
+                if (vo.getTrafficNote() == null) vo.setTrafficNote(db.getTrafficNote());
+                if (vo.getTags() == null && StringUtils.hasText(db.getTagsJson())) {
+                    vo.setTags(JSON.parseArray(db.getTagsJson(), String.class));
+                }
+                // 以 MySQL 经纬度为准（ES geo_point 精度可能不同）
+                if (vo.getLat() == null) vo.setLat(db.getLat());
+                if (vo.getLng() == null) vo.setLng(db.getLng());
+            }
+        }
+
+        return new PageResult<>(items, actualPage, actualSize, esResult.getTotal());
+    }
+
+    /** ES 不可用时使用 MySQL 降级，避免再次进入 ES 路径造成递归。 */
+    private PageResult<CinemaVO> searchViaMysqlFallback(String q, String movieId,
+                                                         BigDecimal lat, BigDecimal lng,
+                                                         Integer radiusMeters, String sort,
+                                                         int page, int size) {
+        String mysqlSort = "price".equals(sort) ? "price" : "distance";
+        int radius = radiusMeters == null ? 50000 : radiusMeters;
+        long total = cinemaMapper.countNearby(q, movieId, lat, lng, radius);
+        List<Cinema> rows = cinemaMapper.selectNearby(q, movieId, lat, lng, radius,
+                mysqlSort, (page - 1) * size, size);
+        List<CinemaVO> items = new ArrayList<>();
+        if (rows != null) {
+            for (Cinema row : rows) {
+                items.add(toCinemaVO(row, false));
+            }
+        }
+        return new PageResult<>(items, page, size, total);
+    }
+
+    /** 批量查询影院，返回 cinemaId → Cinema 映射 */
+    private Map<String, Cinema> batchGetCinemas(List<String> cinemaIds) {
+        if (cinemaIds.isEmpty()) return Collections.emptyMap();
+        List<Cinema> cinemas = cinemaMapper.selectByIds(cinemaIds);
+        Map<String, Cinema> map = new HashMap<>();
+        if (cinemas != null) {
+            for (Cinema c : cinemas) {
+                map.put(c.getCinemaId(), c);
+            }
+        }
+        return map;
     }
 
     @Override
@@ -103,7 +209,7 @@ public class CinemaServiceImpl implements CinemaService {
         Cinema cinema = requireCinema(cinemaId);
         CinemaVO result = toCinemaVO(cinema, true);
         List<Hall> halls = hallMapper.selectByCinemaId(cinemaId);
-        List<HallVO> hallVos = new ArrayList<HallVO>();
+        List<HallVO> hallVos = new ArrayList<>();
         if (halls != null) {
             for (Hall hall : halls) {
                 hallVos.add(toHallVO(hall));
@@ -132,6 +238,7 @@ public class CinemaServiceImpl implements CinemaService {
         cinema.setCreatedAt(OffsetDateTime.now());
         cinema.setUpdatedAt(OffsetDateTime.now());
         cinemaMapper.insert(cinema);
+        esIndexService.syncCinema(cinema.getCinemaId());
         return toCinemaVO(cinema, true);
     }
 
@@ -150,6 +257,7 @@ public class CinemaServiceImpl implements CinemaService {
         if (dto.getTags() != null) cinema.setTagsJson(toTagsJson(dto.getTags()));
         cinema.setUpdatedAt(OffsetDateTime.now());
         cinemaMapper.update(cinema);
+        esIndexService.syncCinema(cinemaId);
         return toCinemaVO(cinema, true);
     }
 
@@ -163,7 +271,10 @@ public class CinemaServiceImpl implements CinemaService {
         if (cinemaMapper.softDelete(cinemaId) != 1) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
         }
+        esIndexService.deleteCinema(cinemaId);
     }
+
+    // ==================== 座位图 / 影厅（不变） ====================
 
     @Override
     @Transactional
@@ -198,14 +309,13 @@ public class CinemaServiceImpl implements CinemaService {
         long total = seatMapMapper.countByCinemaId(actualCinemaId);
         List<SeatMap> rows = seatMapMapper.selectByCinemaId(actualCinemaId,
                 (actualPage - 1) * actualSize, actualSize);
-        List<SeatMapVO> items = new ArrayList<SeatMapVO>();
+        List<SeatMapVO> items = new ArrayList<>();
         if (rows != null) {
             for (SeatMap seatMap : rows) {
-                // 列表不携带座位明细，减轻体积
                 items.add(toSeatMapVO(syncMutableWithShows(seatMap), Collections.<Seat>emptyList()));
             }
         }
-        return new PageResult<SeatMapVO>(items, actualPage, actualSize, total);
+        return new PageResult<>(items, actualPage, actualSize, total);
     }
 
     @Override
@@ -295,9 +405,9 @@ public class CinemaServiceImpl implements CinemaService {
         long total = hallMapper.countByCinemaId(actualCinemaId);
         List<Hall> halls = hallMapper.selectAdminByCinemaId(actualCinemaId,
                 (actualPage - 1) * actualSize, actualSize);
-        List<HallVO> items = new ArrayList<HallVO>();
+        List<HallVO> items = new ArrayList<>();
         if (halls != null) for (Hall hall : halls) items.add(toHallVO(hall));
-        return new PageResult<HallVO>(items, actualPage, actualSize, total);
+        return new PageResult<>(items, actualPage, actualSize, total);
     }
 
     @Override
@@ -312,7 +422,8 @@ public class CinemaServiceImpl implements CinemaService {
         return toHallVO(hall);
     }
 
-    /** admin 必须显式传院；staff 强制本院，传其他院则 403 */
+    // ==================== 私有辅助 ====================
+
     private String resolveAdminCinemaId(String cinemaId) {
         if (SecurityContext.isAdmin()) {
             if (!StringUtils.hasText(cinemaId)) throw new BusinessException(ResultCode.FAIL, "管理员查询影厅时必须提供 cinemaId");
@@ -325,7 +436,6 @@ public class CinemaServiceImpl implements CinemaService {
         return staffCinemaId;
     }
 
-    /** 非 admin 时写操作必须落在绑定影院 */
     private void assertCinemaScope(String cinemaId) {
         if (SecurityContext.isAdmin()) return;
         if (!SecurityContext.hasRole(Roles.STAFF) || !currentStaffCinemaId().equals(cinemaId)) {
@@ -333,7 +443,6 @@ public class CinemaServiceImpl implements CinemaService {
         }
     }
 
-    /** 优先 JWT cinemaId；缺失时回查账号绑定 */
     private String currentStaffCinemaId() {
         String cinemaIdFromToken = SecurityContext.getCurrentCinemaId();
         if (StringUtils.hasText(cinemaIdFromToken)) {
@@ -346,7 +455,6 @@ public class CinemaServiceImpl implements CinemaService {
         return user.getCinemaId();
     }
 
-    /** 创建座位图/影厅时解析目标影院 ID */
     private String resolveWriteCinemaId(String requestedCinemaId) {
         if (SecurityContext.isAdmin()) {
             if (!StringUtils.hasText(requestedCinemaId)) {
@@ -361,7 +469,6 @@ public class CinemaServiceImpl implements CinemaService {
         return staffCinemaId;
     }
 
-    /** admin 列表可按 cinemaId 筛；staff 强制本院 */
     private String resolveListCinemaId(String cinemaId) {
         if (SecurityContext.isAdmin()) {
             if (!StringUtils.hasText(cinemaId)) {
@@ -385,14 +492,8 @@ public class CinemaServiceImpl implements CinemaService {
         return seatMap;
     }
 
-    /**
-     * 有效场次引用优先于库内 mutable 标记：历史数据可能未及时 markImmutable，读路径补齐并回写。
-     * cancelled 的历史场次不计入。
-     */
     private SeatMap syncMutableWithShows(SeatMap seatMap) {
-        if (seatMap == null) {
-            return null;
-        }
+        if (seatMap == null) return null;
         if (!Boolean.FALSE.equals(seatMap.getMutable())
                 && showMapper.countActiveBySeatMapId(seatMap.getSeatMapId()) > 0) {
             seatMapMapper.markImmutable(seatMap.getSeatMapId());
@@ -411,9 +512,8 @@ public class CinemaServiceImpl implements CinemaService {
         if (dto.getRows() != null && dto.getCols() != null) {
             return buildSeats(seatMapId, dto);
         }
-        Set<String> coordinates = new HashSet<String>();
-        List<Seat> result = new ArrayList<Seat>();
-        int index = 0;
+        Set<String> coordinates = new HashSet<>();
+        List<Seat> result = new ArrayList<>();
         for (SeatMapSeatDTO source : dto.getSeats()) {
             if (source.getRowNo() > dto.getRows() || source.getColNo() > dto.getCols()) {
                 throw new BusinessException(ResultCode.FAIL, "座位坐标超出座位图范围");
@@ -433,17 +533,13 @@ public class CinemaServiceImpl implements CinemaService {
             seat.setCouplePairId(trimToNull(source.getCouplePairId()));
             seat.setDefaultStatus("available");
             result.add(seat);
-            index++;
         }
         return result;
     }
 
-    /**
-     * 按画布坐标建座：空行跳过不占业务排号；未传 rowNo/colNo 时同行从左到右编号。
-     */
     private List<Seat> buildSeats(String seatMapId, SeatMapCreateDTO dto) {
-        Set<String> graphCoordinates = new HashSet<String>();
-        Map<Integer, List<SeatMapSeatDTO>> seatsByGraphRow = new HashMap<Integer, List<SeatMapSeatDTO>>();
+        Set<String> graphCoordinates = new HashSet<>();
+        Map<Integer, List<SeatMapSeatDTO>> seatsByGraphRow = new HashMap<>();
         for (SeatMapSeatDTO source : dto.getSeats()) {
             if (source.getGraphRow() > dto.getRows() || source.getGraphCol() > dto.getCols()) {
                 throw new BusinessException(ResultCode.FAIL, "座位画布坐标越界");
@@ -452,29 +548,19 @@ public class CinemaServiceImpl implements CinemaService {
             if (!graphCoordinates.add(graphCoordinate)) {
                 throw new BusinessException(ResultCode.CONFLICT, "座位画布坐标重复");
             }
-            List<SeatMapSeatDTO> rowSeats = seatsByGraphRow.get(source.getGraphRow());
-            if (rowSeats == null) {
-                rowSeats = new ArrayList<SeatMapSeatDTO>();
-                seatsByGraphRow.put(source.getGraphRow(), rowSeats);
-            }
-            rowSeats.add(source);
+            seatsByGraphRow.computeIfAbsent(source.getGraphRow(), k -> new ArrayList<>()).add(source);
         }
 
-        List<Seat> result = new ArrayList<Seat>();
-        Set<String> businessCoordinates = new HashSet<String>();
-        Set<String> seatIds = new HashSet<String>();
-        Set<String> seatNames = new HashSet<String>();
+        List<Seat> result = new ArrayList<>();
+        Set<String> businessCoordinates = new HashSet<>();
+        Set<String> seatIds = new HashSet<>();
+        Set<String> seatNames = new HashSet<>();
         int businessRow = 0;
         for (int graphRow = 1; graphRow <= dto.getRows(); graphRow++) {
             List<SeatMapSeatDTO> rowSeats = seatsByGraphRow.get(graphRow);
             if (rowSeats == null || rowSeats.isEmpty()) continue;
             businessRow++;
-            Collections.sort(rowSeats, new java.util.Comparator<SeatMapSeatDTO>() {
-                @Override
-                public int compare(SeatMapSeatDTO left, SeatMapSeatDTO right) {
-                    return left.getGraphCol().compareTo(right.getGraphCol());
-                }
-            });
+            rowSeats.sort((a, b) -> a.getGraphCol().compareTo(b.getGraphCol()));
             for (int index = 0; index < rowSeats.size(); index++) {
                 SeatMapSeatDTO source = rowSeats.get(index);
                 int rowNo = source.getRowNo() == null ? businessRow : source.getRowNo();
@@ -520,13 +606,11 @@ public class CinemaServiceImpl implements CinemaService {
         return result;
     }
 
-    /** 同一 couplePairId 必须恰好两座 */
     private void validateCoupleSeats(List<Seat> seats) {
-        Map<String, Integer> pairCounts = new HashMap<String, Integer>();
+        Map<String, Integer> pairCounts = new HashMap<>();
         for (Seat seat : seats) {
             if (!"couple".equals(seat.getSeatType())) continue;
-            Integer count = pairCounts.get(seat.getCouplePairId());
-            pairCounts.put(seat.getCouplePairId(), count == null ? 1 : count + 1);
+            pairCounts.merge(seat.getCouplePairId(), 1, Integer::sum);
         }
         for (Integer count : pairCounts.values()) {
             if (count != 2) throw new BusinessException(ResultCode.FAIL, "情侣座必须成对创建");
@@ -538,8 +622,12 @@ public class CinemaServiceImpl implements CinemaService {
         List<String> tags = StringUtils.hasText(cinema.getTagsJson())
                 ? JSON.parseArray(cinema.getTagsJson(), String.class) : Collections.<String>emptyList();
         return CinemaVO.builder().cinemaId(cinema.getCinemaId()).cityId(cinema.getCityId()).cityName(cinema.getCityName())
-                .name(cinema.getName()).address(cinema.getAddress()).distanceMeters(cinema.getDistanceMeters())
-                .minPrice(cinema.getMinPrice()).trafficNote(detail ? cinema.getTrafficNote() : null)
+                .name(cinema.getName()).address(cinema.getAddress())
+                .lat(cinema.getLat()).lng(cinema.getLng())
+                .distanceMeters(cinema.getDistanceMeters())
+                .minPrice(cinema.getMinPrice())
+                .features(tags)
+                .trafficNote(detail ? cinema.getTrafficNote() : null)
                 .tags(detail ? tags : null).build();
     }
 
@@ -549,7 +637,7 @@ public class CinemaServiceImpl implements CinemaService {
     }
 
     private SeatMapVO toSeatMapVO(SeatMap seatMap, List<Seat> seats) {
-        List<SeatMapSeatVO> seatVos = new ArrayList<SeatMapSeatVO>();
+        List<SeatMapSeatVO> seatVos = new ArrayList<>();
         for (Seat seat : seats) {
             seatVos.add(SeatMapSeatVO.builder().seatId(seat.getSeatId()).seatName(seat.getSeatName())
                     .rowNo(seat.getRowNo()).colNo(seat.getColNo()).graphRow(seat.getGraphRow())

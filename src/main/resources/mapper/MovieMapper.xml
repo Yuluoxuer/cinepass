@@ -69,6 +69,23 @@
         <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
     </select>
 
+    <select id="listAll" databaseId="postgresql" resultType="com.cinepass.model.Movie">
+        SELECT movie_id AS movieId, title, poster_url AS posterUrl,
+               genres_json::text AS genresJson, rating, duration_min AS durationMin,
+               release_date AS releaseDate, status, description,
+               cast_text AS castText, want_see_count AS wantSeeCount,
+               created_at AS createdAt, updated_at AS updatedAt
+        FROM movie
+    </select>
+    <select id="listAll" resultType="com.cinepass.model.Movie">
+        SELECT movie_id AS movieId, title, poster_url AS posterUrl,
+               genres_json AS genresJson, rating, duration_min AS durationMin,
+               release_date AS releaseDate, status, description,
+               cast_text AS castText, want_see_count AS wantSeeCount,
+               created_at AS createdAt, updated_at AS updatedAt
+        FROM movie
+    </select>
+
     <insert id="insert" databaseId="postgresql" parameterType="com.cinepass.model.Movie">
         INSERT INTO movie (movie_id, title, poster_url, genres_json, rating,
             duration_min, release_date, status, description, cast_text,

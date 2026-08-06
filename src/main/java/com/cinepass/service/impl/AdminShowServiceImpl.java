@@ -14,6 +14,7 @@ import com.cinepass.model.Hall;
 import com.cinepass.model.Movie;
 import com.cinepass.model.ShowSchedule;
 import com.cinepass.service.AdminShowService;
+import com.cinepass.service.EsIndexService;
 import com.cinepass.service.SeatInventoryService;
 import com.cinepass.service.ShowService;
 import com.cinepass.util.ShowIds;
@@ -45,6 +46,7 @@ public class AdminShowServiceImpl implements AdminShowService {
     private final SeatMapMapper seatMapMapper;
     private final ShowService showService;
     private final SeatInventoryService seatInventoryService;
+    private final EsIndexService esIndexService;
 
     public AdminShowServiceImpl(ShowMapper showMapper,
                                 MovieMapper movieMapper,
@@ -52,7 +54,8 @@ public class AdminShowServiceImpl implements AdminShowService {
                                 HallMapper hallMapper,
                                 SeatMapMapper seatMapMapper,
                                 ShowService showService,
-                                SeatInventoryService seatInventoryService) {
+                                SeatInventoryService seatInventoryService,
+                                EsIndexService esIndexService) {
         this.showMapper = showMapper;
         this.movieMapper = movieMapper;
         this.cinemaMapper = cinemaMapper;
@@ -60,6 +63,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         this.seatMapMapper = seatMapMapper;
         this.showService = showService;
         this.seatInventoryService = seatInventoryService;
+        this.esIndexService = esIndexService;
     }
 
     @Override
@@ -117,6 +121,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         }
         // 排片后立即播种 seat_status，避免购票侧读到空库存
         seatInventoryService.ensureSeatStatus(show.getShowId(), show.getSeatMapId());
+        esIndexService.syncCinema(show.getCinemaId());
 
         ShowSchedule saved = showMapper.selectById(show.getShowId());
         return showService.buildShowVO(saved, toZonePriceVOs(dto.getZonePrices(), showPrice));
@@ -157,6 +162,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         }
         show.setUpdatedAt(OffsetDateTime.now());
         showMapper.update(show);
+        esIndexService.syncCinema(show.getCinemaId());
         ShowSchedule updated = showMapper.selectById(showId);
         return showService.buildShowVO(updated, toZonePriceVOs(dto.getZonePrices(), updated.getPrice()));
     }
@@ -172,6 +178,7 @@ public class AdminShowServiceImpl implements AdminShowService {
             throw new BusinessException(ResultCode.CONFLICT, "场次已取消");
         }
         showMapper.cancel(showId);
+        esIndexService.syncCinema(show.getCinemaId());
         ShowSchedule updated = showMapper.selectById(showId);
         return showService.buildShowVO(updated, null);
     }
@@ -187,6 +194,7 @@ public class AdminShowServiceImpl implements AdminShowService {
             throw new BusinessException(ResultCode.CONFLICT, "该场次当前不可停售");
         }
         showMapper.closeSale(showId);
+        esIndexService.syncCinema(show.getCinemaId());
         ShowSchedule updated = showMapper.selectById(showId);
         return showService.buildShowVO(updated, null);
     }
@@ -202,6 +210,7 @@ public class AdminShowServiceImpl implements AdminShowService {
             throw new BusinessException(ResultCode.CONFLICT, "仅可恢复已停售/取消的场次");
         }
         showMapper.resumeSale(showId);
+        esIndexService.syncCinema(show.getCinemaId());
         ShowSchedule updated = showMapper.selectById(showId);
         return showService.buildShowVO(updated, null);
     }

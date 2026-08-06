@@ -21,6 +21,9 @@ public interface MovieMapper {
     /** 批量按 ID 查询 */
     List<Movie> selectByIds(@Param("ids") List<String> ids);
 
+    /** 查询全部影片，用于重建 ES 索引 */
+    List<Movie> listAll();
+
     /** 条件分页列表 */
     List<Movie> listFiltered(@Param("status") String status,
                              @Param("q") String q,
