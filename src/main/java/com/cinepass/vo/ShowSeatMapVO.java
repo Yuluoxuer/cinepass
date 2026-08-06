@@ -36,6 +36,9 @@ public class ShowSeatMapVO {
     /** 本场基础票价（元） */
     private BigDecimal price;
 
+    /** 本场分区价列表（与座位 zone 对齐） */
+    private List<ShowVO.ZonePriceVO> zonePrices;
+
     /** 状态图例文案 */
     private Map<String, String> legend;
 

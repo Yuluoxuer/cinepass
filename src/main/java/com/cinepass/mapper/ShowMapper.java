@@ -68,4 +68,10 @@ public interface ShowMapper {
 
     /** 引用某座位图的场次数（座位图可变性/删除前置校验） */
     long countBySeatMapId(@Param("seatMapId") String seatMapId);
+
+    /** 引用某座位图的有效场次数（非 cancelled，用于座位图可变性/删除校验） */
+    long countActiveBySeatMapId(@Param("seatMapId") String seatMapId);
+
+    /** 统计某日 on_sale 场次数；cinemaId 为空时全量 */
+    long countOnSaleByDate(@Param("date") String date, @Param("cinemaId") String cinemaId);
 }

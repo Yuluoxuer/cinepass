@@ -288,10 +288,12 @@ public class CinemaServiceImpl implements CinemaService {
         List<Seat> seats = toSeats(seatMapId, dto);
         SeatMap seatMap = new SeatMap();
         seatMap.setSeatMapId(seatMapId);
+        String screenLabel = StringUtils.hasText(dto.getScreenLabel()) ? dto.getScreenLabel().trim() : "银幕";
+        seatMap.setName(StringUtils.hasText(dto.getName()) ? dto.getName().trim() : screenLabel);
         seatMap.setCinemaId(cinemaId);
         seatMap.setRowsN(dto.getRows());
         seatMap.setColsN(dto.getCols());
-        seatMap.setScreenLabel(StringUtils.hasText(dto.getScreenLabel()) ? dto.getScreenLabel().trim() : "银幕");
+        seatMap.setScreenLabel(screenLabel);
         seatMap.setMutable(true);
         seatMap.setSeatCount(seats.size());
         seatMapMapper.insert(seatMap);
@@ -329,7 +331,8 @@ public class CinemaServiceImpl implements CinemaService {
     public SeatMapVO updateSeatMap(String seatMapId, SeatMapUpdateDTO dto) {
         SeatMap seatMap = requireSeatMap(seatMapId);
         assertCinemaScope(seatMap.getCinemaId());
-        if (Boolean.FALSE.equals(seatMap.getMutable()) || showMapper.countBySeatMapId(seatMapId) > 0) {
+        // 已排片（有效场次）或已标记不可变则禁止改座位集合，避免库存错位
+        if (Boolean.FALSE.equals(seatMap.getMutable()) || showMapper.countActiveBySeatMapId(seatMapId) > 0) {
             throw new BusinessException(ResultCode.CONFLICT, "座位图已被场次引用，不可修改");
         }
         SeatMapCreateDTO createShape = new SeatMapCreateDTO();
@@ -358,8 +361,8 @@ public class CinemaServiceImpl implements CinemaService {
         if (hallMapper.countBySeatMapId(seatMapId) > 0) {
             throw new BusinessException(ResultCode.CONFLICT, "座位图仍被影厅引用，无法删除");
         }
-        if (showMapper.countBySeatMapId(seatMapId) > 0) {
-            throw new BusinessException(ResultCode.CONFLICT, "座位图仍被场次引用，无法删除");
+        if (showMapper.countActiveBySeatMapId(seatMapId) > 0) {
+            throw new BusinessException(ResultCode.CONFLICT, "座位图仍被有效场次引用，无法删除");
         }
         seatMapper.deleteBySeatMapId(seatMapId);
         if (seatMapMapper.deleteById(seatMapId) != 1) {
@@ -492,7 +495,7 @@ public class CinemaServiceImpl implements CinemaService {
     private SeatMap syncMutableWithShows(SeatMap seatMap) {
         if (seatMap == null) return null;
         if (!Boolean.FALSE.equals(seatMap.getMutable())
-                && showMapper.countBySeatMapId(seatMap.getSeatMapId()) > 0) {
+                && showMapper.countActiveBySeatMapId(seatMap.getSeatMapId()) > 0) {
             seatMapMapper.markImmutable(seatMap.getSeatMapId());
             seatMap.setMutable(false);
         }
@@ -641,7 +644,8 @@ public class CinemaServiceImpl implements CinemaService {
                     .graphCol(seat.getGraphCol()).type(seat.getSeatType()).zone(seat.getZone())
                     .defaultStatus(seat.getDefaultStatus()).couplePairId(seat.getCouplePairId()).build());
         }
-        return SeatMapVO.builder().seatMapId(seatMap.getSeatMapId()).cinemaId(seatMap.getCinemaId())
+        return SeatMapVO.builder().seatMapId(seatMap.getSeatMapId()).name(seatMap.getName())
+                .cinemaId(seatMap.getCinemaId())
                 .rows(seatMap.getRowsN()).cols(seatMap.getColsN()).screenLabel(seatMap.getScreenLabel())
                 .mutable(seatMap.getMutable()).seatCount(seatMap.getSeatCount()).seats(seatVos).build();
     }

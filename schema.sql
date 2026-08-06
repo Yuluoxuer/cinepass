@@ -80,6 +80,7 @@ CREATE INDEX IF NOT EXISTS idx_cinema_city ON cinema (city_id);
 
 CREATE TABLE IF NOT EXISTS seat_map (
   seat_map_id   VARCHAR(32) NOT NULL,
+  name          VARCHAR(64) NOT NULL,
   cinema_id     VARCHAR(32) NOT NULL,
   rows_n        INT         NOT NULL,
   cols_n        INT         NOT NULL,

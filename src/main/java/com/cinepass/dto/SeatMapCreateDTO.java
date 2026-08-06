@@ -22,6 +22,10 @@ public class SeatMapCreateDTO {
     /** 所属影院；admin 必填，staff 可省略 */
     private String cinemaId;
 
+    /** 座位图名称；空则使用银幕文案 */
+    @Size(max = 64)
+    private String name;
+
     @NotNull(message = "座位图行数不能为空")
     @Min(value = 1, message = "座位图行数必须大于 0")
     private Integer rows;

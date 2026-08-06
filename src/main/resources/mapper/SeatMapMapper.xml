@@ -3,7 +3,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.cinepass.mapper.SeatMapMapper">
     <sql id="seatMapColumns">
-        sm.seat_map_id AS seatMapId, sm.cinema_id AS cinemaId, sm.rows_n AS rowsN,
+        sm.seat_map_id AS seatMapId, sm.name, sm.cinema_id AS cinemaId, sm.rows_n AS rowsN,
         sm.cols_n AS colsN, sm.screen_label AS screenLabel, sm.mutable,
         (SELECT COUNT(1) FROM seat s WHERE s.seat_map_id = sm.seat_map_id) AS seatCount
     </sql>
@@ -25,8 +25,8 @@
     </select>
 
     <insert id="insert" parameterType="com.cinepass.model.SeatMap">
-        INSERT INTO seat_map (seat_map_id, cinema_id, rows_n, cols_n, screen_label, mutable)
-        VALUES (#{seatMapId}, #{cinemaId}, #{rowsN}, #{colsN}, #{screenLabel}, #{mutable})
+        INSERT INTO seat_map (seat_map_id, name, cinema_id, rows_n, cols_n, screen_label, mutable)
+        VALUES (#{seatMapId}, #{name}, #{cinemaId}, #{rowsN}, #{colsN}, #{screenLabel}, #{mutable})
     </insert>
 
     <update id="update" parameterType="com.cinepass.model.SeatMap">

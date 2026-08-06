@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 /**
  * 场次座位图中单个座位（含本场占用状态）。
  */
@@ -37,6 +39,9 @@ public class SeatVO {
 
     /** 分区：normal / golden 等 */
     private String zone;
+
+    /** 本场该座单价（按分区价；无分区价时回落场次基础价） */
+    private BigDecimal price;
 
     /** 本场状态：available / locked / sold / unavailable */
     private String status;

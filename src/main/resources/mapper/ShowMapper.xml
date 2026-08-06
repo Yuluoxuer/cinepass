@@ -62,8 +62,10 @@
         FROM show_schedule s
         LEFT JOIN hall h ON h.hall_id = s.hall_id
         WHERE s.cinema_id = #{cinemaId}
-          AND s.movie_id = #{movieId}
           AND s.status IN ('on_sale', 'cancelled')
+          <if test="movieId != null and movieId != ''">
+              AND s.movie_id = #{movieId}
+          </if>
         ORDER BY s.start_time ASC
     </select>
     <select id="listByMovieCinema" resultType="com.cinepass.model.ShowSchedule">
@@ -75,8 +77,10 @@
         FROM show_schedule s
         LEFT JOIN hall h ON h.hall_id = s.hall_id
         WHERE s.cinema_id = #{cinemaId}
-          AND s.movie_id = #{movieId}
           AND s.status IN ('on_sale', 'cancelled')
+          <if test="movieId != null and movieId != ''">
+              AND s.movie_id = #{movieId}
+          </if>
         ORDER BY s.start_time ASC
     </select>
 
@@ -173,5 +177,26 @@
 
     <select id="countBySeatMapId" resultType="long">
         SELECT COUNT(1) FROM show_schedule WHERE seat_map_id = #{seatMapId}
+    </select>
+
+    <select id="countActiveBySeatMapId" resultType="long">
+        SELECT COUNT(1) FROM show_schedule WHERE seat_map_id = #{seatMapId} AND status != 'cancelled'
+    </select>
+
+    <select id="countOnSaleByDate" databaseId="postgresql" resultType="long">
+        SELECT COUNT(1) FROM show_schedule
+        WHERE status = 'on_sale'
+          AND start_time::date = TO_DATE(#{date}, 'YYYY-MM-DD')
+          <if test="cinemaId != null and cinemaId != ''">
+              AND cinema_id = #{cinemaId}
+          </if>
+    </select>
+    <select id="countOnSaleByDate" resultType="long">
+        SELECT COUNT(1) FROM show_schedule
+        WHERE status = 'on_sale'
+          AND CAST(start_time AS DATE) = CAST(#{date} AS DATE)
+          <if test="cinemaId != null and cinemaId != ''">
+              AND cinema_id = #{cinemaId}
+          </if>
     </select>
 </mapper>

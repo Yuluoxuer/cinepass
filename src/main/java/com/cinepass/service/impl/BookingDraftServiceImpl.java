@@ -451,9 +451,15 @@ public class BookingDraftServiceImpl implements BookingDraftService {
     }
 
     private void assertCanWrite(BookingDraftVO draft, String currentUserId) {
-        if (StringUtils.hasText(draft.getUserId())
-                && !draft.getUserId().equals(currentUserId)) {
-            throw new BusinessException(ResultCode.FORBIDDEN_PERMISSION, "无权修改该 Draft");
+        if (StringUtils.hasText(draft.getUserId())) {
+            // draft 已绑定用户但当前请求无 token → 引导登录（401）
+            if (!StringUtils.hasText(currentUserId)) {
+                throw new BusinessException(ResultCode.UNAUTHORIZED_TOKEN, "请先登录后再修改购票草稿");
+            }
+            // draft 已绑定用户且当前用户不是本人 → 无权（403）
+            if (!draft.getUserId().equals(currentUserId)) {
+                throw new BusinessException(ResultCode.FORBIDDEN_PERMISSION, "无权修改该 Draft");
+            }
         }
         // 已有锁座字段时匿名禁止写
         if ((StringUtils.hasText(draft.getLockId()) || StringUtils.hasText(draft.getOrderId()))

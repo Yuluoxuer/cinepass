@@ -15,6 +15,9 @@ public class SeatMapVO {
     /** 座位图 ID */
     private String seatMapId;
 
+    /** 座位图名称 */
+    private String name;
+
     /** 所属影院 ID */
     private String cinemaId;
 
