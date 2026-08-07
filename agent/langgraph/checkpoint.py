@@ -18,6 +18,11 @@ def get_checkpointer():
     return _checkpointer
 
 
+def get_pool():
+    """当前进程内的 Postgres 连接池；未启用则为 ``None``。"""
+    return _pool
+
+
 @asynccontextmanager
 async def checkpoint_lifespan() -> AsyncIterator[None]:
     """FastAPI lifespan：打开连接池、建表、挂到全局；退出时关闭。"""

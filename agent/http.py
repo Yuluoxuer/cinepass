@@ -62,3 +62,7 @@ async def get(url: str, **kwargs: Any) -> Any:
 
 async def post(url: str, **kwargs: Any) -> Any:
     return await request("POST", url, **kwargs)
+
+
+async def delete(url: str, **kwargs: Any) -> Any:
+    return await request("DELETE", url, **kwargs)

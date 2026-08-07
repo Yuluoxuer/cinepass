@@ -19,8 +19,14 @@ settings = get_settings()
 async def lifespan(_app: FastAPI):
     async with checkpoint_lifespan():
         reset_graph_cache()
+        from fapi.api.booking import reset_booking_graph_cache
+        from fapi.api.agent import reset_agent_graph_cache
+        reset_booking_graph_cache()
+        reset_agent_graph_cache()
         yield
     reset_graph_cache()
+    reset_booking_graph_cache()
+    reset_agent_graph_cache()
 
 
 def create_app() -> FastAPI:
