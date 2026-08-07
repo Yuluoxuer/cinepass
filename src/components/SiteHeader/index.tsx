@@ -176,11 +176,6 @@ const SiteHeader: React.FC = () => {
             妙语助手
             <span className={styles.agentState}>可对话</span>
           </button>
-          {isStaffOrAdmin(user?.role) ? (
-            <button type="button" className={styles.opsBtn} onClick={() => history.push('/admin')}>
-              运营
-            </button>
-          ) : null}
           <button
             type="button"
             className={styles.avatar}
