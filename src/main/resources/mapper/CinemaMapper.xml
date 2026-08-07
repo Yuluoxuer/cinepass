@@ -78,7 +78,7 @@
         <if test="q != null and q != ''">
             AND (c.name LIKE '%' || #{q} || '%' OR c.address LIKE '%' || #{q} || '%')
         </if>
-        <if test="lat != null and lng != null">
+        <if test="radiusMeters != null and lat != null and lng != null">
             AND <include refid="distanceExpression" /> &lt;= #{radiusMeters}
         </if>
         <if test="movieId != null and movieId != ''">
@@ -107,7 +107,7 @@
         <if test="q != null and q != ''">
             AND (c.name LIKE '%' || #{q} || '%' OR c.address LIKE '%' || #{q} || '%')
         </if>
-        <if test="lat != null and lng != null">
+        <if test="radiusMeters != null and lat != null and lng != null">
             AND <include refid="distanceExpression" /> &lt;= #{radiusMeters}
         </if>
         <if test="movieId != null and movieId != ''">
