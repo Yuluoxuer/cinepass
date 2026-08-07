@@ -41,6 +41,20 @@ jwt:
   access-token-expire-seconds: ${JWT_ACCESS_EXPIRE_SECONDS:3600}
   refresh-expire-seconds: ${JWT_REFRESH_EXPIRE_SECONDS:604800}
 
+# ============ 支付二维码配置（系分 §2.1 / §6.4） ============
+ticket:
+  # 推荐周信号物化重算间隔（毫秒）；GET /reco/weekly-hot 为空/过期时也会同步重算兜底
+  reco-recompute-interval-ms: ${TICKET_RECO_RECOMPUTE_INTERVAL_MS:600000}
+  reco-recompute-enabled: ${TICKET_RECO_RECOMPUTE_ENABLED:true}
+  # 支付/核销 H5 域名：拼装 payUrl = {public-base-url}/m/pay/{orderId}?t={payToken}
+  # 默认指向前端 dev server（8000），H5 页面由前端提供；真机扫码请设环境变量 PUBLIC_BASE_URL=http://<本机局域网IP>:8000
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8000}
+  # payToken 独立签名密钥（与取票 qrPayload 密钥分离）
+  pay-qr-secret: ${PAY_QR_SECRET:mini-hr-pay-qr-secret-key-2026-change-in-prod}
+  # 待支付订单超时清扫：默认开启，每 30s 扫一次（DB expire_at 为权威截止）
+  expire-scan-enabled: ${TICKET_EXPIRE_SCAN_ENABLED:true}
+  expire-scan-interval-ms: ${TICKET_EXPIRE_SCAN_INTERVAL_MS:30000}
+
 # ============ Knife4j 配置 ============
 knife4j:
   enable: true

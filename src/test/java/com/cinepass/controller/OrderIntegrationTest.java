@@ -1,5 +1,7 @@
 package com.cinepass.controller;
 
+import com.cinepass.mapper.OrderTicketMapper;
+import com.cinepass.service.OrderService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -42,6 +45,12 @@ class OrderIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private OrderService orderService;
+
+    @Autowired
+    private OrderTicketMapper orderTicketMapper;
 
     private String userId;
     private String token;
@@ -123,9 +132,9 @@ class OrderIntegrationTest {
                             + "VALUES (?,?,?,?,?,?,?,?,?)",
                     "c_ord_1", "city_sh", "上海市", "测试影城", "地址1", 31.2, 121.5, now, now);
             jdbcTemplate.update(
-                    "INSERT INTO seat_map(seat_map_id, cinema_id, rows_n, cols_n, screen_label, mutable) "
-                            + "VALUES (?,?,?,?,?,?)",
-                    "sm_ord", "c_ord_1", 5, 5, "银幕", true);
+                    "INSERT INTO seat_map(seat_map_id, name, cinema_id, rows_n, cols_n, screen_label, mutable) "
+                            + "VALUES (?,?,?,?,?,?,?)",
+                    "sm_ord", "座位图", "c_ord_1", 5, 5, "银幕", true);
             jdbcTemplate.update(
                     "INSERT INTO hall(hall_id, cinema_id, name, seat_map_id) "
                             + "VALUES (?,?,?,?)",
@@ -505,6 +514,452 @@ class OrderIntegrationTest {
     void adminOrders_withoutToken_shouldUnauthorized() throws Exception {
         mockMvc.perform(get("/api/v1/admin/orders"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void payQrcode_ownPendingOrder_shouldReturnPayQr() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/orders")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lockId\":\"lk_ord_1\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String orderId = objectMapper.readTree(created.getResponse().getContentAsString())
+                .path("data").path("orderId").asText();
+
+        mockMvc.perform(get("/api/v1/orders/" + orderId + "/pay-qrcode")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.orderId").value(orderId))
+                .andExpect(jsonPath("$.data.amount").value(110.0))
+                .andExpect(jsonPath("$.data.expireAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.payUrl",
+                        org.hamcrest.Matchers.containsString("/m/pay/" + orderId + "?t=")))
+                .andExpect(jsonPath("$.data.pollIntervalMs").value(2000));
+    }
+
+    @Test
+    void payQrcode_otherUser_shouldForbidden() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/orders")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lockId\":\"lk_ord_1\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String orderId = objectMapper.readTree(created.getResponse().getContentAsString())
+                .path("data").path("orderId").asText();
+
+        String otherToken = registerUser();
+        mockMvc.perform(get("/api/v1/orders/" + orderId + "/pay-qrcode")
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40301));
+    }
+
+    @Test
+    void payQrcode_issuedOrder_shouldNotPayable() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/orders")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lockId\":\"lk_ord_1\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String orderId = objectMapper.readTree(created.getResponse().getContentAsString())
+                .path("data").path("orderId").asText();
+        jdbcTemplate.update("UPDATE order_ticket SET status = 'issued' WHERE order_id = ?", orderId);
+
+        mockMvc.perform(get("/api/v1/orders/" + orderId + "/pay-qrcode")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(4103));
+    }
+
+    @Test
+    void payQrcode_expiredOrder_shouldLockExpired() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/orders")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lockId\":\"lk_ord_1\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String orderId = objectMapper.readTree(created.getResponse().getContentAsString())
+                .path("data").path("orderId").asText();
+        OffsetDateTime past = OffsetDateTime.now(ZoneOffset.ofHours(8)).minusMinutes(1);
+        jdbcTemplate.update("UPDATE order_ticket SET expire_at = ? WHERE order_id = ?", past, orderId);
+
+        mockMvc.perform(get("/api/v1/orders/" + orderId + "/pay-qrcode")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(4101));
+    }
+
+    @Test
+    void payQrcode_missingOrder_shouldNotFound() throws Exception {
+        mockMvc.perform(get("/api/v1/orders/o00000000000000000000000000000000/pay-qrcode")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404));
+    }
+
+    @Test
+    void payQrcode_withoutToken_shouldUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/orders/o00000000000000000000000000000000/pay-qrcode"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void paySession_validToken_shouldReturnSummary() throws Exception {
+        String orderId = createOrder();
+        String payToken = payTokenOf(orderId);
+
+        mockMvc.perform(get("/api/v1/orders/" + orderId + "/pay-session")
+                        .param("t", payToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.orderId").value(orderId))
+                .andExpect(jsonPath("$.data.amount").value(110.0))
+                .andExpect(jsonPath("$.data.movieTitle").value("订单测试片"))
+                .andExpect(jsonPath("$.data.cinemaName").value("测试影城"))
+                .andExpect(jsonPath("$.data.hallName").value("1号厅"))
+                .andExpect(jsonPath("$.data.seatIds.length()").value(2))
+                .andExpect(jsonPath("$.data.seatNames[0]").value("1排1座"))
+                .andExpect(jsonPath("$.data.status").value("pending_pay"))
+                .andExpect(jsonPath("$.data.ticketCode").doesNotExist());
+    }
+
+    @Test
+    void paySession_invalidToken_shouldPayTokenInvalid() throws Exception {
+        String orderId = createOrder();
+        mockMvc.perform(get("/api/v1/orders/" + orderId + "/pay-session")
+                        .param("t", "garbage-token"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(4105));
+    }
+
+    @Test
+    void paySession_tokenMismatchOrder_shouldPayTokenInvalid() throws Exception {
+        String orderId = createOrder();
+        String payToken = payTokenOf(orderId);
+        // 用订单 A 的 token 拉订单 B 的摘要
+        mockMvc.perform(get("/api/v1/orders/o00000000000000000000000000000000/pay-session")
+                        .param("t", payToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(4105));
+    }
+
+    @Test
+    void pay_ownJwt_shouldIssueAndConsumeSeats() throws Exception {
+        String orderId = createOrder();
+
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/pay")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"channel\":\"mobile_qr\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("issued"))
+                .andExpect(jsonPath("$.data.ticketCode",
+                        org.hamcrest.Matchers.matchesPattern("^TKT-\\d{8}-[0-9a-f]{4}$")))
+                .andExpect(jsonPath("$.data.payChannel").value("mobile_qr"))
+                .andExpect(jsonPath("$.data.payAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.expireAt").doesNotExist());
+
+        // 座位最终落定 sold、锁座 consumed
+        String lockStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM seat_lock WHERE lock_id = ?", String.class, "lk_ord_1");
+        assertThat(lockStatus).isEqualTo("consumed");
+        Integer sold = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM seat_status WHERE lock_id = ? AND status = 'sold'",
+                Integer.class, "lk_ord_1");
+        assertThat(sold).isEqualTo(2);
+    }
+
+    @Test
+    void pay_xPayToken_shouldIssue() throws Exception {
+        String orderId = createOrder();
+        String payToken = payTokenOf(orderId);
+
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/pay")
+                        .header("X-Pay-Token", payToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"channel\":\"mobile_qr\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("issued"));
+    }
+
+    @Test
+    void pay_alreadyIssued_shouldIdempotentReturnSameTicket() throws Exception {
+        String orderId = createOrder();
+        String ticketCode = payAndGetTicketCode(orderId);
+
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/pay")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("issued"))
+                .andExpect(jsonPath("$.data.ticketCode").value(ticketCode));
+    }
+
+    @Test
+    void pay_expiredOrder_shouldLockExpiredEvenWithValidToken() throws Exception {
+        String orderId = createOrder();
+        String payToken = payTokenOf(orderId);
+        OffsetDateTime past = OffsetDateTime.now(ZoneOffset.ofHours(8)).minusMinutes(1);
+        jdbcTemplate.update("UPDATE order_ticket SET expire_at = ? WHERE order_id = ?", past, orderId);
+
+        // 二维码/token 仍有效，但 DB 权威截止已过，必须拒绝支付
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/pay")
+                        .header("X-Pay-Token", payToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(4101));
+    }
+
+    @Test
+    void pay_otherUserJwt_shouldForbidden() throws Exception {
+        String orderId = createOrder();
+        String otherToken = registerUser();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/pay")
+                        .header("Authorization", "Bearer " + otherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40301));
+    }
+
+    @Test
+    void pay_cancelledOrder_shouldNotPayable() throws Exception {
+        String orderId = createOrder();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/cancel")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"user_cancel\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/pay")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(4103));
+    }
+
+    @Test
+    void pay_withoutAnyAuth_shouldUnauthorized() throws Exception {
+        String orderId = createOrder();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/pay")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40101));
+    }
+
+    @Test
+    void redeemQrcode_ownIssued_shouldReturnRedeemUrl() throws Exception {
+        String orderId = createOrder();
+        payAndGetTicketCode(orderId);
+
+        mockMvc.perform(get("/api/v1/orders/" + orderId + "/redeem-qrcode")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.orderId").value(orderId))
+                .andExpect(jsonPath("$.data.ticketCode",
+                        org.hamcrest.Matchers.matchesPattern("^TKT-\\d{8}-[0-9a-f]{4}$")))
+                .andExpect(jsonPath("$.data.redeemUrl",
+                        org.hamcrest.Matchers.containsString("/m/redeem/" + orderId + "?t=")));
+    }
+
+    @Test
+    void redeemQrcode_notIssued_shouldNotRedeemable() throws Exception {
+        String orderId = createOrder();
+        mockMvc.perform(get("/api/v1/orders/" + orderId + "/redeem-qrcode")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(4104));
+    }
+
+    @Test
+    void redeemSession_validToken_shouldReturnSummary() throws Exception {
+        String orderId = createOrder();
+        payAndGetTicketCode(orderId);
+        String redeemToken = redeemTokenOf(orderId);
+
+        mockMvc.perform(get("/api/v1/orders/" + orderId + "/redeem-session")
+                        .param("t", redeemToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.orderId").value(orderId))
+                .andExpect(jsonPath("$.data.status").value("issued"))
+                .andExpect(jsonPath("$.data.ticketCode",
+                        org.hamcrest.Matchers.matchesPattern("^TKT-\\d{8}-[0-9a-f]{4}$")))
+                .andExpect(jsonPath("$.data.seatNames[0]").value("1排1座"));
+    }
+
+    @Test
+    void redeem_ownJwt_shouldRedeemed() throws Exception {
+        String orderId = createOrder();
+        payAndGetTicketCode(orderId);
+
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/redeem")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("redeemed"));
+    }
+
+    @Test
+    void redeem_xRedeemToken_shouldRedeemed() throws Exception {
+        String orderId = createOrder();
+        payAndGetTicketCode(orderId);
+        String redeemToken = redeemTokenOf(orderId);
+
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/redeem")
+                        .header("X-Redeem-Token", redeemToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("redeemed"));
+    }
+
+    @Test
+    void redeem_notIssued_shouldNotRedeemable() throws Exception {
+        String orderId = createOrder();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/redeem")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(4104));
+    }
+
+    @Test
+    void redeem_redeemedTwice_shouldIdempotent() throws Exception {
+        String orderId = createOrder();
+        payAndGetTicketCode(orderId);
+
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/redeem")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("redeemed"));
+
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/redeem")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("redeemed"));
+    }
+
+    @Test
+    void expireOrder_pastDue_shouldExpireOrderReleaseLockAndSeats() throws Exception {
+        String orderId = createOrder();
+        OffsetDateTime past = OffsetDateTime.now(ZoneOffset.ofHours(8)).minusMinutes(1);
+        jdbcTemplate.update("UPDATE order_ticket SET expire_at = ? WHERE order_id = ?", past, orderId);
+
+        // 清扫候选应命中该订单
+        List<String> candidates = orderTicketMapper.selectExpiredPendingPay(
+                OffsetDateTime.now(ZoneOffset.ofHours(8)), 100);
+        assertThat(candidates).contains(orderId);
+
+        orderService.expireOrder(orderId);
+
+        String orderStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM order_ticket WHERE order_id = ?", String.class, orderId);
+        assertThat(orderStatus).isEqualTo("expired");
+        String lockStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM seat_lock WHERE lock_id = ?", String.class, "lk_ord_1");
+        assertThat(lockStatus).isEqualTo("expired");
+        // 释放时 lock_id 被置 NULL，故按场次统计可用座位
+        Integer available = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM seat_status WHERE show_id = ? AND status = 'available'",
+                Integer.class, "s_ord_1");
+        assertThat(available).isEqualTo(2);
+    }
+
+    @Test
+    void expireOrder_notPastDue_shouldBeNoop() throws Exception {
+        String orderId = createOrder();
+        // 默认 expire_at = now + 15min，未到期不应被清扫
+        orderService.expireOrder(orderId);
+
+        String orderStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM order_ticket WHERE order_id = ?", String.class, orderId);
+        assertThat(orderStatus).isEqualTo("pending_pay");
+        String lockStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM seat_lock WHERE lock_id = ?", String.class, "lk_ord_1");
+        assertThat(lockStatus).isEqualTo("active");
+    }
+
+    @Test
+    void expireOrder_afterPaid_shouldNotTouchIssuedOrder() throws Exception {
+        String orderId = createOrder();
+        payAndGetTicketCode(orderId);
+        OffsetDateTime past = OffsetDateTime.now(ZoneOffset.ofHours(8)).minusMinutes(1);
+        jdbcTemplate.update("UPDATE order_ticket SET expire_at = ? WHERE order_id = ?", past, orderId);
+
+        orderService.expireOrder(orderId);
+
+        String orderStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM order_ticket WHERE order_id = ?", String.class, orderId);
+        assertThat(orderStatus).isEqualTo("issued");
+        String lockStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM seat_lock WHERE lock_id = ?", String.class, "lk_ord_1");
+        assertThat(lockStatus).isEqualTo("consumed");
+    }
+
+    @Test
+    void pay_expiredByScheduler_shouldLockExpired() throws Exception {
+        String orderId = createOrder();
+        OffsetDateTime past = OffsetDateTime.now(ZoneOffset.ofHours(8)).minusMinutes(1);
+        jdbcTemplate.update("UPDATE order_ticket SET expire_at = ? WHERE order_id = ?", past, orderId);
+        orderService.expireOrder(orderId);
+
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/pay")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(4101));
+    }
+
+    private String createOrder() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/orders")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lockId\":\"lk_ord_1\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper.readTree(created.getResponse().getContentAsString())
+                .path("data").path("orderId").asText();
+    }
+
+    private String payTokenOf(String orderId) throws Exception {
+        MvcResult qr = mockMvc.perform(get("/api/v1/orders/" + orderId + "/pay-qrcode")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        String payUrl = objectMapper.readTree(qr.getResponse().getContentAsString())
+                .path("data").path("payUrl").asText();
+        return payUrl.substring(payUrl.indexOf("t=") + 2);
+    }
+
+    private String redeemTokenOf(String orderId) throws Exception {
+        MvcResult qr = mockMvc.perform(get("/api/v1/orders/" + orderId + "/redeem-qrcode")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        String redeemUrl = objectMapper.readTree(qr.getResponse().getContentAsString())
+                .path("data").path("redeemUrl").asText();
+        return redeemUrl.substring(redeemUrl.indexOf("t=") + 2);
+    }
+
+    private String payAndGetTicketCode(String orderId) throws Exception {
+        MvcResult paid = mockMvc.perform(post("/api/v1/orders/" + orderId + "/pay")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper.readTree(paid.getResponse().getContentAsString())
+                .path("data").path("ticketCode").asText();
     }
 
     private String registerUser() throws Exception {

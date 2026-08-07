@@ -49,7 +49,7 @@ public class OrderTicket implements Serializable {
     /** [{seatId,zone,price,seatName?},...] JSON */
     private String seatPriceSnapshot;
 
-    /** 状态：pending_pay / issued / cancelled */
+    /** 状态：pending_pay / issued / cancelled / redeemed / expired */
     private String status;
 
     /** 取票码；出票前可空 */

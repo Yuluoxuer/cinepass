@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -53,4 +54,23 @@ public interface OrderTicketMapper {
     /** 仅 pending_pay → cancelled；返回影响行数 */
     int updateCancelled(@Param("orderId") String orderId,
                         @Param("cancelReason") String cancelReason);
+
+    /** 仅 pending_pay → issued：写入取票码/渠道/支付时间并清空支付截止；返回影响行数 */
+    int updateIssued(@Param("orderId") String orderId,
+                     @Param("ticketCode") String ticketCode,
+                     @Param("payChannel") String payChannel,
+                     @Param("payAt") OffsetDateTime payAt);
+
+    /** 仅 issued → redeemed：标记已核销；返回影响行数 */
+    int updateRedeemed(@Param("orderId") String orderId);
+
+    /** 仅 pending_pay → expired：标记支付超时；返回影响行数 */
+    int updateExpired(@Param("orderId") String orderId);
+
+    /** 分页取已过支付截止的待支付订单 ID（定时清扫用，按截止时间升序，上限 limit） */
+    List<String> selectExpiredPendingPay(@Param("now") OffsetDateTime now,
+                                         @Param("limit") int limit);
+
+    /** 查询用户已出票订单对应的影片 ID（个人推荐行为偏好；order_ticket 无 movie_id，JOIN show_schedule 补） */
+    List<String> selectIssuedMovieIdsByUser(@Param("userId") String userId);
 }

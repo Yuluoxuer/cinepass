@@ -258,6 +258,14 @@ CREATE TABLE IF NOT EXISTS reco_weight (
   PRIMARY KEY (city_id)
 );
 
+-- 影片点击日计数：影片详情页每访问一次 UPSERT 当日 cnt+1（系分 reco_stats.week_clicks 数据源）
+CREATE TABLE IF NOT EXISTS reco_clicks (
+  movie_id    VARCHAR(32) NOT NULL,
+  click_date  DATE        NOT NULL,
+  cnt         INT         NOT NULL DEFAULT 0,
+  PRIMARY KEY (movie_id, click_date)
+);
+
 -- 7. BookingDraft（中台 /booking-drafts → agent_session.draft_json）
 CREATE TABLE IF NOT EXISTS agent_session (
   session_id   VARCHAR(64)    NOT NULL,

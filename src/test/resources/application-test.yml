@@ -48,3 +48,7 @@ logging:
 search:
   elasticsearch:
     sync-enabled: false
+
+# 测试环境关闭推荐物化后台调度，榜单重算由 GET 兜底同步触发，保证测试确定性
+ticket:
+  reco-recompute-enabled: false

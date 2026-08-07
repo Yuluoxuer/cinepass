@@ -24,4 +24,7 @@ public interface SeatLockMapper {
 
     /** 标记锁座为 expired（过期清扫） */
     int markExpired(@Param("lockId") String lockId);
+
+    /** 标记锁座为 consumed（支付出票占用）；仅 active 生效 */
+    int markConsumed(@Param("lockId") String lockId);
 }

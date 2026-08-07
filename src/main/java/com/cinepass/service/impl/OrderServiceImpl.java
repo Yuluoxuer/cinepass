@@ -226,6 +226,21 @@ public class OrderServiceImpl implements OrderService {
         return toVo(refreshed);
     }
 
+    /** 支付超时清扫：置过期并释放锁座/座位；单订单事务，与并发支付互斥 */
+    @Override
+    @Transactional
+    public void expireOrder(String orderId) {
+        // 条件更新：仅 pending_pay 且已过 DB 截止才命中，避免误释放已出票/已取消的锁
+        int updated = orderTicketMapper.updateExpired(orderId);
+        if (updated == 0) {
+            return;
+        }
+        OrderTicket order = orderTicketMapper.findById(orderId);
+        // 锁座与座位一并释放；markExpired/releaseByLockId 只影响 active/locked，幂等安全
+        seatLockMapper.markExpired(order.getLockId());
+        seatStatusMapper.releaseByLockId(order.getLockId());
+    }
+
     /** 运营协助查单：admin 全量；staff 仅本影院场次订单 */
     @Override
     public PageResult<OrderVO> listAdmin(String filterUserId, String status,
@@ -405,7 +420,9 @@ public class OrderServiceImpl implements OrderService {
         String s = status.trim();
         if (OrderStatus.PENDING_PAY.equals(s)
                 || OrderStatus.ISSUED.equals(s)
-                || OrderStatus.CANCELLED.equals(s)) {
+                || OrderStatus.CANCELLED.equals(s)
+                || OrderStatus.REDEEMED.equals(s)
+                || OrderStatus.EXPIRED.equals(s)) {
             return s;
         }
         throw new BusinessException(ResultCode.PARAM_ERROR, "非法订单状态");

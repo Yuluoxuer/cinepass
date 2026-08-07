@@ -34,4 +34,11 @@ public interface OrderService {
     PageResult<OrderVO> listAdmin(String filterUserId, String status,
                                   LocalDate dateFrom, LocalDate dateTo,
                                   int page, int size);
+
+    /**
+     * 将已过支付截止的待支付订单置为过期并释放锁座/座位（定时清扫调用）。
+     * <p>单订单内保证事务一致：订单状态 + 锁座 + 座位三者同成功或同回滚；
+     * 已出票/已取消/已核销订单不受影响（条件更新幂等）。</p>
+     */
+    void expireOrder(String orderId);
 }

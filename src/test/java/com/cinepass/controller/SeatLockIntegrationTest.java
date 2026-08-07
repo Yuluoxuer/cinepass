@@ -204,9 +204,9 @@ class SeatLockIntegrationTest {
                         + "VALUES (?,?,?,?,?,?,?,?,?)",
                 "c_lk_1", "city_sh", "上海市", "锁座影城", "地址", 31.2, 121.5, now, now);
         jdbcTemplate.update(
-                "INSERT INTO seat_map(seat_map_id, cinema_id, rows_n, cols_n, screen_label, mutable) "
-                        + "VALUES (?,?,?,?,?,?)",
-                "sm_lk", "c_lk_1", 3, 4, "银幕", true);
+                "INSERT INTO seat_map(seat_map_id, name, cinema_id, rows_n, cols_n, screen_label, mutable) "
+                        + "VALUES (?,?,?,?,?,?,?)",
+                "sm_lk", "座位图", "c_lk_1", 3, 4, "银幕", true);
         jdbcTemplate.update(
                 "INSERT INTO hall(hall_id, cinema_id, name, seat_map_id) VALUES (?,?,?,?)",
                 "h_lk_1", "c_lk_1", "1号厅", "sm_lk");

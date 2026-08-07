@@ -50,4 +50,7 @@ public interface SeatStatusMapper {
 
     /** 按 lockId 释放仍为 locked 的座位（取消订单/解锁） */
     int releaseByLockId(@Param("lockId") String lockId);
+
+    /** 按 lockId 将仍为 locked 的座位标记为 sold（支付出票） */
+    int markSoldByLockId(@Param("lockId") String lockId);
 }

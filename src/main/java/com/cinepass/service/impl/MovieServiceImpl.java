@@ -6,6 +6,7 @@ import com.cinepass.common.ResultCode;
 import com.cinepass.dto.MovieCreateDTO;
 import com.cinepass.dto.MovieUpdateDTO;
 import com.cinepass.mapper.MovieMapper;
+import com.cinepass.mapper.RecoClickMapper;
 import com.cinepass.mapper.ShowMapper;
 import com.cinepass.model.Movie;
 import com.cinepass.model.ShowSchedule;
@@ -25,6 +26,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,18 +43,23 @@ public class MovieServiceImpl implements MovieService {
 
     private static final Logger log = LoggerFactory.getLogger(MovieServiceImpl.class);
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
+    /** 点击计数按本地日历日切分 */
+    private static final ZoneId CLICK_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final MovieMapper movieMapper;
     private final ShowMapper showMapper;
     private final EsSearchService esSearchService;
     private final EsIndexService esIndexService;
+    private final RecoClickMapper recoClickMapper;
 
     public MovieServiceImpl(MovieMapper movieMapper, ShowMapper showMapper,
-                            EsSearchService esSearchService, EsIndexService esIndexService) {
+                            EsSearchService esSearchService, EsIndexService esIndexService,
+                            RecoClickMapper recoClickMapper) {
         this.movieMapper = movieMapper;
         this.showMapper = showMapper;
         this.esSearchService = esSearchService;
         this.esIndexService = esIndexService;
+        this.recoClickMapper = recoClickMapper;
     }
 
     @Override
@@ -186,6 +193,12 @@ public class MovieServiceImpl implements MovieService {
         Movie m = movieMapper.selectById(movieId);
         if (m == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影片不存在");
+        }
+        // 详情访问即记当日点击，供每周热门 week_clicks 统计（系分 §3.6）；失败不影响详情返回
+        try {
+            recoClickMapper.incrClick(movieId, LocalDate.now(CLICK_ZONE));
+        } catch (Exception e) {
+            log.warn("记录影片点击失败: {}", e.getMessage());
         }
         return toVo(m);
     }

@@ -26,6 +26,20 @@ public enum ResultCode {
 
     LOCK_EXPIRED(4101, "锁座已失效或不可用"),
     ORDER_NOT_CANCELLABLE(4102, "订单不可取消"),
+    ORDER_NOT_PAYABLE(4103, "订单不可支付"),
+    ORDER_NOT_REDEEMABLE(4104, "订单不可核销"),
+
+    /** 支付二维码 payToken 验签失败或与订单不匹配（系分 errorCode=PAY_TOKEN_INVALID） */
+    PAY_TOKEN_INVALID(4105, "支付令牌无效"),
+
+    /** 支付二维码 payToken 已过期或已消费（系分 errorCode=PAY_TOKEN_EXPIRED） */
+    PAY_TOKEN_EXPIRED(4106, "支付令牌已过期"),
+
+    /** 核销二维码 redeemToken 验签失败或与订单不匹配 */
+    REDEEM_TOKEN_INVALID(4107, "核销令牌无效"),
+
+    /** 核销二维码 redeemToken 已过期 */
+    REDEEM_TOKEN_EXPIRED(4108, "核销令牌已过期"),
 
     /** Draft CAS 版本冲突（系分 errorCode=DRAFT_CONFLICT） */
     DRAFT_CONFLICT(-1, "draft version mismatch"),

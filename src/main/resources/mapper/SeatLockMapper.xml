@@ -68,4 +68,15 @@
         SET status = 'expired', updated_at = CURRENT_TIMESTAMP
         WHERE lock_id = #{lockId} AND status = 'active'
     </update>
+
+    <update id="markConsumed" databaseId="postgresql">
+        UPDATE seat_lock
+        SET status = 'consumed', updated_at = NOW()
+        WHERE lock_id = #{lockId} AND status = 'active'
+    </update>
+    <update id="markConsumed">
+        UPDATE seat_lock
+        SET status = 'consumed', updated_at = CURRENT_TIMESTAMP
+        WHERE lock_id = #{lockId} AND status = 'active'
+    </update>
 </mapper>

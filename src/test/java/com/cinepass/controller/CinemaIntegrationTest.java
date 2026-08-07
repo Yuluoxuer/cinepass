@@ -58,10 +58,31 @@ class CinemaIntegrationTest {
     private EsIndexService esIndexService;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         insertCinema(STAFF_CINEMA_ID, "员工所属影院", 31.230400, 121.473700, "地铁 2 号线直达", "[\"杜比\"]");
         insertCinema(OTHER_CINEMA_ID, "其他影院", 31.280400, 121.523700, "公交 88 路", "[\"IMAX\"]");
+        ensureAccountViaRegister("运营小王", "13900000002", "demo123456", "staff");
+        ensureAccountViaRegister("系统管理员", "13900000001", "demo123456", "admin");
         jdbcTemplate.update("UPDATE user_account SET cinema_id = ? WHERE nickname = ?", STAFF_CINEMA_ID, "运营小王");
+    }
+
+    /** 经真实注册接口建号（u+uuid7）；非 user 角色用 JDBC 提升，避免依赖种子 SQL */
+    private void ensureAccountViaRegister(String nickname, String phone, String password, String role)
+            throws Exception {
+        Integer exists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM user_account WHERE nickname = ?", Integer.class, nickname);
+        if (exists == null || exists == 0) {
+            mockMvc.perform(post("/api/v1/auth/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"nickname\":\"" + nickname + "\",\"phone\":\"" + phone
+                                    + "\",\"password\":\"" + password + "\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.userId").value(org.hamcrest.Matchers.matchesPattern("^u[0-9a-f]{31}$")));
+        }
+        if (!"user".equals(role)) {
+            jdbcTemplate.update("UPDATE user_account SET role = ?, cinema_id = NULL WHERE nickname = ?",
+                    role, nickname);
+        }
     }
 
     @Test
@@ -306,8 +327,8 @@ class CinemaIntegrationTest {
     }
 
     private void insertSeatMap(String seatMapId, String cinemaId) {
-        jdbcTemplate.update("INSERT INTO seat_map(seat_map_id, cinema_id, rows_n, cols_n, screen_label, mutable) VALUES (?,?,?,?,?,?)",
-                seatMapId, cinemaId, 1, 2, "银幕", true);
+        jdbcTemplate.update("INSERT INTO seat_map(seat_map_id, name, cinema_id, rows_n, cols_n, screen_label, mutable) VALUES (?,?,?,?,?,?,?)",
+                seatMapId, "座位图", cinemaId, 1, 2, "银幕", true);
     }
 
     private void insertHall(String hallId, String cinemaId, String seatMapId, String name) {

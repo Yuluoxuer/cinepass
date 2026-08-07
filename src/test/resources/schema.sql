@@ -68,6 +68,7 @@ CREATE INDEX IF NOT EXISTS idx_cinema_city ON cinema (city_id);
 
 CREATE TABLE IF NOT EXISTS seat_map (
   seat_map_id VARCHAR(32) NOT NULL,
+  name        VARCHAR(64) NOT NULL,
   cinema_id   VARCHAR(32) NOT NULL,
   rows_n      INT NOT NULL,
   cols_n      INT NOT NULL,
@@ -196,4 +197,32 @@ CREATE TABLE IF NOT EXISTS agent_session (
   created_at   TIMESTAMP WITH TIME ZONE NOT NULL,
   updated_at   TIMESTAMP WITH TIME ZONE NOT NULL,
   PRIMARY KEY (session_id)
+);
+
+CREATE TABLE IF NOT EXISTS reco_stats (
+  movie_id      VARCHAR(32)     NOT NULL,
+  week_orders   INT             NOT NULL DEFAULT 0,
+  week_clicks   INT             NOT NULL DEFAULT 0,
+  rating_norm   DECIMAL(6,4)    NOT NULL DEFAULT 0,
+  freshness     DECIMAL(6,4)    NOT NULL DEFAULT 0,
+  hot_score     DECIMAL(12,4)   NOT NULL DEFAULT 0,
+  computed_at   TIMESTAMP WITH TIME ZONE NOT NULL,
+  PRIMARY KEY (movie_id)
+);
+
+CREATE TABLE IF NOT EXISTS reco_weight (
+  city_id    VARCHAR(32)    NOT NULL,
+  w_orders   DECIMAL(6,4)   NOT NULL DEFAULT 0.4500,
+  w_clicks   DECIMAL(6,4)   NOT NULL DEFAULT 0.2500,
+  w_rating   DECIMAL(6,4)   NOT NULL DEFAULT 0.1500,
+  w_fresh    DECIMAL(6,4)   NOT NULL DEFAULT 0.1500,
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  PRIMARY KEY (city_id)
+);
+
+CREATE TABLE IF NOT EXISTS reco_clicks (
+  movie_id    VARCHAR(32) NOT NULL,
+  click_date  DATE        NOT NULL,
+  cnt         INT         NOT NULL DEFAULT 0,
+  PRIMARY KEY (movie_id, click_date)
 );
