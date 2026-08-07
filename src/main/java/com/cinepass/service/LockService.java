@@ -12,8 +12,9 @@ public interface LockService {
     /**
      * 锁座；须登录。情侣座成对校验；行锁后非 available 抛 SEAT_TAKEN。
      * 可选 sessionId 回写 Draft（state=ConfirmOrder）。
+     * 传入 idempotencyKey 时，同 key 重复请求返回首次结果（Redis 缓存，TTL 900s）。
      */
-    LockVO create(String userId, CreateLockDTO dto);
+    LockVO create(String userId, CreateLockDTO dto, String idempotencyKey);
 
     /** 查询锁座；仅本人 */
     LockVO get(String userId, String lockId);

@@ -36,8 +36,15 @@ public class UploadController {
     @Value("${app.upload-dir:uploads}")
     private String uploadDir;
 
+    private Path absoluteUploadDir;
+
+    @javax.annotation.PostConstruct
+    void init() {
+        absoluteUploadDir = Paths.get(uploadDir).toAbsolutePath();
+    }
+
     @PostMapping("/poster")
-    public Result<String> uploadPoster(@RequestParam("file") MultipartFile file) throws IOException {
+    public Result<String> uploadPoster(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return Result.fail(400, "文件为空");
         }
@@ -53,12 +60,16 @@ public class UploadController {
         }
         String filename = UUID.randomUUID().toString().replace("-", "") + ext;
 
-        Path dirPath = Paths.get(uploadDir, "posters");
-        Files.createDirectories(dirPath);
-        Path filePath = dirPath.resolve(filename);
-        file.transferTo(filePath.toFile());
+        try {
+            Path dirPath = absoluteUploadDir.resolve("posters");
+            Files.createDirectories(dirPath);
+            Path filePath = dirPath.resolve(filename);
+            file.transferTo(filePath.toFile());
 
-        String url = "/uploads/posters/" + filename;
-        return Result.success(url);
+            String url = "/uploads/posters/" + filename;
+            return Result.success(url);
+        } catch (IOException e) {
+            return Result.fail(500, "文件上传失败: " + e.getMessage());
+        }
     }
 }

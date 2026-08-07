@@ -61,5 +61,9 @@ knife4j:
   setting:
     language: zh-CN
 
+# ============ 文件上传配置 ============
+app:
+  upload-dir: ${UPLOAD_DIR:uploads}
+
 server:
   port: 8080
