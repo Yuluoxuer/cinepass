@@ -424,6 +424,8 @@ export interface AgentTurnRequest {
   };
   clientDraftVersion?: number;
   debug?: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface AgentTurnResponse {

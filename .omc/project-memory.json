@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1785378390956,
-  "projectRoot": "/media/rei/Data/Code/movie/leijieming_frontend",
+  "lastScanned": 1786092532790,
+  "projectRoot": "/media/rei/Data/Code/movie/cinepass_leijieming_frontend",
   "techStack": {
     "languages": [
       {
@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "pnpm build",
+    "buildCommand": "npx tsc --noEmit src/pages/search/index.tsx 2>&1 | head -30",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "pnpm dev",
@@ -46,15 +46,17 @@
   },
   "conventions": {
     "namingStyle": "camelCase",
-    "importStyle": "ES modules",
+    "importStyle": null,
     "testPattern": null,
-    "fileOrganization": "type-based"
+    "fileOrganization": "feature-based"
   },
   "structure": {
     "isMonorepo": true,
     "workspaces": [],
     "mainDirectories": [
+      "docs",
       "public",
+      "scripts",
       "src"
     ],
     "gitBranches": null
@@ -64,140 +66,104 @@
     "dist": {
       "path": "dist",
       "purpose": "Distribution/build output",
-      "fileCount": 44,
-      "lastAccessed": 1785378390923,
+      "fileCount": 93,
+      "lastAccessed": 1786092532767,
       "keyFiles": [
-        "158.async.js",
-        "285.async.js",
-        "323.async.js",
-        "341.async.js",
-        "422.async.js"
+        "1078.async.js",
+        "1289.async.js",
+        "1583.async.js",
+        "1656.async.js",
+        "2333.async.js"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 1,
+      "lastAccessed": 1786092532773,
+      "keyFiles": [
+        "search-api.md"
       ]
     },
     "public": {
       "path": "public",
       "purpose": "Public files",
-      "fileCount": 2,
-      "lastAccessed": 1785378390929,
+      "fileCount": 3,
+      "lastAccessed": 1786092532778,
       "keyFiles": [
-        "banner.png"
+        "AGENTS.md",
+        "app-icon.png"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 8,
+      "lastAccessed": 1786092532780,
+      "keyFiles": [
+        "_conflict_dump.txt",
+        "_dump_conflicts.py",
+        "_enhance_pageerror.py",
+        "_inspect_admin.py",
+        "_patch_admin.py"
       ]
     },
     "src": {
       "path": "src",
       "purpose": "Source code",
-      "fileCount": 3,
-      "lastAccessed": 1785378390934,
+      "fileCount": 5,
+      "lastAccessed": 1786092532780,
       "keyFiles": [
+        "AGENTS.md",
         "access.ts",
-        "app.tsx"
+        "app.tsx",
+        "typings.d.ts"
+      ]
+    },
+    "src/api": {
+      "path": "src/api",
+      "purpose": "API routes",
+      "fileCount": 8,
+      "lastAccessed": 1786092532785,
+      "keyFiles": [
+        "admin.ts",
+        "agent.ts",
+        "auth.ts"
       ]
     },
     "src/components": {
       "path": "src/components",
       "purpose": "UI components",
-      "fileCount": 1,
-      "lastAccessed": 1785378390941,
-      "keyFiles": []
-    },
-    "src/pages": {
-      "path": "src/pages",
-      "purpose": "Page components",
       "fileCount": 2,
-      "lastAccessed": 1785378390944,
+      "lastAccessed": 1786092532785,
       "keyFiles": [
-        "_placeholder.tsx"
-      ]
-    },
-    "src/services": {
-      "path": "src/services",
-      "purpose": "Business logic services",
-      "fileCount": 7,
-      "lastAccessed": 1785378390947,
-      "keyFiles": [
-        "audit.ts",
-        "auth.ts",
-        "profile.ts"
+        "AGENTS.md"
       ]
     }
   },
   "hotPaths": [
     {
-      "path": "AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785378918214,
+      "path": "src/pages/search/index.tsx",
+      "accessCount": 10,
+      "lastAccessed": 1786094532810,
       "type": "file"
     },
     {
-      "path": "public/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785378918469,
+      "path": "src/stores/location.ts",
+      "accessCount": 3,
+      "lastAccessed": 1786093438198,
       "type": "file"
     },
     {
-      "path": "src/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785378918710,
+      "path": ".umirc.ts",
+      "accessCount": 3,
+      "lastAccessed": 1786096409998,
       "type": "file"
     },
     {
-      "path": "src/components/AGENTS.md",
+      "path": "src/api/admin.ts",
       "accessCount": 1,
-      "lastAccessed": 1785379034748,
-      "type": "file"
-    },
-    {
-      "path": "src/constants/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785379036212,
-      "type": "file"
-    },
-    {
-      "path": "src/layouts/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785379043219,
-      "type": "file"
-    },
-    {
-      "path": "src/pages/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785379048498,
-      "type": "file"
-    },
-    {
-      "path": "src/services/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785379063595,
-      "type": "file"
-    },
-    {
-      "path": "src/stores/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785379078803,
-      "type": "file"
-    },
-    {
-      "path": "src/utils/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785379092387,
-      "type": "file"
-    },
-    {
-      "path": "src/components/StatusTag/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785379173777,
-      "type": "file"
-    },
-    {
-      "path": "src/components/FilterBar/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785379181243,
-      "type": "file"
-    },
-    {
-      "path": "src/components/PageHeader/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785379184438,
+      "lastAccessed": 1786096709025,
       "type": "file"
     }
   ],

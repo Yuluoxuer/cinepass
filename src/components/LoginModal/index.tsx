@@ -30,6 +30,12 @@ const LoginModal: React.FC = () => {
     setLoading(true);
     try {
       const res = await loginApi(account.trim(), password);
+      // 拦截：staff/admin角色不能在购票页面登录，只能在 /admin/login 登录
+      if (isStaffOrAdmin(res.role)) {
+        setError('账号或密码错误');
+        setLoading(false);
+        return;
+      }
       const user: UserVO = {
         userId: res.userId,
         nickname: res.nickname,
@@ -40,10 +46,7 @@ const LoginModal: React.FC = () => {
       };
       setLogin({ accessToken: res.accessToken, expiresIn: res.expiresIn, user });
       close(true);
-      // staff / admin 登录后进入运营后台，避免仍停在购票页
-      if (isStaffOrAdmin(res.role)) {
-        history.push('/admin');
-      }
+      // 已删除自动跳转admin的逻辑，管理员需通过URL直接访问 /admin
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');
     } finally {
@@ -86,12 +89,6 @@ const LoginModal: React.FC = () => {
           </button>
           <p className={styles.hint}>
             演示：演示用户甲（购票）/ 运营小李或运营小王（后台）/ 系统管理员（后台），密码均为 demo123456
-          </p>
-          <p className={styles.hint}>
-            也可直接打开{' '}
-            <a href="/admin/login" onClick={(e) => { e.preventDefault(); close(false); history.push('/admin/login'); }}>
-              运营后台登录
-            </a>
           </p>
         </form>
       </div>

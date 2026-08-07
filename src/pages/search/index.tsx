@@ -80,11 +80,11 @@ const SearchPage: React.FC = () => {
           sort?: 'distance';
         } = { q: q || undefined, page: cinemaPage, size: PAGE_SIZE };
 
-        const locData = useLocationStore.getState().ensureLocation();
-        if (cinemaSort === 'distance' && locData) {
+        const locData = locationStore.ensureLocation();
+        if (locData) {
           params.lat = locData.lat;
           params.lng = locData.lng;
-          params.sort = 'distance';
+          if (cinemaSort === 'distance') params.sort = 'distance';
         }
 
         const res = await catalogApi.listCinemas(params);
@@ -188,7 +188,10 @@ const SearchPage: React.FC = () => {
   };
 
   const renderCinemaList = () => {
-    if (cinemaLoading || locationStore.locating) return <BlankPlaceholder variant="row" count={5} />;
+    if (locationStore.locating) {
+      return <p className={styles.empty}>正在获取定位，请在浏览器弹窗中授权...</p>;
+    }
+    if (cinemaLoading) return <BlankPlaceholder variant="row" count={5} />;
     if (cinemas.items.length === 0) {
       return <p className={styles.empty}>{q ? `未找到与「${q}」相关的影院` : '请输入关键词搜索'}</p>;
     }
@@ -196,6 +199,7 @@ const SearchPage: React.FC = () => {
       <>
         {/* 排序选择器 */}
         <div className={styles.sortBar}>
+          <span className={styles.sortLabel}>排序：</span>
           {([
             ['default', '综合'],
             ['distance', '距离优先'],

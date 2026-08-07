@@ -182,24 +182,31 @@ export const useLocationStore = create<LocationState>((set, get) => ({
     try {
       // 1) 先走高德 IP 定位：无需授权，基于真实出口 IP，纠正梯子残留缓存
       const ipLoc = await amapIpLocation();
+      console.log('[定位调试] IP定位结果:', ipLoc);
 
       // 2) 再试浏览器精确定位（可能返回旧缓存/境外坐标）
       let browserLoc: { lng: number; lat: number } | null = null;
       try {
         browserLoc = await browserGeolocation();
-      } catch {
+        console.log('[定位调试] 浏览器定位结果:', browserLoc);
+      } catch (err) {
+        console.log('[定位调试] 浏览器定位失败:', err);
         /* 浏览器定位失败则用 IP 定位兜底 */
       }
 
       // 3) 交叉校验：浏览器结果境外、或与 IP 城市相距过远 → 判定不可信，丢弃
       if (browserLoc && ipLoc) {
         const dist = haversineKm(browserLoc.lat, browserLoc.lng, ipLoc.lat, ipLoc.lng);
+        console.log('[定位调试] 浏览器与IP定位距离:', dist.toFixed(2), 'km');
+        console.log('[定位调试] 浏览器定位是否在中国:', isInChina(browserLoc.lng, browserLoc.lat));
         if (!isInChina(browserLoc.lng, browserLoc.lat) || dist > 800) {
+          console.log('[定位调试] 浏览器定位被丢弃（境外或距离过远）');
           browserLoc = null; // 丢弃不可信结果
         }
       }
 
       const final = browserLoc ?? ipLoc;
+      console.log('[定位调试] 最终使用的定位:', final, '来源:', browserLoc ? '浏览器' : 'IP');
       if (!final) {
         // 浏览器与 IP 定位都失败
         set({ permission: 'unavailable', locating: false });
@@ -208,6 +215,7 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       const result = store(final);
       // 异步补齐城市信息；不阻塞返回
       void reverseGeocode(result.lng, result.lat).then((city) => {
+        console.log('[定位调试] 逆地理编码结果:', city);
         if (!city.cityId && !city.cityName) return;
         set((s) => ({
           cityId: city.cityId ?? s.cityId,

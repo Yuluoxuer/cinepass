@@ -23,7 +23,7 @@ const CardRenderer: React.FC<Props> = ({ card, onAction }) => {
       card.actions.find(
         (candidate) => candidate.actionId === fallbackActionId && (!candidate.itemId || candidate.itemId === itemId),
       ) ||
-      ({ actionId: fallbackActionId, itemId, draftPatch: fallbackPatch } satisfies CardAction);
+      ({ actionId: fallbackActionId, label: '', itemId, draftPatch: fallbackPatch } satisfies CardAction);
     onAction(action.actionId, action.itemId ?? itemId, action.draftPatch ?? fallbackPatch);
   };
 
@@ -39,7 +39,12 @@ const CardRenderer: React.FC<Props> = ({ card, onAction }) => {
               <strong>{m.title}</strong>
               <span>{m.rating != null ? `★ ${m.rating}` : '暂无评分'} · {m.genres.join('/')}</span>
             </div>
-            <button type="button" onClick={() => invokeAction(m.movieId, 'select')}>
+            <button
+              type="button"
+              onClick={() =>
+                invokeAction(m.movieId, 'select', { movieId: m.movieId, filmTitle: m.title })
+              }
+            >
               选这部
             </button>
           </div>
@@ -62,7 +67,12 @@ const CardRenderer: React.FC<Props> = ({ card, onAction }) => {
                 {c.minPrice != null ? `¥${c.minPrice}起` : ''}
               </span>
             </div>
-            <button type="button" onClick={() => invokeAction(c.cinemaId, 'select')}>
+            <button
+              type="button"
+              onClick={() =>
+                invokeAction(c.cinemaId, 'select', { cinemaId: c.cinemaId, cinemaName: c.name })
+              }
+            >
               选这家
             </button>
           </div>
@@ -82,7 +92,10 @@ const CardRenderer: React.FC<Props> = ({ card, onAction }) => {
               <strong>{s.startTime.slice(11, 16)} {s.hallName}</strong>
               <span>¥{s.price} · {s.seatRemainLevel}</span>
             </div>
-            <button type="button" onClick={() => invokeAction(s.showId, 'select')}>
+            <button
+              type="button"
+              onClick={() => invokeAction(s.showId, 'select', { showId: s.showId })}
+            >
               选这场
             </button>
           </div>

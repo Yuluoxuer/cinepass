@@ -5,9 +5,11 @@ import type {
   AgentTurnResponse,
 } from '@/types';
 import * as agentApi from '@/api/agent';
+import type { SessionMeta } from '@/api/agent';
 import { useBookingStore } from '@/stores/booking';
 import { useAuthStore } from '@/stores/auth';
 import { progressFromDraft } from '@/utils/bookingProgress';
+import { getCurrentLocation } from '@/utils/location';
 
 export interface ChatMessage {
   id: string;
@@ -22,6 +24,13 @@ interface AgentState {
   messages: ChatMessage[];
   progress: AgentProgress | null;
   sending: boolean;
+  // 会话管理
+  sessions: SessionMeta[];
+  currentSessionId: string | null;
+  historyLoading: boolean;
+  hasMoreHistory: boolean;
+  historyOffset: number;
+
   openDrawer: (opts?: { message?: string }) => void;
   closeDrawer: () => void;
   syncProgressFromDraft: () => void;
@@ -34,6 +43,12 @@ interface AgentState {
   }) => Promise<AgentTurnResponse | null>;
   applyTurn: (res: AgentTurnResponse) => void;
   reset: () => void;
+  // 会话管理方法
+  loadSessions: () => Promise<void>;
+  createNewSession: () => Promise<void>;
+  switchSession: (sessionId: string) => Promise<void>;
+  loadHistory: (sessionId: string) => Promise<void>;
+  loadMoreHistory: () => Promise<void>;
 }
 
 let msgSeq = 0;
@@ -65,6 +80,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   messages: [],
   progress: null,
   sending: false,
+  sessions: [],
+  currentSessionId: null,
+  historyLoading: false,
+  hasMoreHistory: false,
+  historyOffset: 0,
 
   syncProgressFromDraft: () => {
     const draft = useBookingStore.getState().draft;
@@ -73,10 +93,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   openDrawer: (opts) => {
     useBookingStore.getState().setAgentPaused(true);
-    const openWithDraft = async () => {
+    const init = async () => {
       const booking = useBookingStore.getState();
       const draft = booking.draft || (await booking.ensureSession());
-      // 模式切换：以服务端 Draft 为准，保护已完备步骤
       try {
         await booking.hydrateFromServer(draft.sessionId);
       } catch {
@@ -85,28 +104,25 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       const latest = useBookingStore.getState().draft || draft;
       const progress = progressFromDraft(latest);
 
-      set((s) => {
-        if (s.messages.length === 0) {
-          return {
-            open: true,
-            messages: [
-              {
-                id: mid(),
-                role: 'assistant',
-                text: greetingForDraft(latest),
-              },
-            ],
-            progress,
-          };
-        }
-        return { open: true, progress };
-      });
+      // 加载会话列表
+      await get().loadSessions();
+      const sessions = get().sessions;
+
+      set({ open: true, progress });
+
+      if (sessions.length > 0) {
+        // 切换到最近的会话，加载历史
+        await get().switchSession(sessions[0].sessionId);
+      } else {
+        // 没有会话，新建一个
+        await get().createNewSession();
+      }
 
       if (opts?.message) {
         void get().sendMessage(opts.message);
       }
     };
-    void openWithDraft();
+    void init();
   },
 
   closeDrawer: () => {
@@ -119,30 +135,39 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   applyTurn: (res) => {
     useBookingStore.getState().applyAgentDraft(res.draft);
-    // progress 以服务端为准；若缺字段则按 Draft 完备度回退
     const progress = res.progress?.steps?.length
       ? res.progress
       : progressFromDraft(res.draft);
-    set((s) => ({
-      progress,
-      messages: [
+    set((s) => {
+      const messages = [
         ...s.messages.filter((m) => !m.loading),
         {
           id: mid(),
-          role: 'assistant',
+          role: 'assistant' as const,
           text: res.replyText,
           cards: res.cards,
         },
-      ],
-    }));
+      ];
+      // 更新 currentSessionId
+      const currentSessionId = res.draft.sessionId || s.currentSessionId;
+      return { progress, messages, currentSessionId };
+    });
     if (res.needLogin) {
       void useAuthStore.getState().openLoginModal();
     }
+    // 刷新会话列表（更新 lastMessageAt）
+    void get().loadSessions();
   },
 
   sendMessage: async (message) => {
-    const booking = useBookingStore.getState();
-    const draft = booking.draft || (await booking.ensureSession());
+    // 确保有 currentSessionId
+    let sessionId = get().currentSessionId;
+    if (!sessionId) {
+      await get().createNewSession();
+      sessionId = get().currentSessionId;
+      if (!sessionId) return;
+    }
+
     set((s) => ({
       sending: true,
       messages: [
@@ -152,10 +177,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       ],
     }));
     try {
+      const loc = await getCurrentLocation();
       const res = await agentApi.postTurn({
-        sessionId: draft.sessionId,
+        sessionId,
         message,
-        clientDraftVersion: draft.version,
+        latitude: loc?.latitude,
+        longitude: loc?.longitude,
       });
       get().applyTurn(res);
     } catch (e) {
@@ -175,8 +202,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
 
   clickCardAction: async (opts) => {
-    const booking = useBookingStore.getState();
-    const draft = booking.draft || (await booking.ensureSession());
+    const sessionId = get().currentSessionId;
+    if (!sessionId) return null;
     set({ sending: true });
     set((s) => ({
       messages: [
@@ -185,10 +212,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       ],
     }));
     try {
+      const loc = await getCurrentLocation();
       const res = await agentApi.postTurn({
-        sessionId: draft.sessionId,
-        clientDraftVersion: draft.version,
+        sessionId,
         cardAction: opts,
+        latitude: loc?.latitude,
+        longitude: loc?.longitude,
       });
       get().applyTurn(res);
       return res;
@@ -209,5 +238,126 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
   },
 
-  reset: () => set({ messages: [], progress: null }),
+  reset: () =>
+    set({
+      messages: [],
+      progress: null,
+      currentSessionId: null,
+      sessions: [],
+      historyOffset: 0,
+      hasMoreHistory: false,
+    }),
+
+  // ---------- 会话管理 ----------
+
+  loadSessions: async () => {
+    try {
+      const sessions = await agentApi.getSessions();
+      set({ sessions });
+    } catch {
+      /* 拦截器已提示 */
+    }
+  },
+
+  createNewSession: async () => {
+    try {
+      const session = await agentApi.createSession();
+      set((s) => ({
+        sessions: [session, ...s.sessions],
+        currentSessionId: session.sessionId,
+        messages: [
+          {
+            id: mid(),
+            role: 'assistant',
+            text: '新对话已开启。想看点什么？可以说「周末看喜剧」或直接告诉我片名。',
+          },
+        ],
+        historyOffset: 0,
+        hasMoreHistory: false,
+      }));
+    } catch {
+      // fallback: 用本地生成的 session_id
+      const sid = `sess_local_${Date.now()}`;
+      set({
+        currentSessionId: sid,
+        messages: [
+          {
+            id: mid(),
+            role: 'assistant',
+            text: '新对话已开启。想看点什么？',
+          },
+        ],
+        historyOffset: 0,
+        hasMoreHistory: false,
+      });
+    }
+  },
+
+  switchSession: async (sessionId) => {
+    set({ currentSessionId: sessionId, historyLoading: true });
+    await get().loadHistory(sessionId);
+    set({ historyLoading: false });
+  },
+
+  loadHistory: async (sessionId) => {
+    try {
+      const history = await agentApi.getHistory(sessionId, 5, 0);
+      const messages: ChatMessage[] = history.map((m) => ({
+        id: mid(),
+        role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+        text: m.content,
+      }));
+      set({
+        messages:
+          messages.length > 0
+            ? messages
+            : [
+                {
+                  id: mid(),
+                  role: 'assistant',
+                  text: '想看点什么？可以说「周末看喜剧」或直接告诉我片名。',
+                },
+              ],
+        historyOffset: history.length,
+        hasMoreHistory: history.length === 5,
+      });
+    } catch {
+      set({
+        messages: [
+          {
+            id: mid(),
+            role: 'assistant',
+            text: '想看点什么？可以说「周末看喜剧」或直接告诉我片名。',
+          },
+        ],
+        historyOffset: 0,
+        hasMoreHistory: false,
+      });
+    }
+  },
+
+  loadMoreHistory: async () => {
+    const sessionId = get().currentSessionId;
+    if (!sessionId || get().historyLoading || !get().hasMoreHistory) return;
+
+    set({ historyLoading: true });
+    const offset = get().historyOffset;
+    try {
+      const history = await agentApi.getHistory(sessionId, 5, offset);
+      const olderMessages: ChatMessage[] = history.map((m) => ({
+        id: mid(),
+        role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+        text: m.content,
+      }));
+      set((s) => ({
+        messages: [...olderMessages, ...s.messages],
+        historyOffset: offset + history.length,
+        hasMoreHistory: history.length === 5,
+      }));
+    } catch {
+      set({ hasMoreHistory: false });
+    } finally {
+      set({ historyLoading: false });
+    }
+  },
 }));
