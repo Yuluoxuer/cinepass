@@ -532,3 +532,40 @@
     position: static;
   }
 }
+
+/* ---- sort bar ---- */
+.sortBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+}
+
+.sortBar button {
+  background: transparent;
+  border: 1px solid #bbb6ae;
+  border-radius: 20px;
+  padding: 5px 16px;
+  cursor: pointer;
+  color: #5f6671;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.sortBar button:hover:not(:disabled) {
+  border-color: var(--color-agent);
+  color: #167b6d;
+}
+
+.sortBar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sortBar .sortActive {
+  background: var(--color-bg-ink);
+  color: white;
+  border-color: var(--color-bg-ink);
+}

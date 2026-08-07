@@ -4,7 +4,10 @@ import { history, useLocation } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { CinemaVO, MovieVO } from '@/types';
 import BookingProgress from '@/components/BookingProgress';
+import LoadingView from '@/components/LoadingView';
+import StateView from '@/components/StateView';
 import { useBookingStore } from '@/stores/booking';
+import { useLocationStore } from '@/stores/location';
 import styles from './booking.less';
 
 function formatDistance(m: number | null) {
@@ -20,6 +23,8 @@ const BookingCinemasPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [sort, setSort] = useState<'price' | 'distance'>('price');
+  const locationStore = useLocationStore();
   const patchLocal = useBookingStore((s) => s.patchLocal);
 
   useEffect(() => {
@@ -29,9 +34,22 @@ const BookingCinemasPage: React.FC = () => {
       setLoading(true);
       setError('');
       try {
+        const params: {
+          movieId: string;
+          page: number;
+          size: number;
+          sort: 'price' | 'distance';
+          lat?: number;
+          lng?: number;
+        } = { movieId, page: 1, size: 20, sort };
+        const locData = useLocationStore.getState().ensureLocation();
+        if (sort === 'distance' && locData) {
+          params.lat = locData.lat;
+          params.lng = locData.lng;
+        }
         const [loadedMovie, result] = await Promise.all([
           catalogApi.getMovie(movieId),
-          catalogApi.listCinemas({ movieId, sort: 'price', page: 1, size: 20 }),
+          catalogApi.listCinemas(params),
         ]);
         if (!active) return;
         setMovie(loadedMovie);
@@ -51,7 +69,23 @@ const BookingCinemasPage: React.FC = () => {
     };
     void load();
     return () => { active = false; };
-  }, [movieId, patchLocal, reloadVersion]);
+  }, [movieId, patchLocal, reloadVersion, sort, locationStore.lat, locationStore.lng]);
+
+  const onSortChange = async (nextSort: 'price' | 'distance') => {
+    if (nextSort === 'distance') {
+      const store = useLocationStore.getState();
+      if (store.permission === 'idle' || store.permission === 'denied') {
+        message.info('请先在顶部导航栏点击「定位」按钮授权定位后，再按距离排序');
+        return;
+      }
+      const locData = store.ensureLocation();
+      if (!locData) {
+        message.info('定位已过期或不可用，请点击顶部导航栏「定位」按钮刷新位置');
+        return;
+      }
+    }
+    setSort(nextSort);
+  };
 
   const onSelect = async (c: CinemaVO) => {
     const date = new Date().toISOString().slice(0, 10);
@@ -72,7 +106,22 @@ const BookingCinemasPage: React.FC = () => {
         <p className={styles.hint}>日期请在下一页「选场次」中选择</p>
         <BookingProgress step={2} />
         <div className={styles.list}>
-          {loading ? <div className={styles.emptyShows}>正在加载可购影院…</div> : error ? <div className={styles.emptyShows}>影院信息加载失败，请检查网络后重试。<button type="button" className="miaoyu-btn-secondary" onClick={() => setReloadVersion((version) => version + 1)}>重新加载</button></div> : cinemas.length === 0 ? <div className={styles.emptyShows}>暂无影院上映该电影</div> : cinemas.map((c) => (
+          <div className={styles.sortBar}>
+            {([
+              ['price', '价格优先'],
+              ['distance', '距离优先'],
+            ] as const).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                className={sort === k ? styles.sortActive : ''}
+                onClick={() => onSortChange(k)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {loading ? <LoadingView text="正在加载可购影院…" /> : error ? <StateView variant="error" title="影院信息加载失败" description={error} actionLabel="重新加载" onAction={() => setReloadVersion((version) => version + 1)} /> : cinemas.length === 0 ? <StateView variant="empty" title="暂无影院上映该电影" /> : cinemas.map((c) => (
             <div key={c.cinemaId} className={styles.row}>
               <div className={styles.info}>
                 <h3>{c.name}</h3>

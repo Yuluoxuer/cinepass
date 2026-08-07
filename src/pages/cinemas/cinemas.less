@@ -29,8 +29,53 @@
   border-left-color: var(--color-agent);
 }
 
-.item h3 { margin: 0 0 4px; font-size: 14px; font-weight: 650; color: var(--color-text-primary); }
-.item p  { margin: 0; font-size: 11px; color: var(--color-text-muted); line-height: 1.45; }
+.item h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.itemHead h3 {
+  flex: 1;
+  min-width: 0;
+}
+
+.priceLabel {
+  flex-shrink: 0;
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.distanceLabel {
+  flex-shrink: 0;
+  color: var(--color-agent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.item p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
 
 .panel {
   background: var(--color-bg-card);
@@ -40,7 +85,10 @@
   box-shadow: var(--shadow-card);
 }
 
-.hint { color: var(--color-text-muted); font-size: 13px; }
+.hint {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
 
 .movieRow {
   display: flex;
@@ -49,7 +97,9 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.movieRow:last-child { border-bottom: none; }
+.movieRow:last-child {
+  border-bottom: none;
+}
 
 .movieRow img {
   width: 48px;
@@ -58,9 +108,57 @@
   border-radius: var(--radius-sm);
 }
 
-.movieRow h3 { margin: 0 0 4px; font-size: 14px; color: var(--color-text-primary); font-weight: 650; }
-.movieRow p  { margin: 0; color: var(--color-text-secondary); font-size: 12px; }
+.movieRow h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  font-weight: 650;
+}
+
+.movieRow p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
 
 @media (max-width: 700px) {
-  .layout { grid-template-columns: 1fr; }
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- sort bar ---- */
+.sortBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 19px;
+}
+
+.sortBar button {
+  background: transparent;
+  border: 1px solid #bbb6ae;
+  border-radius: 20px;
+  padding: 5px 16px;
+  cursor: pointer;
+  color: #5f6671;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.sortBar button:hover:not(:disabled) {
+  border-color: var(--color-agent);
+  color: #167b6d;
+}
+
+.sortBar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sortBar .sortActive {
+  background: var(--color-bg-ink);
+  color: white;
+  border-color: var(--color-bg-ink);
 }

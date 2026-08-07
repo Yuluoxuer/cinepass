@@ -4,9 +4,16 @@ import { history, useLocation } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { CinemaVO, MovieVO } from '@/types';
 import { useBookingStore } from '@/stores/booking';
-import BlankPlaceholder from '@/components/BlankPlaceholder';
+import { useLocationStore } from '@/stores/location';
+import LoadingView from '@/components/LoadingView';
+import StateView from '@/components/StateView';
 import { localDateISO } from '@/utils/format';
 import styles from './cinemas.less';
+
+function formatDistance(m: number | null | undefined) {
+  if (m == null) return '';
+  return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${m}m`;
+}
 
 const CinemasPage: React.FC = () => {
   const location = useLocation();
@@ -18,13 +25,27 @@ const CinemasPage: React.FC = () => {
   const [loadingCinemas, setLoadingCinemas] = useState(true);
   const [cinemasError, setCinemasError] = useState('');
   const [moviesError, setMoviesError] = useState('');
+  const [sort, setSort] = useState<'price' | 'distance'>('price');
+  const locationStore = useLocationStore();
   const patchLocal = useBookingStore((s) => s.patchLocal);
 
   const loadCinemas = async () => {
     setLoadingCinemas(true);
     setCinemasError('');
     try {
-      const result = await catalogApi.listCinemas({ sort: 'price', page: 1, size: 20 });
+      const params: {
+        page: number;
+        size: number;
+        sort: 'price' | 'distance';
+        lat?: number;
+        lng?: number;
+      } = { sort, page: 1, size: 20 };
+      const loc = useLocationStore.getState().ensureLocation();
+      if (sort === 'distance' && loc) {
+        params.lat = loc.lat;
+        params.lng = loc.lng;
+      }
+      const result = await catalogApi.listCinemas(params);
       setCinemas(result.items);
     } catch (error) {
       setCinemas([]);
@@ -50,6 +71,22 @@ const CinemasPage: React.FC = () => {
     }
   };
 
+  const onSortChange = async (nextSort: 'price' | 'distance') => {
+    if (nextSort === 'distance') {
+      const store = useLocationStore.getState();
+      if (store.permission === 'idle' || store.permission === 'denied') {
+        message.info('请先在顶部导航栏点击「定位」按钮授权定位后，再按距离排序');
+        return;
+      }
+      const loc = store.ensureLocation();
+      if (!loc) {
+        message.info('定位已过期或不可用，请点击顶部导航栏「定位」按钮刷新位置');
+        return;
+      }
+    }
+    setSort(nextSort);
+  };
+
   useEffect(() => {
     void loadCinemas();
     if (requestedCinemaId) {
@@ -58,7 +95,7 @@ const CinemasPage: React.FC = () => {
         .catch(() => undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestedCinemaId]);
+  }, [requestedCinemaId, sort, locationStore.lat, locationStore.lng]);
 
   const selectShow = async (movie: MovieVO) => {
     if (!selected) return;
@@ -85,12 +122,27 @@ const CinemasPage: React.FC = () => {
       <h1>影院</h1>
       <div className={styles.layout}>
         <div className={styles.list}>
+          <div className={styles.sortBar}>
+            {([
+              ['price', '价格优先'],
+              ['distance', '距离优先'],
+            ] as const).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                className={sort === k ? styles.sortActive : ''}
+                onClick={() => onSortChange(k)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {loadingCinemas ? (
-            <BlankPlaceholder variant="row" count={4} />
+            <LoadingView />
           ) : cinemasError ? (
-            <p className={styles.hint}>{cinemasError}</p>
+            <StateView variant="error" title="影院加载失败" description={cinemasError} />
           ) : cinemas.length === 0 ? (
-            <p className={styles.hint}>暂无影院</p>
+            <StateView variant="empty" title="暂无影院" />
           ) : (
             cinemas.map((c) => (
               <div
@@ -98,7 +150,16 @@ const CinemasPage: React.FC = () => {
                 className={`${styles.item} ${selected?.cinemaId === c.cinemaId ? styles.active : ''}`}
                 onClick={() => openCinema(c)}
               >
-                <h3>{c.name}</h3>
+                <div className={styles.itemHead}>
+                  <h3>{c.name}</h3>
+                  {sort === 'price'
+                    ? c.minPrice != null
+                      ? <span className={styles.priceLabel}>¥{c.minPrice}起</span>
+                      : null
+                    : c.distanceMeters != null
+                      ? <span className={styles.distanceLabel}>{formatDistance(c.distanceMeters)}</span>
+                      : null}
+                </div>
                 <p>{c.address}</p>
               </div>
             ))
@@ -106,13 +167,13 @@ const CinemasPage: React.FC = () => {
         </div>
         <div className={styles.panel}>
           {!selected ? (
-            <p className={styles.hint}>请选择左侧影院，查看在售影片</p>
+            <StateView variant="empty" title="请选择影院" description="从左侧选择一个影院，查看在售影片" />
           ) : loadingMovies ? (
-            <BlankPlaceholder variant="row" count={3} />
+            <LoadingView text="正在加载在售影片…" />
           ) : moviesError ? (
-            <p className={styles.hint}>{moviesError}</p>
+            <StateView variant="error" title="影片加载失败" description={moviesError} />
           ) : movies.length === 0 ? (
-            <p className={styles.hint}>当前暂无在售排片</p>
+            <StateView variant="empty" title="暂无在售影片" description="当前影院暂无可售排片，请换一家看看" />
           ) : (
             movies.map((m) => (
               <div key={m.movieId} className={styles.movieRow}>
