@@ -92,9 +92,15 @@
 
 .movieRow {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   padding: 12px 0;
   border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.movieRow:hover {
+  background: rgba(55, 183, 165, 0.04);
 }
 
 .movieRow:last-child {
@@ -102,23 +108,35 @@
 }
 
 .movieRow img {
-  width: 48px;
-  height: 72px;
+  width: 72px;
+  height: 108px;
   object-fit: cover;
   border-radius: var(--radius-sm);
+  flex-shrink: 0;
 }
 
-.movieRow h3 {
+.movieInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 2px 0;
+}
+
+.movieInfo h3 {
   margin: 0 0 4px;
   font-size: 14px;
   color: var(--color-text-primary);
   font-weight: 650;
 }
 
-.movieRow p {
+.movieInfo p {
   margin: 0;
   color: var(--color-text-secondary);
   font-size: 12px;
+  line-height: 1.5;
 }
 
 @media (max-width: 700px) {

@@ -1,5 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { history } from 'umi';
+import { Carousel } from 'antd';
+import type { CarouselRef } from 'antd/es/carousel';
+import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import * as catalogApi from '@/api/catalog';
 import type { MovieVO, WeeklyHotItem, PersonalRecoItem } from '@/types';
 import { useAgentStore } from '@/stores/agent';
@@ -16,6 +19,8 @@ const HomePage: React.FC = () => {
   const [hot, setHot] = useState<WeeklyHotItem[]>([]);
   const [personal, setPersonal] = useState<PersonalRecoItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const carouselRef = useRef<CarouselRef>(null);
   const openDrawer = useAgentStore((s) => s.openDrawer);
   const patchLocal = useBookingStore((s) => s.patchLocal);
 
@@ -48,7 +53,13 @@ const HomePage: React.FC = () => {
     };
   }, [tab]);
 
-  const featured = movies[0] || hot[0]?.movie;
+  // 切换 tab 时重置轮播到第一项
+  useEffect(() => {
+    setCarouselIndex(0);
+    carouselRef.current?.goTo(0);
+  }, [tab]);
+
+  const featured = movies[carouselIndex] || movies[0] || hot[0]?.movie;
   const strip = movies.slice(0, 4);
   const ranking = hot.slice(0, 3);
   const recoReason =
@@ -72,71 +83,131 @@ const HomePage: React.FC = () => {
     <div className={styles.page}>
       <div className={styles.heroShell}>
         <article className={styles.heroFeature}>
-          <div className={styles.heroCopy}>
-            <span className="miaoyu-eyebrow">本周首映 · 精选场次</span>
-            <h1>
-              {featured ? (
-                <>
-                  {featured.title.length > 8 ? (
-                    <>
-                      {featured.title.slice(0, Math.ceil(featured.title.length / 2))}
-                      <br />
-                      {featured.title.slice(Math.ceil(featured.title.length / 2))}
-                    </>
+          {movies.length > 0 ? (
+            <Carousel
+              ref={carouselRef}
+              autoplay
+              autoplaySpeed={5000}
+              dots={false}
+              fade
+              className={styles.heroCarousel}
+              beforeChange={(_from, to) => setCarouselIndex(to)}
+            >
+              {movies.map((m) => (
+                <div key={m.movieId} className={styles.heroSlide}>
+                  <div className={styles.heroCopy}>
+                    <span className="miaoyu-eyebrow">本周首映 · 精选场次</span>
+                    <h1>
+                      {m.title.length > 8 ? (
+                        <>
+                          {m.title.slice(0, Math.ceil(m.title.length / 2))}
+                          <br />
+                          {m.title.slice(Math.ceil(m.title.length / 2))}
+                        </>
+                      ) : (
+                        m.title
+                      )}
+                    </h1>
+                    <p>{m.description || '告诉妙语助手你的想法，电影、影院、时间与连座偏好会保存到同一份购票草稿。'}</p>
+                    <div className={styles.metaRow}>
+                      <span className={styles.score}>{m.rating != null ? m.rating.toFixed(1) : '—'}</span>
+                      <span>{m.genres.slice(0, 2).join(' / ') || '影片'}</span>
+                      <span>{m.durationMin} 分钟</span>
+                    </div>
+                    <div className={styles.heroActions}>
+                      <button type="button" className={styles.primary} onClick={() => goBuy(m)}>
+                        选场购票
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.textBtn}
+                        onClick={() => openDrawer({ message: `帮我订《${m.title}》` })}
+                      >
+                        让 Agent 帮我订 ↗
+                      </button>
+                    </div>
+                  </div>
+                  {m.posterUrl ? (
+                    <div className={styles.posterStage}>
+                      <img src={m.posterUrl} alt={m.title} />
+                    </div>
                   ) : (
-                    featured.title
+                    <div className={styles.posterStage}>
+                      <BlankPlaceholder variant="poster" style={{ maxWidth: '100%', height: '100%' }} />
+                    </div>
                   )}
-                </>
-              ) : (
-                <>
-                  一句话
-                  <br />
-                  订好今晚位子
-                </>
-              )}
-            </h1>
-            <p>
-              {featured?.description ||
-                '告诉妙语助手你的想法，电影、影院、时间与连座偏好会保存到同一份购票草稿。'}
-            </p>
-            {featured ? (
-              <div className={styles.metaRow}>
-                <span className={styles.score}>
-                  {featured.rating != null ? featured.rating.toFixed(1) : '—'}
-                </span>
-                <span>{featured.genres.slice(0, 2).join(' / ') || '影片'}</span>
-                <span>{featured.durationMin} 分钟</span>
+                </div>
+              ))}
+            </Carousel>
+          ) : featured ? (
+            <div className={styles.heroSlide}>
+              <div className={styles.heroCopy}>
+                <span className="miaoyu-eyebrow">本周首映 · 精选场次</span>
+                <h1>{featured.title}</h1>
+                <p>{featured.description || '告诉妙语助手你的想法，电影、影院、时间与连座偏好会保存到同一份购票草稿。'}</p>
+                <div className={styles.metaRow}>
+                  <span className={styles.score}>{featured.rating != null ? featured.rating.toFixed(1) : '—'}</span>
+                  <span>{featured.genres.slice(0, 2).join(' / ') || '影片'}</span>
+                  <span>{featured.durationMin} 分钟</span>
+                </div>
+                <div className={styles.heroActions}>
+                  <button type="button" className={styles.primary} onClick={() => goBuy(featured)}>
+                    选场购票
+                  </button>
+                </div>
               </div>
-            ) : null}
-            <div className={styles.heroActions}>
-              {featured ? (
-                <button type="button" className={styles.primary} onClick={() => goBuy(featured)}>
-                  选场购票
-                </button>
+              {featured.posterUrl ? (
+                <div className={styles.posterStage}>
+                  <img src={featured.posterUrl} alt={featured.title} />
+                </div>
               ) : null}
-              <button
-                type="button"
-                className={styles.textBtn}
-                onClick={() =>
-                  openDrawer({
-                    message: featured ? `帮我订《${featured.title}》` : undefined,
-                  })
-                }
-              >
-                让 Agent 帮我订 ↗
-              </button>
-            </div>
-          </div>
-          {featured?.posterUrl ? (
-            <div className={styles.posterStage}>
-              <img src={featured.posterUrl} alt={featured.title} />
             </div>
           ) : (
-            <div className={styles.posterStage}>
-              <BlankPlaceholder variant="poster" style={{ maxWidth: '100%', height: '100%' }} />
+            <div className={styles.heroCopy}>
+              <span className="miaoyu-eyebrow">本周首映 · 精选场次</span>
+              <h1>
+                一句话
+                <br />
+                订好今晚位子
+              </h1>
+              <p>告诉妙语助手你的想法，电影、影院、时间与连座偏好会保存到同一份购票草稿。</p>
             </div>
           )}
           <div className={styles.beam} aria-hidden />
+          {movies.length > 1 ? (
+            <>
+              <div className={styles.carouselDots} role="tablist" aria-label="轮播影片">
+                {movies.map((m, i) => (
+                  <button
+                    key={m.movieId}
+                    type="button"
+                    role="tab"
+                    aria-selected={i === carouselIndex}
+                    className={`${styles.carouselDot} ${i === carouselIndex ? styles.carouselDotActive : ''}`}
+                    onClick={() => carouselRef.current?.goTo(i)}
+                  />
+                ))}
+              </div>
+              <div className={styles.carouselArrows}>
+                <button
+                  type="button"
+                  className={styles.carouselArrow}
+                  aria-label="上一部"
+                  onClick={() => carouselRef.current?.prev()}
+                >
+                  <LeftOutlined />
+                </button>
+                <button
+                  type="button"
+                  className={styles.carouselArrow}
+                  aria-label="下一部"
+                  onClick={() => carouselRef.current?.next()}
+                >
+                  <RightOutlined />
+                </button>
+              </div>
+            </>
+          ) : null}
         </article>
 
         <aside className={styles.agentCard}>

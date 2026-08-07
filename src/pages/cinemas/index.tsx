@@ -176,21 +176,30 @@ const CinemasPage: React.FC = () => {
             <StateView variant="empty" title="暂无在售影片" description="当前影院暂无可售排片，请换一家看看" />
           ) : (
             movies.map((m) => (
-              <div key={m.movieId} className={styles.movieRow}>
+              <div
+                key={m.movieId}
+                className={styles.movieRow}
+                onClick={() => history.push(`/movies/${m.movieId}`)}
+              >
                 <img src={m.posterUrl} alt="" />
-                <div>
-                  <h3>{m.title}</h3>
-                  <p>
-                    {m.genres.join(' / ')} · {m.durationMin}分钟
-                    {m.nextShowDate && m.nextShowDate !== localDateISO()
-                      ? ` · 最近 ${m.nextShowDate}`
-                      : ''}
-                  </p>
+                <div className={styles.movieInfo}>
+                  <div>
+                    <h3>{m.title}</h3>
+                    <p>
+                      {m.genres.join(' / ')} · {m.durationMin}分钟
+                      {m.nextShowDate && m.nextShowDate !== localDateISO()
+                        ? ` · 最近 ${m.nextShowDate}`
+                        : ''}
+                    </p>
+                  </div>
                   <button
                     type="button"
                     className="miaoyu-btn-primary"
                     style={{ height: 32, marginTop: 8 }}
-                    onClick={() => void selectShow(m)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void selectShow(m);
+                    }}
                   >
                     选场次
                   </button>
