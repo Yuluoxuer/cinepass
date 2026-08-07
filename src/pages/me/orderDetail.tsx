@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, history } from 'umi';
 import * as orderApi from '@/api/order';
 import type { OrderVO } from '@/types';
-import BlankPlaceholder from '@/components/BlankPlaceholder';
+import LoadingView from '@/components/LoadingView';
+import StateView from '@/components/StateView';
 import OrderQrModal from '@/components/OrderQrModal';
 import { useBookingStore } from '@/stores/booking';
 import { formatOrderSeatLabels } from '@/utils/format';
@@ -51,7 +52,7 @@ const OrderDetailPage: React.FC = () => {
   if (loading) {
     return (
       <div className="miaoyu-container">
-        <BlankPlaceholder variant="block" />
+        <LoadingView text="正在加载订单…" />
       </div>
     );
   }
@@ -62,7 +63,13 @@ const OrderDetailPage: React.FC = () => {
         <button type="button" className="miaoyu-btn-text" onClick={() => history.back()}>
           ← 返回
         </button>
-        <BlankPlaceholder variant="block" style={{ marginTop: 12 }} />
+        <StateView
+          variant="error"
+          title="订单不存在"
+          description="订单可能已过期或已被删除，请返回查看其他订单。"
+          actionLabel="返回"
+          onAction={() => history.back()}
+        />
       </div>
     );
   }

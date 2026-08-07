@@ -6,7 +6,8 @@ import type { OrderVO } from '@/types';
 import { useAuthStore } from '@/stores/auth';
 import { useBookingStore } from '@/stores/booking';
 import { useAgentStore } from '@/stores/agent';
-import BlankPlaceholder from '@/components/BlankPlaceholder';
+import LoadingView from '@/components/LoadingView';
+import StateView from '@/components/StateView';
 import { formatOrderSeatLabels } from '@/utils/format';
 import styles from './me.less';
 
@@ -66,14 +67,19 @@ function stubParts(iso?: string | null) {
 const OrdersPage: React.FC = () => {
   const [status, setStatus] = useState('');
   const [orders, setOrders] = useState<OrderVO[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const user = useAuthStore((s) => s.user);
   const openLogin = useAuthStore((s) => s.openLoginModal);
   const seatNameById = useBookingStore((s) => s.seatNameById);
   const openDrawer = useAgentStore((s) => s.openDrawer);
 
   const load = async () => {
+    setLoading(true);
+    setLoadFailed(false);
     if (!user) {
       const ok = await openLogin();
+      setLoading(false);
       if (!ok) return;
     }
     try {
@@ -81,6 +87,9 @@ const OrdersPage: React.FC = () => {
       setOrders(res.items);
     } catch {
       setOrders([]);
+      setLoadFailed(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -191,7 +200,19 @@ const OrdersPage: React.FC = () => {
           </div>
         );
       })}
-      {!orders.length ? <BlankPlaceholder variant="row" count={3} /> : null}
+      {loading && orders.length === 0 ? (
+        <LoadingView text="正在加载订单…" />
+      ) : !loading && loadFailed ? (
+        <StateView
+          variant="error"
+          title="订单加载失败"
+          description="请检查网络后重试。"
+          actionLabel="重试"
+          onAction={() => void load()}
+        />
+      ) : !orders.length ? (
+        <StateView variant="empty" title="暂无订单" description="购票后订单将展示在这里" />
+      ) : null}
     </div>
   );
 };

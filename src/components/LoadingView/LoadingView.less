@@ -1,0 +1,35 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-agent);
+  border-radius: 50%;
+  animation: loading-view-rotate 0.8s linear infinite;
+}
+
+.text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+@keyframes loading-view-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
