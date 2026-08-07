@@ -81,6 +81,32 @@
   flex-shrink: 0;
 }
 
+.locBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #313d50;
+  background: #202b3d;
+  color: #cbd5e1;
+  border-radius: 20px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.locBtn:hover:not(:disabled) {
+  background: #253448;
+  border-color: rgba(55, 183, 165, 0.55);
+  color: #fff;
+}
+
+.locBtn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
 .searchWrap {
   position: relative;
 }
