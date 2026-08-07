@@ -174,16 +174,6 @@ export function adminListOrders(params?: {
   return get<PageResult<OrderVO>>('/admin/orders', params);
 }
 
-/** 运营关闭待支付订单并释放座位；POST /admin/orders/:orderId/cancel。 */
-export function adminCancelOrder(orderId: string, reason?: string) {
-  return post<OrderVO>(`/admin/orders/${orderId}/cancel`, reason ? { reason } : {});
-}
-
-/** 运营核销已出票订单；POST /admin/orders/:orderId/consume。 */
-export function consumeTicket(orderId: string) {
-  return post<OrderVO>(`/admin/orders/${orderId}/consume`);
-}
-
 export function listUsers(params?: { page?: number; size?: number }) {
   return get<PageResult<AdminUserVO>>('/admin/users', params);
 }

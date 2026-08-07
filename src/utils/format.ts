@@ -1,6 +1,26 @@
+import { reachableHost } from '@/utils/lanIp';
+
 /** 兼容旧引用的轻量 format 工具 */
 export function formatMoney(n: number) {
   return `¥${n.toFixed(2)}`;
+}
+
+/**
+ * 后端 public-base-url 默认指向后端自身（如 http://localhost:8080），
+ * 拼出的 payUrl/redeemUrl 需改写为当前前端源，否则二维码扫码打到错误 host。
+ * 已指向当前源时原样返回；host 是 localhost 时自动替换为本机局域网 IP，
+ * 保证顾客手机扫码能连到这台机器（见 reachableHost）。
+ */
+export function mobileUrl(raw?: string | null): string {
+  if (!raw) return '';
+  try {
+    const u = new URL(raw, window.location.origin);
+    u.protocol = window.location.protocol;
+    u.host = reachableHost(window.location.host);
+    return u.toString();
+  } catch {
+    return raw;
+  }
 }
 
 export function formatDistance(meters: number | null | undefined) {

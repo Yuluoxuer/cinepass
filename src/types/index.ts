@@ -19,7 +19,7 @@ export type SeatType = 'normal' | 'couple' | 'disabled';
 /** 座位分区 code：座位图自定义，无枚举/正则限制（如 A/B/C、VIP） */
 export type SeatZone = string;
 export type SeatRemainLevel = 'ample' | 'tight' | 'almost_full';
-export type OrderStatus = 'pending_pay' | 'issued' | 'used' | 'cancelled';
+export type OrderStatus = 'pending_pay' | 'issued' | 'cancelled' | 'redeemed' | 'expired';
 export type LockStatus = 'active' | 'expired' | 'consumed' | 'released';
 
 export interface ZonePrice {
@@ -278,19 +278,29 @@ export interface PayQrVO {
   expireAt: string;
   payUrl: string;
   pollIntervalMs: number;
-  payToken?: string;
 }
 
 export interface PaySessionVO {
   orderId: string;
   amount: number;
-  expireAt: string;
+  expireAt: string | null;
   movieTitle: string;
   cinemaName: string;
   hallName: string;
   startTime: string;
   seatIds: string[];
+  /** 座位号列表（如「6排7座」，取自座位价区快照） */
+  seatNames: string[];
   status: OrderStatus;
+  /** 取票码；待支付为空，出票后非空 */
+  ticketCode: string | null;
+}
+
+/** 核销二维码返回体；前端将 redeemUrl 编码为二维码。 */
+export interface RedeemQrVO {
+  orderId: string;
+  ticketCode: string | null;
+  redeemUrl: string;
 }
 
 export interface TicketVerifyVO {

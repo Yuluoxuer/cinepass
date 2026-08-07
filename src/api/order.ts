@@ -5,6 +5,7 @@ import type {
   PageResult,
   PayQrVO,
   PaySessionVO,
+  RedeemQrVO,
 } from '@/types';
 
 export function lockSeats(body: { showId: string; seatIds: string[]; sessionId?: string }) {
@@ -59,5 +60,24 @@ export function payOrder(
   return post<OrderVO>(`/orders/${orderId}/pay`, body, {
     headers,
     skipAuth: !!payToken,
+  });
+}
+
+export function getRedeemQrcode(orderId: string) {
+  return get<RedeemQrVO>(`/orders/${orderId}/redeem-qrcode`);
+}
+
+export function getRedeemSession(orderId: string, t: string) {
+  return get<PaySessionVO>(`/orders/${orderId}/redeem-session`, { t }, { skipAuth: true });
+}
+
+export function redeemOrder(orderId: string, redeemToken?: string) {
+  const headers: Record<string, string> = {
+    'Idempotency-Key': idempotencyKey('redeem'),
+  };
+  if (redeemToken) headers['X-Redeem-Token'] = redeemToken;
+  return post<OrderVO>(`/orders/${orderId}/redeem`, {}, {
+    headers,
+    skipAuth: !!redeemToken,
   });
 }
