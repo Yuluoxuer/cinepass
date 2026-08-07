@@ -220,4 +220,85 @@
         WHERE order_id = #{orderId}
           AND status = 'pending_pay'
     </update>
+
+    <!-- 支付出票：清空支付截止，写入取票码/渠道/支付时间 -->
+    <update id="updateIssued" databaseId="postgresql">
+        UPDATE order_ticket
+        SET status = 'issued',
+            ticket_code = #{ticketCode},
+            pay_channel = #{payChannel},
+            pay_at = #{payAt},
+            expire_at = NULL,
+            updated_at = NOW()
+        WHERE order_id = #{orderId}
+          AND status = 'pending_pay'
+    </update>
+    <update id="updateIssued">
+        UPDATE order_ticket
+        SET status = 'issued',
+            ticket_code = #{ticketCode},
+            pay_channel = #{payChannel},
+            pay_at = #{payAt},
+            expire_at = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE order_id = #{orderId}
+          AND status = 'pending_pay'
+    </update>
+
+    <!-- 核销：仅已出票可转已核销 -->
+    <update id="updateRedeemed" databaseId="postgresql">
+        UPDATE order_ticket
+        SET status = 'redeemed', updated_at = NOW()
+        WHERE order_id = #{orderId}
+          AND status = 'issued'
+    </update>
+    <update id="updateRedeemed">
+        UPDATE order_ticket
+        SET status = 'redeemed', updated_at = CURRENT_TIMESTAMP
+        WHERE order_id = #{orderId}
+          AND status = 'issued'
+    </update>
+
+    <!-- 支付超时清扫：仅 pending_pay 且已过 DB 权威截止才会命中，与并发支付/取消互斥 -->
+    <update id="updateExpired" databaseId="postgresql">
+        UPDATE order_ticket
+        SET status = 'expired',
+            cancel_reason = 'pay_timeout',
+            expire_at = NULL,
+            updated_at = NOW()
+        WHERE order_id = #{orderId}
+          AND status = 'pending_pay'
+          AND expire_at IS NOT NULL
+          AND expire_at &lt; NOW()
+    </update>
+    <update id="updateExpired">
+        UPDATE order_ticket
+        SET status = 'expired',
+            cancel_reason = 'pay_timeout',
+            expire_at = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE order_id = #{orderId}
+          AND status = 'pending_pay'
+          AND expire_at IS NOT NULL
+          AND expire_at &lt; CURRENT_TIMESTAMP
+    </update>
+
+    <!-- 定时清扫候选：按截止时间升序，避免慢单长期占位 -->
+    <select id="selectExpiredPendingPay" resultType="string">
+        SELECT order_id FROM order_ticket
+        WHERE status = 'pending_pay'
+          AND expire_at IS NOT NULL
+          AND expire_at &lt; #{now}
+        ORDER BY expire_at ASC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 个人推荐行为偏好：用户已出票订单的影片 ID -->
+    <select id="selectIssuedMovieIdsByUser" resultType="string">
+        SELECT DISTINCT ss.movie_id
+        FROM order_ticket ot
+        INNER JOIN show_schedule ss ON ss.show_id = ot.show_id
+        WHERE ot.user_id = #{userId}
+          AND ot.status = 'issued'
+    </select>
 </mapper>

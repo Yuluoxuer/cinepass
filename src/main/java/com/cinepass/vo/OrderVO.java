@@ -56,7 +56,7 @@ public class OrderVO {
     /** 订单总金额 */
     private BigDecimal amount;
 
-    /** 状态：pending_pay / issued / cancelled */
+    /** 状态：pending_pay / issued / cancelled / redeemed / expired */
     private String status;
 
     /** 取票码；出票前可空 */

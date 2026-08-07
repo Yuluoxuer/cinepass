@@ -111,8 +111,11 @@ public class SecurityConfig {
                         ).permitAll()
                         .antMatchers("/api/v1/reco", "/api/v1/reco/**").permitAll()
                         .antMatchers("/api/v1/booking-drafts", "/api/v1/booking-drafts/**").permitAll()
+                        // 手机 H5 扫码拉摘要 / 确认支付/核销：免登录，靠二维码内签名 token 或本人 JWT 鉴权
                         .antMatchers(HttpMethod.GET, "/api/v1/orders/*/pay-session").permitAll()
-                        .antMatchers(HttpMethod.GET, "/api/v1/orders/*/pay-qrcode").permitAll()
+                        .antMatchers(HttpMethod.GET, "/api/v1/orders/*/redeem-session").permitAll()
+                        .antMatchers(HttpMethod.POST, "/api/v1/orders/*/pay").permitAll()
+                        .antMatchers(HttpMethod.POST, "/api/v1/orders/*/redeem").permitAll()
                         // 后台接口：至少 staff；更细粒度由 @Admin / @Staff 控制
                         .antMatchers("/api/v1/admin/**").hasAnyRole(Roles.STAFF, Roles.ADMIN)
                         .antMatchers("/api/v1/seat-maps", "/api/v1/seat-maps/**")

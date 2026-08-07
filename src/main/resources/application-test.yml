@@ -34,3 +34,7 @@ logging:
 search:
   elasticsearch:
     sync-enabled: false
+
+# 测试环境关闭超时清扫，避免 30s 定时任务干扰「过期订单」用例（如把人为置旧的订单提前转 expired）
+ticket:
+  expire-scan-enabled: false

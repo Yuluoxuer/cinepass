@@ -14,6 +14,12 @@ public final class OrderStatus {
     /** 已取消 */
     public static final String CANCELLED = "cancelled";
 
+    /** 已核销 */
+    public static final String REDEEMED = "redeemed";
+
+    /** 支付超时已过期（定时清扫标记，锁座与座位已释放） */
+    public static final String EXPIRED = "expired";
+
     private OrderStatus() {
     }
 }

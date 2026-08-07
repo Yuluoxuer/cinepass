@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.RecoStatsMapper">
+
+    <select id="selectAll" resultType="com.cinepass.model.RecoStats">
+        SELECT movie_id AS movieId, week_orders AS weekOrders, week_clicks AS weekClicks,
+               rating_norm AS ratingNorm, freshness, hot_score AS hotScore, computed_at AS computedAt
+        FROM reco_stats
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(1) FROM reco_stats
+    </select>
+
+    <select id="selectMaxComputedAt" resultType="java.time.OffsetDateTime">
+        SELECT MAX(computed_at) FROM reco_stats
+    </select>
+
+    <delete id="deleteAll">
+        DELETE FROM reco_stats
+    </delete>
+
+    <insert id="batchInsert" databaseId="postgresql">
+        INSERT INTO reco_stats (movie_id, week_orders, week_clicks, rating_norm, freshness, hot_score, computed_at)
+        VALUES
+        <foreach collection="rows" item="r" separator=",">
+            (#{r.movieId}, #{r.weekOrders}, #{r.weekClicks}, #{r.ratingNorm}, #{r.freshness}, #{r.hotScore}, #{r.computedAt})
+        </foreach>
+    </insert>
+    <insert id="batchInsert">
+        INSERT INTO reco_stats (movie_id, week_orders, week_clicks, rating_norm, freshness, hot_score, computed_at)
+        VALUES
+        <foreach collection="rows" item="r" separator=",">
+            (#{r.movieId}, #{r.weekOrders}, #{r.weekClicks}, #{r.ratingNorm}, #{r.freshness}, #{r.hotScore}, #{r.computedAt})
+        </foreach>
+    </insert>
+
+    <!-- 近 7 天已出票订单按影片计数；order_ticket 无 movie_id，JOIN show_schedule 补 -->
+    <select id="selectWeekOrderCounts" databaseId="postgresql" resultType="com.cinepass.model.RecoStats">
+        <![CDATA[
+        SELECT ss.movie_id AS movieId, COUNT(*) AS weekOrders
+        FROM order_ticket ot
+        JOIN show_schedule ss ON ss.show_id = ot.show_id
+        WHERE ot.status = 'issued' AND ot.created_at >= #{since}
+        GROUP BY ss.movie_id
+        ]]>
+    </select>
+    <select id="selectWeekOrderCounts" resultType="com.cinepass.model.RecoStats">
+        <![CDATA[
+        SELECT ss.movie_id AS movieId, COUNT(*) AS weekOrders
+        FROM order_ticket ot
+        JOIN show_schedule ss ON ss.show_id = ot.show_id
+        WHERE ot.status = 'issued' AND ot.created_at >= #{since}
+        GROUP BY ss.movie_id
+        ]]>
+    </select>
+
+    <!-- 近 7 天影片详情点击按影片 SUM -->
+    <select id="selectWeekClickCounts" resultType="com.cinepass.model.RecoStats">
+        SELECT movie_id AS movieId, SUM(cnt) AS weekClicks
+        FROM reco_clicks
+        WHERE click_date >= #{sinceDate}
+        GROUP BY movie_id
+    </select>
+</mapper>

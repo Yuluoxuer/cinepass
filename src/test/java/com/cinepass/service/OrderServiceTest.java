@@ -10,6 +10,7 @@ import com.cinepass.mapper.OrderTicketMapper;
 import com.cinepass.mapper.SeatLockMapper;
 import com.cinepass.mapper.SeatStatusMapper;
 import com.cinepass.mapper.ShowScheduleMapper;
+import com.cinepass.mapper.UserAccountMapper;
 import com.cinepass.model.OrderTicket;
 import com.cinepass.model.SeatLock;
 import com.cinepass.model.SeatPriceRow;
@@ -66,6 +67,8 @@ class OrderServiceTest {
     private SeatStatusMapper seatStatusMapper;
     @Mock
     private ShowScheduleMapper showScheduleMapper;
+    @Mock
+    private UserAccountMapper userAccountMapper;
 
     @InjectMocks
     private OrderServiceImpl orderService;

@@ -164,4 +164,22 @@
         WHERE lock_id = #{lockId}
           AND status = 'locked'
     </update>
+
+    <!-- 支付出票：锁定座位转已售；保留 lock_id/user_id 便于追溯 -->
+    <update id="markSoldByLockId" databaseId="postgresql">
+        UPDATE seat_status
+        SET status = 'sold',
+            expire_at = NULL,
+            updated_at = NOW()
+        WHERE lock_id = #{lockId}
+          AND status = 'locked'
+    </update>
+    <update id="markSoldByLockId">
+        UPDATE seat_status
+        SET status = 'sold',
+            expire_at = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE lock_id = #{lockId}
+          AND status = 'locked'
+    </update>
 </mapper>

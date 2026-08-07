@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.RecoClickMapper">
+
+    <!-- 当日点击 +1：PG ON CONFLICT / H2(MySQL 模式) ON DUPLICATE KEY，均为原子自增 -->
+    <update id="incrClick" databaseId="postgresql">
+        INSERT INTO reco_clicks (movie_id, click_date, cnt)
+        VALUES (#{movieId}, #{clickDate}, 1)
+        ON CONFLICT (movie_id, click_date) DO UPDATE SET cnt = reco_clicks.cnt + 1
+    </update>
+    <update id="incrClick">
+        INSERT INTO reco_clicks (movie_id, click_date, cnt)
+        VALUES (#{movieId}, #{clickDate}, 1)
+        ON DUPLICATE KEY UPDATE cnt = cnt + 1
+    </update>
+</mapper>
