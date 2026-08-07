@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { history } from 'umi';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAgentStore } from '@/stores/agent';
 import { useBookingStore } from '@/stores/booking';
 import { completedStepFlags, progressFromDraft } from '@/utils/bookingProgress';
@@ -17,13 +19,48 @@ const AgentDrawer: React.FC = () => {
   const sendMessage = useAgentStore((s) => s.sendMessage);
   const clickCardAction = useAgentStore((s) => s.clickCardAction);
   const draft = useBookingStore((s) => s.draft);
+  // 会话管理
+  const sessions = useAgentStore((s) => s.sessions);
+  const currentSessionId = useAgentStore((s) => s.currentSessionId);
+  const historyLoading = useAgentStore((s) => s.historyLoading);
+  const hasMoreHistory = useAgentStore((s) => s.hasMoreHistory);
+  const createNewSession = useAgentStore((s) => s.createNewSession);
+  const switchSession = useAgentStore((s) => s.switchSession);
+  const loadMoreHistory = useAgentStore((s) => s.loadMoreHistory);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const isLoadingMoreRef = useRef(false);
   const [text, setText] = React.useState('');
+  const [showSessionList, setShowSessionList] = React.useState(false);
 
+  // 新消息时滚动到底部（加载历史时不触发）
   useEffect(() => {
+    if (isLoadingMoreRef.current) {
+      isLoadingMoreRef.current = false;
+      return;
+    }
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, open]);
+
+  // 上滑到顶部时加载更多历史（保持滚动位置不跳变）
+  const onChatScroll = () => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    if (el.scrollTop < 30 && hasMoreHistory && !historyLoading) {
+      isLoadingMoreRef.current = true;
+      const prevScrollHeight = el.scrollHeight;
+      const prevScrollTop = el.scrollTop;
+      void loadMoreHistory().then(() => {
+        requestAnimationFrame(() => {
+          const node = chatScrollRef.current;
+          if (!node) return;
+          node.scrollTop = prevScrollTop + (node.scrollHeight - prevScrollHeight);
+        });
+      });
+    }
+  };
 
   if (!open) return null;
 
@@ -59,6 +96,8 @@ const AgentDrawer: React.FC = () => {
     ? '已完备步骤不会因打开助手而回退'
     : '偏好会与手动页面实时同步';
 
+  const currentSession = sessions.find((s) => s.sessionId === currentSessionId);
+
   return (
     <>
       <div className={styles.backdrop} onClick={closeDrawer} aria-hidden />
@@ -93,6 +132,64 @@ const AgentDrawer: React.FC = () => {
           </div>
         </header>
 
+        {/* 会话切换栏 */}
+        <div className={styles.sessionBar}>
+          <button
+            type="button"
+            className={styles.sessionSwitcher}
+            onClick={() => setShowSessionList((v) => !v)}
+          >
+            <span className={styles.sessionDot} />
+            <span className={styles.sessionTitle}>
+              {currentSession?.title || '当前对话'}
+            </span>
+            <span className={styles.sessionArrow}>{showSessionList ? '▲' : '▼'}</span>
+          </button>
+          <button
+            type="button"
+            className={styles.newSessionBtn}
+            onClick={() => {
+              setShowSessionList(false);
+              void createNewSession();
+            }}
+            title="新建对话"
+          >
+            + 新对话
+          </button>
+        </div>
+        {showSessionList && (
+          <div className={styles.sessionList}>
+            {sessions.length === 0 && (
+              <div className={styles.sessionEmpty}>暂无历史会话</div>
+            )}
+            {sessions.map((s) => (
+              <button
+                key={s.sessionId}
+                type="button"
+                className={`${styles.sessionItem} ${
+                  s.sessionId === currentSessionId ? styles.sessionItemActive : ''
+                }`}
+                onClick={() => {
+                  setShowSessionList(false);
+                  void switchSession(s.sessionId);
+                }}
+              >
+                <span className={styles.sessionItemTitle}>{s.title || '未命名对话'}</span>
+                {s.lastMessageAt && (
+                  <small className={styles.sessionItemTime}>
+                    {new Date(s.lastMessageAt).toLocaleString('zh-CN', {
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </small>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className={styles.agentProgress} aria-label="购票进度">
           {steps.map((s, i) => {
             const fieldDone = doneFlags[i] || i < stepIndex;
@@ -118,10 +215,25 @@ const AgentDrawer: React.FC = () => {
           </div>
         </div>
 
-        <div className={styles.chat}>
+        <div
+          className={styles.chat}
+          ref={chatScrollRef}
+          onScroll={onChatScroll}
+        >
+          {hasMoreHistory && (
+            <div className={styles.loadMore}>
+              {historyLoading ? '加载中…' : '↑ 上滑加载更多历史'}
+            </div>
+          )}
           {messages.map((m) => (
             <div key={m.id} className={`${styles.bubble} ${styles[m.role]}`}>
-              <div className={m.loading ? styles.loading : undefined}>{m.text}</div>
+              <div className={m.loading ? styles.loading : undefined}>
+                {m.role === 'assistant' ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+                ) : (
+                  m.text
+                )}
+              </div>
               {m.cards?.map((c) => (
                 <CardRenderer
                   key={c.cardId}

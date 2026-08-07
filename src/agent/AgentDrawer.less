@@ -104,6 +104,134 @@
   color: #8fe2d6;
 }
 
+/* 会话切换栏 */
+.sessionBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--color-bg-ink-soft);
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sessionSwitcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: #cdd5e0;
+  cursor: pointer;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.sessionSwitcher:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.sessionDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-agent);
+  flex-shrink: 0;
+}
+
+.sessionTitle {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.sessionArrow {
+  font-size: 9px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.newSessionBtn {
+  background: var(--color-agent);
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.newSessionBtn:hover {
+  background: #2fa394;
+}
+
+.sessionList {
+  background: var(--color-bg-ink-soft);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  max-height: 240px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.sessionEmpty {
+  padding: 16px;
+  text-align: center;
+  color: #707b8c;
+  font-size: 12px;
+}
+
+.sessionItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 10px 16px;
+  color: #cdd5e0;
+  cursor: pointer;
+}
+
+.sessionItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sessionItemActive {
+  background: rgba(55, 183, 165, 0.12);
+  border-left: 3px solid var(--color-agent);
+}
+
+.sessionItemTitle {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessionItemTime {
+  font-size: 10px;
+  color: #707b8c;
+}
+
+.loadMore {
+  text-align: center;
+  padding: 10px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  background: rgba(55, 183, 165, 0.04);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
 .agentProgress {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -204,6 +332,30 @@
   border-radius: 3px 14px 14px 14px;
   background: white;
   border: 1px solid #e3ded6;
+
+  /* markdown 表格样式 */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin: 6px 0;
+  }
+
+  th,
+  td {
+    border: 1px solid #e0dbd2;
+    padding: 4px 8px;
+    text-align: left;
+  }
+
+  th {
+    background: #f5f2ec;
+    font-weight: 600;
+  }
+
+  tbody tr:nth-child(even) {
+    background: #faf8f3;
+  }
 }
 
 .user {
