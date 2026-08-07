@@ -17,8 +17,10 @@ import com.cinepass.service.BookingDraftService;
 import com.cinepass.service.LockService;
 import com.cinepass.service.SeatInventoryService;
 import com.cinepass.util.LockIds;
+import com.cinepass.util.RedisUtil;
 import com.cinepass.vo.LockVO;
 import com.cinepass.vo.UnlockResultVO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -38,6 +40,7 @@ import java.util.Set;
 /**
  * {@link LockService} 实现。
  * <p>行锁 seat_status；过期 locked 先释放再占；可选回写 Draft。
+ * <p>幂等：传入 idempotencyKey 时，同 key 重复请求从 Redis 返回首次结果（TTL=锁座最大 TTL）。
  */
 @Service
 public class LockServiceImpl implements LockService {
@@ -47,6 +50,8 @@ public class LockServiceImpl implements LockService {
     private static final int DEFAULT_TTL = 900;
     private static final int MIN_TTL = 60;
     private static final int MAX_TTL = 900;
+    private static final String IDEMPOTENCY_PREFIX = "idempotency:lock:";
+    private static final int IDEMPOTENCY_TTL = 900;
 
     private final ShowMapper showMapper;
     private final SeatMapper seatMapper;
@@ -54,6 +59,9 @@ public class LockServiceImpl implements LockService {
     private final SeatLockMapper seatLockMapper;
     private final SeatInventoryService seatInventoryService;
     private final BookingDraftService bookingDraftService;
+
+    @Autowired(required = false)
+    private RedisUtil redisUtil;
 
     public LockServiceImpl(ShowMapper showMapper,
                            SeatMapper seatMapper,
@@ -71,7 +79,19 @@ public class LockServiceImpl implements LockService {
 
     @Override
     @Transactional
-    public LockVO create(String userId, CreateLockDTO dto) {
+    public LockVO create(String userId, CreateLockDTO dto, String idempotencyKey) {
+        // 幂等检查：同 idempotencyKey 的重复请求直接返回首次结果
+        if (StringUtils.hasText(idempotencyKey) && redisUtil != null) {
+            String cacheKey = IDEMPOTENCY_PREFIX + idempotencyKey.trim();
+            Object cached = redisUtil.get(cacheKey);
+            if (cached instanceof String) {
+                LockVO cachedVo = JSON.parseObject((String) cached, LockVO.class);
+                if (cachedVo != null && cachedVo.getLockId() != null) {
+                    return cachedVo;
+                }
+            }
+        }
+
         if (!StringUtils.hasText(userId)) {
             throw new BusinessException(ResultCode.UNAUTHORIZED_TOKEN);
         }
@@ -165,7 +185,22 @@ public class LockServiceImpl implements LockService {
             bookingDraftService.bindLock(sessionId, lockId, seatIds, ISO.format(expireAt), userId);
         }
 
-        return toVo(lock, seatIds);
+        LockVO vo = toVo(lock, seatIds);
+
+        // 幂等缓存：成功后写入 Redis，同 key 重复请求直接返回此结果
+        if (StringUtils.hasText(idempotencyKey) && redisUtil != null) {
+            try {
+                redisUtil.set(
+                        IDEMPOTENCY_PREFIX + idempotencyKey.trim(),
+                        JSON.toJSONString(vo),
+                        IDEMPOTENCY_TTL
+                );
+            } catch (Exception ignored) {
+                // Redis 写入失败不影响主流程
+            }
+        }
+
+        return vo;
     }
 
     @Override

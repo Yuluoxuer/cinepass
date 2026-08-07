@@ -37,13 +37,14 @@ public class LockController {
         this.lockService = lockService;
     }
 
-    /** 锁座；Header Idempotency-Key 可选（MVP 可不落库） */
+    /**
+     * 锁座；Header Idempotency-Key 可选——传入时同 key 重复请求返回首次结果（Redis 缓存 900s）
+     */
     @PostMapping
-    @LoginUser
     public Result<LockVO> create(
             @Valid @RequestBody CreateLockDTO dto,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
-        return Result.success(lockService.create(SecurityContext.getCurrentUserId(), dto));
+        return Result.success(lockService.create(SecurityContext.getCurrentUserId(), dto, idempotencyKey));
     }
 
     /** 查询锁座；仅本人 */
