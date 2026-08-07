@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { QRCode } from 'antd';
 import type { AgentCardVO, CardAction, MovieVO, CinemaVO, ShowVO, SeatPlanVO, OrderVO } from '@/types';
 import * as orderApi from '@/api/order';
+import { mobileUrl } from '@/utils/format';
 import styles from './CardRenderer.less';
 
 interface Props {
@@ -224,8 +225,8 @@ function PayMockCard({
     <div className={styles.card}>
       <div className={styles.title}>扫码支付（不会代付）</div>
       <p>金额 ¥{String(payload.amount)}</p>
-      {payUrl ? <QRCode value={payUrl} size={144} bordered={false} /> : <p>支付链接生成失败</p>}
-      <a href={payUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, wordBreak: 'break-all' }}>
+      {payUrl ? <QRCode value={mobileUrl(payUrl)} size={144} bordered={false} /> : <p>支付链接生成失败</p>}
+      <a href={mobileUrl(payUrl)} target="_blank" rel="noreferrer" style={{ fontSize: 12, wordBreak: 'break-all' }}>
         在手机上打开支付页
       </a>
       <p style={{ color: '#999', fontSize: 12 }}>{status === 'issued' ? '已支付' : '等待手机确认…'}</p>

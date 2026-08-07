@@ -14,19 +14,25 @@ const TABS = [
   { key: '', label: '全部' },
   { key: 'pending_pay', label: '待支付' },
   { key: 'issued', label: '已出票' },
+  { key: 'redeemed', label: '已核销' },
   { key: 'cancelled', label: '已取消' },
+  { key: 'expired', label: '已过期' },
 ];
 
 const STATUS_CLASS: Record<string, string> = {
   pending_pay: styles.statusPending,
   issued: styles.statusIssued,
+  redeemed: styles.statusIssued,
   cancelled: styles.statusCancelled,
+  expired: styles.statusCancelled,
 };
 
 const STATUS_LABEL: Record<string, string> = {
   pending_pay: '待支付',
   issued: '已出票',
+  redeemed: '已核销',
   cancelled: '已取消',
+  expired: '已过期',
 };
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];

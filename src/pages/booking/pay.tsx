@@ -7,6 +7,7 @@ import BookingProgress from '@/components/BookingProgress';
 import BlankPlaceholder from '@/components/BlankPlaceholder';
 import { useLockCountdown } from '@/features/seatmap/useLockCountdown';
 import { getSessionId } from '@/stores/booking';
+import { mobileUrl } from '@/utils/format';
 import styles from './booking.less';
 
 const PayPage: React.FC = () => {
@@ -107,14 +108,14 @@ const PayPage: React.FC = () => {
               <>
                 <div className={styles.qr}>
                   <QRCode
-                    value={qr.payUrl}
+                    value={mobileUrl(qr.payUrl)}
                     type="svg"
                     size={224}
                     errorLevel="M"
                     bordered={false}
                   />
                 </div>
-                <a href={qr.payUrl} target="_blank" rel="noreferrer">
+                <a href={mobileUrl(qr.payUrl)} target="_blank" rel="noreferrer">
                   在手机上打开支付页
                 </a>
                 <p>请使用手机扫码完成支付 · 等待确认中…</p>

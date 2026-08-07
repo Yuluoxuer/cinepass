@@ -2,16 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { history, useLocation } from 'umi';
 import { message, QRCode } from 'antd';
 import * as orderApi from '@/api/order';
-import type { OrderVO } from '@/types';
+import type { OrderVO, RedeemQrVO } from '@/types';
 import BlankPlaceholder from '@/components/BlankPlaceholder';
 import { useBookingStore } from '@/stores/booking';
-import { formatOrderSeatLabels } from '@/utils/format';
+import { formatOrderSeatLabels, mobileUrl } from '@/utils/format';
 import styles from './booking.less';
 
 const TicketPage: React.FC = () => {
   const loc = useLocation();
   const orderId = new URLSearchParams(loc.search).get('orderId') || '';
   const [order, setOrder] = useState<OrderVO | null>(null);
+  const [redeemQr, setRedeemQr] = useState<RedeemQrVO | null>(null);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
   const seatNameById = useBookingStore((s) => s.seatNameById);
@@ -23,11 +24,19 @@ const TicketPage: React.FC = () => {
       return;
     }
     setLoading(true);
+    setRedeemQr(null);
     void orderApi
       .getOrder(orderId)
       .then((o) => {
         setOrder(o);
         setMissing(false);
+        // 已出票订单生成入场核销二维码
+        if (o.status === 'issued') {
+          void orderApi
+            .getRedeemQrcode(orderId)
+            .then(setRedeemQr)
+            .catch(() => setRedeemQr(null));
+        }
       })
       .catch(() => {
         setOrder(null);
@@ -53,16 +62,26 @@ const TicketPage: React.FC = () => {
   }
 
   const seats = formatOrderSeatLabels(order, seatNameById);
+  const redeemed = order.status === 'redeemed';
 
   return (
     <div className="miaoyu-container">
       <div className={styles.ticketOk}>
-        <h1>✓ 购票成功</h1>
-        {order.qrPayload ? (
-          <div className={styles.qr} style={{ margin: '24px auto' }}>
-            <QRCode value={order.qrPayload} size={180} bordered={false} />
-          </div>
-        ) : null}
+        <h1>{redeemed ? '✓ 已核销' : '✓ 购票成功'}</h1>
+        {redeemed ? (
+          <p>该票券已核销，可正常入场。</p>
+        ) : (
+          <>
+            <div className={styles.qr} style={{ margin: '24px auto' }}>
+              {redeemQr?.redeemUrl ? (
+                <QRCode value={mobileUrl(redeemQr.redeemUrl)} size={180} bordered={false} />
+              ) : (
+                <BlankPlaceholder variant="block" style={{ width: 180, height: 180 }} />
+              )}
+            </div>
+            <p style={{ color: '#999', fontSize: 13 }}>入场核销码 · 请到影院出示核销</p>
+          </>
+        )}
         <p>
           取票码 {order.ticketCode}{' '}
           <button

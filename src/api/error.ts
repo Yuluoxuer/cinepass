@@ -2,6 +2,35 @@ import { message } from 'antd';
 import { history } from 'umi';
 import { ApiError } from '@/types';
 
+/**
+ * 扫码支付/核销流程错误文案。后端错误 envelope 只带数字 code（无 errorCode 字符串），
+ * 这里按业务码映射可直接展示的提示。
+ */
+export function qrFlowErrorMessage(error: ApiError, mode: 'pay' | 'redeem'): string {
+  switch (error.code) {
+    case 4101:
+      return '支付已超时，请重新下单';
+    case 4103:
+      return '仅待支付订单可发起支付';
+    case 4104:
+      return '仅已出票订单可核销';
+    case 4105:
+    case 4107:
+      return '二维码无效，请重新生成';
+    case 4106:
+    case 4108:
+      return '二维码已失效，请重新生成';
+    case 404:
+      return '订单不存在';
+    case 40101:
+      return '链接无效或未授权';
+    case 40301:
+      return '无权操作该订单';
+    default:
+      return error.message || `${mode === 'pay' ? '支付' : '核销'}失败，请稍后重试`;
+  }
+}
+
 /** 将后端错误码映射为可直接展示给用户的提示。 */
 export function formatApiError(error: ApiError): string {
   if (error.errorCode === 'UNAUTHORIZED' || error.httpStatus === 401 || error.code === 401 || error.code === 40101) {
