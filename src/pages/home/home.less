@@ -13,15 +13,36 @@
 }
 
 .heroFeature {
-  min-height: 440px;
   background: var(--color-bg-ink);
   position: relative;
   overflow: hidden;
   color: white;
   padding: 54px;
+  border-radius: 2px 22px 2px 22px;
+}
+
+.heroCarousel {
+  width: 100%;
+}
+
+.heroCarousel :global(.slick-track) {
   display: flex;
   align-items: center;
-  border-radius: 2px 22px 2px 22px;
+}
+
+.heroCarousel :global(.slick-slide) {
+  height: 380px;
+}
+
+.heroCarousel :global(.slick-slide > div) {
+  height: 100%;
+}
+
+.heroSlide {
+  position: relative;
+  height: 380px;
+  display: flex;
+  align-items: center;
 }
 
 .heroFeature::before {
@@ -45,6 +66,7 @@
   line-height: 1.08;
   margin: 18px 0;
   font-weight: 800;
+  color: #fff;
 }
 
 .heroCopy p {
@@ -121,10 +143,10 @@
 
 .posterStage {
   position: absolute;
-  right: 34px;
-  top: 32px;
-  width: 280px;
-  height: 375px;
+  right: 10px;
+  top: 18px;
+  width: 260px;
+  height: 344px;
   z-index: 2;
   box-shadow: var(--shadow-poster);
   transform: rotate(2.5deg);
@@ -162,6 +184,66 @@
   transform: rotate(18deg);
   pointer-events: none;
   z-index: 1;
+}
+
+/* ── Carousel dots ── */
+.carouselDots {
+  position: absolute;
+  bottom: 26px;
+  left: 54px;
+  display: flex;
+  gap: 6px;
+  z-index: 3;
+}
+
+.carouselDot {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.carouselDot:hover {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.carouselDotActive {
+  background: var(--color-tungsten);
+  transform: scale(1.2);
+}
+
+/* ── Carousel arrows ── */
+.carouselArrows {
+  position: absolute;
+  bottom: 18px;
+  right: 24px;
+  display: flex;
+  gap: 8px;
+  z-index: 3;
+}
+
+.carouselArrow {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.carouselArrow:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
 }
 
 /* ── Agent prompt card ── */
