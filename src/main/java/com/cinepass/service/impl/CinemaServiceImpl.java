@@ -106,9 +106,9 @@ public class CinemaServiceImpl implements CinemaService {
         }
         int actualPage = normalizePage(page);
         int actualSize = normalizeSize(size);
-        int radius = radiusMeters == null ? 5000 : radiusMeters;
-        long total = cinemaMapper.countNearby(q, movieId, lat, lng, radius);
-        List<Cinema> rows = cinemaMapper.selectNearby(q, movieId, lat, lng, radius, sort,
+        // radiusMeters 为 null 时不加距离过滤（仅按距离排序）；显式传值才限制半径
+        long total = cinemaMapper.countNearby(q, movieId, lat, lng, radiusMeters);
+        List<Cinema> rows = cinemaMapper.selectNearby(q, movieId, lat, lng, radiusMeters, sort,
                 (actualPage - 1) * actualSize, actualSize);
         List<CinemaVO> items = new ArrayList<>();
         if (rows != null) {
@@ -178,9 +178,8 @@ public class CinemaServiceImpl implements CinemaService {
                                                          Integer radiusMeters, String sort,
                                                          int page, int size) {
         String mysqlSort = "price".equals(sort) ? "price" : "distance";
-        int radius = radiusMeters == null ? 50000 : radiusMeters;
-        long total = cinemaMapper.countNearby(q, movieId, lat, lng, radius);
-        List<Cinema> rows = cinemaMapper.selectNearby(q, movieId, lat, lng, radius,
+        long total = cinemaMapper.countNearby(q, movieId, lat, lng, radiusMeters);
+        List<Cinema> rows = cinemaMapper.selectNearby(q, movieId, lat, lng, radiusMeters,
                 mysqlSort, (page - 1) * size, size);
         List<CinemaVO> items = new ArrayList<>();
         if (rows != null) {
