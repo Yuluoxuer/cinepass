@@ -4,6 +4,8 @@ import { history, useLocation } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { ShowVO, MovieVO, CinemaVO } from '@/types';
 import BookingProgress from '@/components/BookingProgress';
+import LoadingView from '@/components/LoadingView';
+import StateView from '@/components/StateView';
 import { useBookingStore } from '@/stores/booking';
 import { useAgentStore } from '@/stores/agent';
 import { addLocalDays, localDateISO } from '@/utils/format';
@@ -141,8 +143,8 @@ const BookingShowsPage: React.FC = () => {
               ))}
             </div>
             <div className={styles.showList}>
-              {contextError ? <div className={styles.emptyShows}>影片或影院信息加载失败，请检查网络后重试。<button type="button" className="miaoyu-btn-secondary" onClick={() => setReloadVersion((version) => version + 1)}>重新加载</button></div> : null}
-              {showLoading ? <div className={styles.emptyShows}>正在加载场次…</div> : showsError ? <div className={styles.emptyShows}>场次加载失败，请检查网络后重试。<button type="button" className="miaoyu-btn-secondary" onClick={() => setReloadVersion((version) => version + 1)}>重新加载</button></div> : shows.map((s) => (
+              {contextError ? <StateView variant="error" title="信息加载失败" description={contextError} actionLabel="重新加载" onAction={() => setReloadVersion((version) => version + 1)} /> : null}
+              {showLoading ? <LoadingView text="正在加载场次…" /> : showsError ? <StateView variant="error" title="场次加载失败" description={showsError} actionLabel="重新加载" onAction={() => setReloadVersion((version) => version + 1)} /> : shows.map((s) => (
                   <div key={s.showId} className={styles.showRow}>
                     <div className={styles.time}>
                       {fmt(s.startTime)} - {fmt(s.endTime)}
@@ -163,7 +165,7 @@ const BookingShowsPage: React.FC = () => {
                     </button>
                   </div>
               ))}
-              {!contextError && !showLoading && !showsError && shows.length === 0 ? <div className={styles.emptyShows}>该日暂无可售场次，请换一天看看</div> : null}
+              {!contextError && !showLoading && !showsError && shows.length === 0 ? <StateView variant="empty" title="暂无场次" description="该日暂无可售场次，请换一天看看" /> : null}
             </div>
           </section>
           <aside className={styles.draftPanel} aria-label="当前购票草稿">

@@ -4,7 +4,7 @@ import { message } from 'antd';
 import * as catalogApi from '@/api/catalog';
 import type { MovieVO, CinemaVO } from '@/types';
 import { useBookingStore } from '@/stores/booking';
-import { wgs84ToGcj02 } from '@/components/AmapLocationPicker/cityMap';
+import { useLocationStore } from '@/stores/location';
 import BlankPlaceholder from '@/components/BlankPlaceholder';
 import styles from './search.less';
 
@@ -34,9 +34,7 @@ const SearchPage: React.FC = () => {
   const [cinemaPage, setCinemaPage] = useState(1);
   const [cinemaLoading, setCinemaLoading] = useState(false);
   const [cinemaSort, setCinemaSort] = useState<CinemaSort>('default');
-  const [userLat, setUserLat] = useState<number | undefined>();
-  const [userLng, setUserLng] = useState<number | undefined>();
-  const [locating, setLocating] = useState(false);
+  const locationStore = useLocationStore();
 
   const patchLocal = useBookingStore((s) => s.patchLocal);
 
@@ -82,9 +80,10 @@ const SearchPage: React.FC = () => {
           sort?: 'distance';
         } = { q: q || undefined, page: cinemaPage, size: PAGE_SIZE };
 
-        if (cinemaSort === 'distance' && userLat != null && userLng != null) {
-          params.lat = userLat;
-          params.lng = userLng;
+        const locData = useLocationStore.getState().ensureLocation();
+        if (cinemaSort === 'distance' && locData) {
+          params.lat = locData.lat;
+          params.lng = locData.lng;
           params.sort = 'distance';
         }
 
@@ -97,36 +96,23 @@ const SearchPage: React.FC = () => {
       }
     })();
     return () => { c = true; };
-  }, [q, cinemaPage, cinemaSort, userLat, userLng, tab]);
+  }, [q, cinemaPage, cinemaSort, locationStore.lat, locationStore.lng, tab]);
 
   const onTabChange = (next: 'movie' | 'cinema') => {
     setTab(next);
   };
 
   const onSortChange = async (sort: CinemaSort) => {
-    if (sort === 'distance' && userLat == null) {
-      // 尝试获取位置
-      setLocating(true);
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) {
-            reject(new Error('浏览器不支持定位'));
-            return;
-          }
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: false,
-            timeout: 10_000,
-            maximumAge: 300_000, // 5 分钟内缓存有效
-          });
-        });
-        const [lng, lat] = wgs84ToGcj02(pos.coords.longitude, pos.coords.latitude);
-        setUserLng(lng);
-        setUserLat(lat);
-      } catch {
-        message.warning('无法获取位置，请确认已授权定位权限');
-        return; // 不切换排序
-      } finally {
-        setLocating(false);
+    if (sort === 'distance') {
+      const store = useLocationStore.getState();
+      if (store.permission === 'idle' || store.permission === 'denied') {
+        message.info('请先在顶部导航栏点击「定位」按钮授权定位后，再按距离排序');
+        return;
+      }
+      const locData = store.ensureLocation();
+      if (!locData) {
+        message.info('定位已过期或不可用，请点击顶部导航栏「定位」按钮刷新位置');
+        return;
       }
     }
     setCinemaSort(sort);
@@ -202,7 +188,7 @@ const SearchPage: React.FC = () => {
   };
 
   const renderCinemaList = () => {
-    if (cinemaLoading || locating) return <BlankPlaceholder variant="row" count={5} />;
+    if (cinemaLoading || locationStore.locating) return <BlankPlaceholder variant="row" count={5} />;
     if (cinemas.items.length === 0) {
       return <p className={styles.empty}>{q ? `未找到与「${q}」相关的影院` : '请输入关键词搜索'}</p>;
     }
@@ -210,7 +196,6 @@ const SearchPage: React.FC = () => {
       <>
         {/* 排序选择器 */}
         <div className={styles.sortBar}>
-          <span className={styles.sortLabel}>排序：</span>
           {([
             ['default', '综合'],
             ['distance', '距离优先'],

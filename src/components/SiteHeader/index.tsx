@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { history, useLocation } from 'umi';
+import { message } from 'antd';
+import { AimOutlined } from '@ant-design/icons';
 import { useAgentStore } from '@/stores/agent';
 import { isStaffOrAdmin, useAuthStore } from '@/stores/auth';
+import { useLocationStore } from '@/stores/location';
 import { searchSuggestions } from '@/api/catalog';
 import styles from './SiteHeader.less';
 
@@ -18,12 +21,36 @@ const SiteHeader: React.FC = () => {
   const openDrawer = useAgentStore((s) => s.openDrawer);
   const user = useAuthStore((s) => s.user);
   const openLogin = useAuthStore((s) => s.openLoginModal);
+  const cityName = useLocationStore((s) => s.cityName);
+  const locating = useLocationStore((s) => s.locating);
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  const onLocateClick = async () => {
+    const store = useLocationStore.getState();
+    try {
+      await store.requestLocation();
+      const city = useLocationStore.getState().cityName;
+      if (city) {
+        message.success(`已定位到${city}`);
+      } else {
+        message.success('定位成功');
+      }
+    } catch (error) {
+      const permission = useLocationStore.getState().permission;
+      if (permission === 'denied') {
+        message.warning('定位权限被拒绝，请在浏览器设置中允许获取位置');
+      } else if (permission === 'unavailable') {
+        message.warning('您的浏览器不支持定位功能');
+      } else {
+        message.warning('定位失败，请稍后重试');
+      }
+    }
+  };
 
   // 点击外部关闭下拉
   useEffect(() => {
@@ -99,6 +126,16 @@ const SiteHeader: React.FC = () => {
           ))}
         </nav>
         <div className={styles.actions}>
+          <button
+            type="button"
+            className={styles.locBtn}
+            aria-label="定位"
+            disabled={locating}
+            onClick={() => void onLocateClick()}
+          >
+            <AimOutlined spin={locating} />
+            {cityName || '定位'}
+          </button>
           <div className={styles.searchWrap} ref={searchContainerRef}>
             <form className={styles.search} onSubmit={onSearch}>
               <span aria-hidden>⌕</span>

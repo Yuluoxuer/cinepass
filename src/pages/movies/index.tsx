@@ -3,7 +3,8 @@ import { history, useLocation } from 'umi';
 import * as catalogApi from '@/api/catalog';
 import type { MovieVO } from '@/types';
 import { useBookingStore } from '@/stores/booking';
-import BlankPlaceholder from '@/components/BlankPlaceholder';
+import LoadingView from '@/components/LoadingView';
+import StateView from '@/components/StateView';
 import styles from './movies.less';
 
 const MoviesPage: React.FC = () => {
@@ -67,8 +68,10 @@ const MoviesPage: React.FC = () => {
           </button>
         ))}
       </div>
-      {loading || data.items.length === 0 ? (
-        <BlankPlaceholder variant="row" count={5} />
+      {loading ? (
+        <LoadingView text="正在加载影片…" />
+      ) : data.items.length === 0 ? (
+        <StateView variant="empty" title={q ? `未找到「${q}」` : '暂无影片'} description={q ? '换个关键词试试，或看看正在热映的电影' : '当前暂无影片，请稍后再来看看'} />
       ) : (
         <div className={styles.list}>
           {data.items.map((m) => (
