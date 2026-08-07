@@ -64,6 +64,8 @@ class AgentTurnRequest(BaseModel):
     cardAction: CardActionBody | None = None
     clientDraftVersion: int | None = None
     debug: bool = False
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class AgentTurnDraftVO(BaseModel):
@@ -356,8 +358,8 @@ async def agent_turns(
         payload: dict[str, Any] = {
             "message": message,
             "authorization": authorization,
-            "latitude": None,
-            "longitude": None,
+            "latitude": body.latitude,
+            "longitude": body.longitude,
             "sessionId": sid,
         }
         result = await graph.ainvoke(payload, config)
