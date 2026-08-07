@@ -36,7 +36,7 @@ __all__ = [..., "new_tool"]
 ## Dependencies
 
 ### Internal
-- 被 `agent/subagent/helper_agent.py` 调用
+- 被 `../subagent/subagents/helper_agent.py` 调用
 
 ### External
 - 仅标准库（`datetime`）

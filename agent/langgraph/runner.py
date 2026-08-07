@@ -107,9 +107,7 @@ async def stream_chat(
     cp = get_checkpointer()
 
     with use_authorization(authorization):
-        route = _route_message(message)
-        yield {"type": "route", "route": route, "session_id": sid}
-
+        # 先获取历史，供 LLM 路由判断上下文（如"附近的"结合上文"哪吒"→cinema）
         seeded_from_client = False
         prev_history: list[dict[str, str]] = []
         if cp is not None:
@@ -120,6 +118,9 @@ async def stream_chat(
                 seeded_from_client = True
         else:
             prev_history = list(history or [])
+
+        route = await _route_message(message, history=prev_history)
+        yield {"type": "route", "route": route, "session_id": sid}
 
         agent = get_subagents()[route]
         parts: list[str] = []

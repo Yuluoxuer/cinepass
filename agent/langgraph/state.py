@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import operator
-from typing import Annotated, TypedDict
+from typing import Annotated, Any, TypedDict
 
 
 def _replace(left: list[str] | None, right: list[str] | None) -> list[str]:
@@ -10,6 +10,11 @@ def _replace(left: list[str] | None, right: list[str] | None) -> list[str]:
     if right is None:
         return left or []
     return right
+
+
+def _replace_any(left: Any, right: Any) -> Any:
+    """每轮覆盖（通用版）。"""
+    return right if right is not None else left
 
 
 class GraphState(TypedDict, total=False):
@@ -22,3 +27,11 @@ class GraphState(TypedDict, total=False):
     route: str
     reply: str
     events: Annotated[list[str], _replace]
+    # ---------- 动态卡片（电影/影院/场次列表） ----------
+    cards: Annotated[list[dict[str, Any]], _replace_any]
+    # ---------- BookingDraft 流程扩展 ----------
+    intent: str
+    bookingdraft: dict[str, Any]
+    draft_complete: bool
+    missing_fields: list[str]
+    sessionId: str

@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from agent.langgraph.graph import _route_message
 from agent.http import _merge_auth_headers
 from agent.request_context import use_authorization
-from agent.subagent.cinema_agent import CinemaSubAgent
+from agent.subagent.subagents.cinema_agent import CinemaSubAgent
 from agent.tools import cinema_tools
 from fapi.main import app
 from fapi.models.chat import ChatRequest
