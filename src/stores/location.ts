@@ -195,11 +195,13 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       }
 
       // 3) 交叉校验：浏览器结果境外、或与 IP 城市相距过远 → 判定不可信，丢弃
+      // 阈值 200km：正常浏览器定位与 IP 城市中心应基本同城（<100km）；
+      // 梯子残留（如香港距湘潭约 620km、新加坡约 3800km）会远超阈值被丢弃
       if (browserLoc && ipLoc) {
         const dist = haversineKm(browserLoc.lat, browserLoc.lng, ipLoc.lat, ipLoc.lng);
         console.log('[定位调试] 浏览器与IP定位距离:', dist.toFixed(2), 'km');
         console.log('[定位调试] 浏览器定位是否在中国:', isInChina(browserLoc.lng, browserLoc.lat));
-        if (!isInChina(browserLoc.lng, browserLoc.lat) || dist > 800) {
+        if (!isInChina(browserLoc.lng, browserLoc.lat) || dist > 200) {
           console.log('[定位调试] 浏览器定位被丢弃（境外或距离过远）');
           browserLoc = null; // 丢弃不可信结果
         }
