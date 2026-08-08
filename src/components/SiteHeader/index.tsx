@@ -169,13 +169,15 @@ const SiteHeader: React.FC = () => {
             )}
           </div>
 
-          <button type="button" className={styles.agentBtn} onClick={() => openDrawer()}>
-            <span className={styles.spark} aria-hidden>
-              ✦
-            </span>
-            妙语助手
-            <span className={styles.agentState}>可对话</span>
-          </button>
+          {user && (
+            <button type="button" className={styles.agentBtn} onClick={() => openDrawer()}>
+              <span className={styles.spark} aria-hidden>
+                ✦
+              </span>
+              妙语助手
+              <span className={styles.agentState}>可对话</span>
+            </button>
+          )}
           <button
             type="button"
             className={styles.avatar}
