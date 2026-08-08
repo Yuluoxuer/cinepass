@@ -91,7 +91,6 @@ export default defineConfig({
   ],
   npmClient: 'pnpm',
   proxy: {
-    // Agent 服务独立端口 8001，需在通用 /api 转发之前命中（umi 按最长前缀匹配）
     '/api/v1/agent': {
       target: 'http://localhost:8001',
       changeOrigin: true,

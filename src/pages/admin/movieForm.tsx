@@ -190,19 +190,11 @@ const MovieFormPage: React.FC = () => {
           label="上映日"
           rules={[
             { required: true, message: '请选择上映日' },
-            {
-              validator: async (_, value) => {
-                if (value && dayjs(value).startOf('day').isBefore(dayjs().startOf('day'))) {
-                  throw new Error('上映日不能早于今天');
-                }
-              },
-            },
           ]}
         >
           <DatePicker
             locale={zhCN.DatePicker}
             format="YYYY-MM-DD"
-            disabledDate={(current) => current && current.startOf('day').isBefore(dayjs().startOf('day'))}
             style={{ width: '100%' }}
           />
         </Form.Item>

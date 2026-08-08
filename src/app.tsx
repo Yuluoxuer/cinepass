@@ -88,9 +88,17 @@ function isPublicPath(pathname: string) {
 
 export function onRouteChange({ location }: { location: { pathname: string } }) {
   const { pathname } = location;
+  const { accessToken, user } = useAuthStore.getState();
+
+  // 新增：staff/admin用户禁止访问购票界面，只能访问后台
+  if (!isAdminPath(pathname) && accessToken && user && isStaffOrAdmin(user.role)) {
+    message.error('管理员账户仅可访问后台，请直接访问 /admin');
+    window.location.replace('/admin');
+    return;
+  }
+
   if (isPublicPath(pathname)) return;
 
-  const { accessToken, user } = useAuthStore.getState();
   if (!accessToken) {
     window.location.replace(`/admin/login?redirect=${encodeURIComponent(pathname)}`);
     return;
