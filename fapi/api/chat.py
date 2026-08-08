@@ -1,21 +1,23 @@
-"""对话 API：同步一轮 + SSE 流式。"""
+"""对话 API：同步一轮 + SSE 流式（基于 agent2）。"""
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
-from agent import run_chat, stream_chat
+from agent2.agent import get_agent
 from fapi.deps import get_authorization
 from fapi.models.chat import ChatRequest, ChatResponse
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
-def _history_dicts(body: ChatRequest) -> list[dict[str, str]]:
-    return [{"role": m.role, "content": m.content} for m in body.history]
+def _session_id(raw: str | None) -> str:
+    """session_id → LangGraph thread_id；缺省则新建。"""
+    return (raw or "").strip() or str(uuid.uuid4())
 
 
 @router.post("", response_model=ChatResponse)
@@ -23,24 +25,25 @@ async def chat(
     body: ChatRequest,
     authorization: str | None = Depends(get_authorization),
 ) -> ChatResponse:
-    """非流式：跑完一轮返回完整回复。JWT 经 Authorization 透传给 SubAgent。
+    """非流式：跑完一轮返回完整回复。JWT 经 Authorization 透传给 Tools。
 
-    ``session_id`` 映射为 LangGraph ``thread_id``（Postgres Checkpointer 短期记忆）。
+    ``session_id`` 映射为 LangGraph ``thread_id``（PostgresSaver 短期记忆）。
     未传时服务端生成并回写；多轮请带回同一个 session_id。
     """
-    result = await run_chat(
+    session_id = _session_id(body.session_id)
+    agent = await get_agent()
+    reply = await agent.run(
         body.message,
-        history=_history_dicts(body),
+        session_id=session_id,
         authorization=authorization,
-        session_id=body.session_id,
         latitude=body.latitude,
         longitude=body.longitude,
     )
     return ChatResponse(
-        route=result["route"],
-        reply=result["reply"],
-        events=result.get("events") or [],
-        session_id=result.get("session_id") or body.session_id,
+        route="agent2",
+        reply=reply,
+        events=[],
+        session_id=session_id,
     )
 
 
@@ -49,15 +52,16 @@ async def chat_stream(
     body: ChatRequest,
     authorization: str | None = Depends(get_authorization),
 ) -> StreamingResponse:
-    """SSE 流式对话：event = route | token | done | error。"""
+    """SSE 流式对话：event = token | done | error（基于 agent2）。"""
+    session_id = _session_id(body.session_id)
 
     async def event_source() -> AsyncIterator[str]:
         try:
-            async for event in stream_chat(
+            agent = await get_agent()
+            async for event in agent.stream(
                 body.message,
-                history=_history_dicts(body),
+                session_id=session_id,
                 authorization=authorization,
-                session_id=body.session_id,
                 latitude=body.latitude,
                 longitude=body.longitude,
             ):

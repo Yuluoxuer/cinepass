@@ -3,36 +3,13 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
 from langchain.tools import tool
 
 from agent.http import backend_url, get, post
-from agent.request_context import has_authorization
+from agent.tools._common import ToolError, require_auth, safe_api_call
 
-
-class OrderToolError(RuntimeError):
-    """把中台或网络异常转换为可直接展示给用户的消息。"""
-
-
-def _unwrap(payload: Any) -> Any:
-    if not isinstance(payload, dict):
-        raise OrderToolError("订单服务返回的数据格式不正确，请稍后再试。")
-    code = payload.get("code")
-    message = str(payload.get("message") or "")
-    if code not in (0, 200, None):
-        raise OrderToolError(f"订单操作失败：{message or f'业务错误 code={code}'}")
-    return payload.get("data")
-
-
-def _http_error(exc: httpx.HTTPStatusError, *, detail: bool) -> OrderToolError:
-    status = exc.response.status_code
-    if status == 404 and detail:
-        return OrderToolError("未找到该订单，请确认订单 ID 是否正确。")
-    if status == 401:
-        return OrderToolError("请先登录后再操作订单。")
-    if status == 409:
-        return OrderToolError("订单状态冲突，可能已被处理，请刷新后重试。")
-    return OrderToolError(f"订单服务暂时不可用（HTTP {status}），请稍后再试。")
+# 向后兼容别名
+OrderToolError = ToolError
 
 
 def format_order(data: Any) -> str:
@@ -46,7 +23,7 @@ def format_order(data: Any) -> str:
     }
     status = status_map.get(data.get("status"), data.get("status", "-"))
     lines = [
-        f"订单详情：",
+        "订单详情：",
         f"- 订单号：{data.get('orderId', '-')}",
         f"- 影片：{data.get('movieTitle', '-')}",
         f"- 影院：{data.get('cinemaName', '-')}",
@@ -69,24 +46,20 @@ def format_order(data: Any) -> str:
 @tool("createOrder")
 async def create_order(lock_id: str, session_id: str = "") -> str:
     """根据锁座凭证创建订单。lock_id=锁座凭证ID，session_id=可选会话ID(回写Draft)。注意：创建订单后需用户在支付页面手动支付。"""
-    if not has_authorization():
-        return "请先登录后再下单。"
+    auth_err = require_auth("请先登录后再下单。")
+    if auth_err:
+        return auth_err
 
     body: dict[str, Any] = {"lockId": lock_id}
     if session_id:
         body["sessionId"] = session_id
 
-    try:
-        data = _unwrap(
-            await post(backend_url("/orders"), json=body, timeout=1.0)
-        )
-    except httpx.TimeoutException:
-        return str(OrderToolError("创建订单超时，请稍后再试。"))
-    except httpx.HTTPStatusError as exc:
-        return str(_http_error(exc, detail=False))
-    except httpx.HTTPError:
-        return str(OrderToolError("订单服务连接失败，请稍后再试。"))
-
+    data = await safe_api_call(
+        post(backend_url("/orders"), json=body, timeout=1.0),
+        domain="订单",
+    )
+    if isinstance(data, str):
+        return data
     return format_order(data)
 
 
@@ -95,20 +68,17 @@ async def create_order(lock_id: str, session_id: str = "") -> str:
 @tool("getOrder")
 async def get_order(order_id: str) -> str:
     """查询订单详情。order_id 为订单ID。返回影片、影院、座位、金额和状态等信息。"""
-    if not has_authorization():
-        return "请先登录后再查询订单。"
+    auth_err = require_auth("请先登录后再查询订单。")
+    if auth_err:
+        return auth_err
 
-    try:
-        data = _unwrap(
-            await get(backend_url(f"/orders/{order_id}"), timeout=0.5)
-        )
-    except httpx.TimeoutException:
-        return str(OrderToolError("查询订单超时，请稍后再试。"))
-    except httpx.HTTPStatusError as exc:
-        return str(_http_error(exc, detail=True))
-    except httpx.HTTPError:
-        return str(OrderToolError("订单服务连接失败，请稍后再试。"))
-
+    data = await safe_api_call(
+        get(backend_url(f"/orders/{order_id}"), timeout=0.5),
+        domain="订单",
+        detail=True,
+    )
+    if isinstance(data, str):
+        return data
     return format_order(data)
 
 
@@ -117,25 +87,16 @@ async def get_order(order_id: str) -> str:
 @tool("cancelOrder")
 async def cancel_order(order_id: str, reason: str = "user_cancel") -> str:
     """取消订单。order_id=订单ID，reason=取消原因(默认user_cancel)。取消后会释放关联的锁座。"""
-    if not has_authorization():
-        return "请先登录后再操作。"
+    auth_err = require_auth("请先登录后再操作。")
+    if auth_err:
+        return auth_err
 
-    body = {"reason": reason}
-    try:
-        data = _unwrap(
-            await post(
-                backend_url(f"/orders/{order_id}/cancel"),
-                json=body,
-                timeout=0.8,
-            )
-        )
-    except httpx.TimeoutException:
-        return str(OrderToolError("取消订单超时，请稍后再试。"))
-    except httpx.HTTPStatusError as exc:
-        return str(_http_error(exc, detail=False))
-    except httpx.HTTPError:
-        return str(OrderToolError("订单服务连接失败，请稍后再试。"))
-
+    data = await safe_api_call(
+        post(backend_url(f"/orders/{order_id}/cancel"), json={"reason": reason}, timeout=0.8),
+        domain="订单",
+    )
+    if isinstance(data, str):
+        return data
     return format_order(data)
 
 

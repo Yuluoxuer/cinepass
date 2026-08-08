@@ -3,32 +3,13 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
 from langchain.tools import tool
 
 from agent.http import backend_url, get
+from agent.tools._common import ToolError, safe_api_call
 
-
-class CinemaToolError(RuntimeError):
-    """把中台或网络异常转换为可直接展示给用户的消息。"""
-
-
-def _unwrap(payload: Any) -> Any:
-    if not isinstance(payload, dict):
-        raise CinemaToolError("影院服务返回的数据格式不正确，请稍后再试。")
-
-    code = payload.get("code")
-    message = str(payload.get("message") or "")
-    if code not in (0, 200, None):
-        raise CinemaToolError(f"查询影院失败：{message or f'业务错误 code={code}'}")
-    return payload.get("data")
-
-
-def _http_error(exc: httpx.HTTPStatusError, *, detail: bool) -> CinemaToolError:
-    status = exc.response.status_code
-    if status == 404 and detail:
-        return CinemaToolError("未找到该影院，请确认影院 ID 是否正确。")
-    return CinemaToolError(f"影院服务暂时不可用（HTTP {status}），请稍后再试。")
+# 向后兼容别名
+CinemaToolError = ToolError
 
 
 def _format_distance(value: Any) -> str:
@@ -106,30 +87,25 @@ async def fetch_cinemas(
     }
     if movie_id:
         params["movieId"] = movie_id
-    try:
-        return _unwrap(
-            await get(backend_url("/api/v1/cinemas"), params=params, timeout=0.8)
-        )
-    except httpx.TimeoutException as exc:
-        raise CinemaToolError("查询附近影院超时，请稍后再试。") from exc
-    except httpx.HTTPStatusError as exc:
-        raise _http_error(exc, detail=False) from exc
-    except httpx.HTTPError as exc:
-        raise CinemaToolError("影院服务连接失败，请稍后再试。") from exc
+    result = await safe_api_call(
+        get(backend_url("/cinemas"), params=params, timeout=0.8),
+        domain="影院",
+    )
+    if isinstance(result, str):
+        raise CinemaToolError(result)
+    return result
 
 
 async def fetch_cinema(cinema_id: str) -> Any:
     """请求指定影院详情，供离线模式和 LangChain Tool 共用。"""
-    try:
-        return _unwrap(
-            await get(backend_url(f"/api/v1/cinemas/{cinema_id}"), timeout=0.5)
-        )
-    except httpx.TimeoutException as exc:
-        raise CinemaToolError("查询影院详情超时，请稍后再试。") from exc
-    except httpx.HTTPStatusError as exc:
-        raise _http_error(exc, detail=True) from exc
-    except httpx.HTTPError as exc:
-        raise CinemaToolError("影院服务连接失败，请稍后再试。") from exc
+    result = await safe_api_call(
+        get(backend_url(f"/cinemas/{cinema_id}"), timeout=0.5),
+        domain="影院",
+        detail=True,
+    )
+    if isinstance(result, str):
+        raise CinemaToolError(result)
+    return result
 
 
 @tool("searchCinemas")

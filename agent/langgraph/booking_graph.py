@@ -139,6 +139,7 @@ def _intent_regex_fallback(message: str, draft: dict[str, Any]) -> BookingIntent
     )
     # 信息性追问：用户在就上文追问，不是要购票，交由 chat_agent 用工具回答
     # 如「这五个电影都有影院上映吗」「这是什么意思」「有没有排片」
+    # 新增：「有什么影院」「现在有什么影院可选」等询问影院列表的疑问句
     is_info_question = (
         # 含指示代词 + 疑问语气
         (re.search(r"(这|那)(些|个|几)?(\d+|[一二三四五六七八九十])?(部|个|电影|影片|片)", text)
@@ -147,6 +148,9 @@ def _intent_regex_fallback(message: str, draft: dict[str, Any]) -> BookingIntent
         or bool(re.search(r"(有没有|是否有|都有|是有).{0,6}(影院|电影院|排片|场次|上映)", text))
         # 问「...是什么意思」
         or bool(re.search(r"什么意思|是怎么回事|啥意思", text))
+        # 问「有什么影院」「现在有什么影院」「哪些影院」等（询问影院列表，而非指定影院名）
+        or bool(re.search(r"(有什么|有哪些|现在有什么|什么).{0,8}(影院|电影院).{0,6}(可选|可以|能选|选择|推荐|附近)?", text))
+        or bool(re.search(r"^(现在|哪些|什么).{0,8}影院", text))
     )
     if is_info_question:
         return "chitchat"
@@ -303,9 +307,8 @@ async def _resolve_movie_id(film_title: str) -> tuple[str | None, str | None, in
         result = await search_movies.ainvoke({"query": film_title, "status": "hot_showing", "page": 1, "size": 5})
         import ast
         data = ast.literal_eval(result) if isinstance(result, str) else result
-        # Tool 返回结构: {code, data: {items, page, size, total}}
-        inner = data.get("data") if isinstance(data, dict) else None
-        items = inner.get("items") if isinstance(inner, dict) else None
+        # Tool 经 safe_api_call 已解包，直接返回 {items, page, size, total}
+        items = data.get("items") if isinstance(data, dict) else None
         if isinstance(items, list):
             if items:
                 first = items[0]
@@ -322,29 +325,21 @@ async def _resolve_cinema_id(cinema_name: str, lat: float | None = None, lng: fl
     返回 (cinemaId, cinemaName, items_count)。
     - items_count == 0 明确是「未找到影院」
     """
-    from agent.tools.cinema_tools import search_cinemas
+    from agent.tools.cinema_tools import fetch_cinemas
     try:
-        # search_cinemas Tool 的 Pydantic schema 强制 lat/lng 必填
         # 用户未提供有效坐标时，用一个兜底坐标（湘潭市中心，radius 大一些做全国模糊匹配）
         has_valid_loc = (lat is not None and lng is not None and lat > -90 and lng > -180)
         use_lat = lat if has_valid_loc else 27.83
         use_lng = lng if has_valid_loc else 112.93
-        kwargs: dict[str, Any] = {
-            "lat": use_lat,
-            "lng": use_lng,
-            "radius_meters": 5000 if has_valid_loc else 500000,  # 500km 全国兜底
-            "sort": "distance" if has_valid_loc else "lowest_price",
-            "page": 1,
-            "size": 5,
-        }
-        # 同时把 cinema_name 作为「额外关键词」传？当前 Tool 本身没有 q 参数，只能靠 lat+locate 模糊
-        # 所以如果用户传了明确的 cinemaName，先不通过 Tool 查，改为直接调后端的 cinemas?q= 接口（这是 Tool 的设计局限）
-        # 不过为了遵循「只通过 Tools」约定，这里先保持 Tool 调用；名称搜索走后端通用 search 接口（见下文）
-        result = await search_cinemas.ainvoke(kwargs)
-        import ast
-        data = ast.literal_eval(result) if isinstance(result, str) else result
-        inner = data.get("data") if isinstance(data, dict) else None
-        items = inner.get("items") if isinstance(inner, dict) else None
+        data = await fetch_cinemas(
+            lat=use_lat,
+            lng=use_lng,
+            radius_meters=5000 if has_valid_loc else 500000,  # 500km 全国兜底
+            sort="distance" if has_valid_loc else "lowest_price",
+            page=1,
+            size=5,
+        )
+        items = data.get("items") if isinstance(data, dict) else None
         if isinstance(items, list):
             if items:
                 # 如果用户传了明确的 cinema_name，对结果做关键词模糊匹配（优先返回名称最匹配的）
@@ -380,8 +375,7 @@ async def _resolve_show_id(cinema_id: str, movie_id: str, date: str, time_window
         })
         import ast
         data = ast.literal_eval(result) if isinstance(result, str) else result
-        inner = data.get("data") if isinstance(data, dict) else None
-        items = inner.get("items") if isinstance(inner, dict) else None
+        items = data.get("items") if isinstance(data, dict) else None
         if not isinstance(items, list):
             return None, 0, 0
         total = len(items)
@@ -414,6 +408,23 @@ async def _resolve_show_id(cinema_id: str, movie_id: str, date: str, time_window
         return show_id, total, total
     except Exception:
         return None, 0, 0
+
+
+async def _fetch_shows(cinema_id: str, movie_id: str, date: str) -> list[dict[str, Any]]:
+    """查某影院某影片某日的场次列表，返回原始 items（供前端场次卡片）。"""
+    from agent.tools.show_tools import list_shows
+    try:
+        result = await list_shows.ainvoke({
+            "cinema_id": cinema_id,
+            "movie_id": movie_id,
+            "date": date,
+        })
+        import ast
+        data = ast.literal_eval(result) if isinstance(result, str) else result
+        items = data.get("items") if isinstance(data, dict) else None
+        return [it for it in items if isinstance(it, dict)] if isinstance(items, list) else []
+    except Exception:
+        return []
 
 
 def _extract_fields_regex(message: str) -> dict[str, Any]:
@@ -497,12 +508,18 @@ def _extract_fields_regex(message: str) -> dict[str, Any]:
     # 影院名（匹配「XX万达/万达影城/XX影院/XX影城/电影院」后缀）
     # 先把日期/时间/看等词从上下文去掉，避免污染前缀
     cinema_text = re.sub(r"(今天|明天|后天|大后天|上午|下午|晚上|中午|早上|半夜|明晚|今晚|和.*?(朋友|女朋友|男朋友|老婆|老公|家人|对象|同学|同事|闺蜜|兄弟|姐妹)|看|去看|想看|订|买票|购票|两张|三张|一张|两张票|去|到|前往|我们|我和.*?|我)", "", text)
-    m = re.search(r"([\u4e00-\u9fa5A-Za-z0-9]+?(?:万达影城|万达|影城|影院|电影院|IMAX|CINITY))", cinema_text)
-    if m:
-        name = m.group(1).strip()
-        # 去掉残留的日期/方位词
-        name = re.sub(r"^(今天|明天|后天|大后天|明晚|今晚|去|到|在|从|和)", "", name)
-        if len(name) >= 2:
+    # 排除疑问句：避免把「有什么影院」「现在有什么影院」误提取为影院名
+    is_cinema_question = bool(re.search(r"(什么|哪些|有什么|有哪些|现在有).{0,8}(影院|电影院)", cinema_text))
+    is_cinema_question = is_cinema_question or bool(re.search(r"(可选|可以|能选|选择|推荐)$", cinema_text))
+    if not is_cinema_question:
+        m = re.search(r"([\u4e00-\u9fa5A-Za-z0-9]+?(?:万达影城|万达|影城|影院|电影院|IMAX|CINITY))", cinema_text)
+        name = None
+        if m:
+            name = m.group(1).strip()
+            # 去掉残留的日期/方位词
+            name = re.sub(r"^(今天|明天|后天|大后天|明晚|今晚|去|到|在|从|和|什么|哪些|有什么|现在有)", "", name)
+            # 再次检查：如果提取后的名称还包含疑问词，不要提取
+        if name and len(name) >= 2 and not re.search(r"(什么|哪些|有什么|可选|能选)", name):
             result["cinemaName"] = name
 
     # 片名
@@ -530,12 +547,18 @@ def _extract_fields_regex(message: str) -> dict[str, Any]:
     return result
 
 
-async def _handle_browse_request(message: str) -> dict[str, Any] | None:
+async def _handle_browse_request(message: str, draft: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """检测用户是否在请求按类型推荐/浏览电影。
 
     返回 ``{"reply": str, "movies": list[dict]}`` 或 None（继续走购票流程）。
     ``movies`` 是后端原始 item 列表，用于生成前端动态卡片。
+
+    方案2优化：如果draft已有movieId，说明用户已选定影片，跳过电影浏览。
     """
+    # 方案2优化：如果用户已选定影片，不要再推荐电影
+    if draft and draft.get("movieId"):
+        return None
+
     text = message.lower()
 
     # 类型关键词 → 后端 genre 值（后端 genres 字段是中文）
@@ -580,8 +603,10 @@ async def _handle_browse_request(message: str) -> dict[str, Any] | None:
             })
             import ast
             data = ast.literal_eval(result) if isinstance(result, str) else result
-            inner = data.get("data") if isinstance(data, dict) else None
-            items = inner.get("items") if isinstance(inner, dict) else None
+            items = data.get("items") if isinstance(data, dict) else None
+            # 只保留有场次的影片：既要上映也要有影院和场次（nextShowDate 非空即有排片）
+            if isinstance(items, list):
+                items = [it for it in items if isinstance(it, dict) and it.get("nextShowDate")]
 
             if isinstance(items, list) and items:
                 lines = [f"为您找到以下**{matched_genre}**类热映影片：\n"]
@@ -609,8 +634,7 @@ async def _handle_browse_request(message: str) -> dict[str, Any] | None:
                     "size": 5,
                 })
                 data2 = ast.literal_eval(result2) if isinstance(result2, str) else result2
-                inner2 = data2.get("data") if isinstance(data2, dict) else None
-                items2 = inner2.get("items") if isinstance(inner2, dict) else None
+                items2 = data2.get("items") if isinstance(data2, dict) else None
                 if isinstance(items2, list) and items2:
                     lines = [f"当前{matched_genre}类暂无热映影片，以下{matched_genre}类即将上映：\n"]
                     for i, item in enumerate(items2, 1):
@@ -661,8 +685,10 @@ async def _handle_browse_request(message: str) -> dict[str, Any] | None:
             })
             import ast
             data = ast.literal_eval(result) if isinstance(result, str) else result
-            inner = data.get("data") if isinstance(data, dict) else None
-            items = inner.get("items") if isinstance(inner, dict) else None
+            items = data.get("items") if isinstance(data, dict) else None
+            # 只保留有场次的影片：既要上映也要有影院和场次（nextShowDate 非空即有排片）
+            if isinstance(items, list):
+                items = [it for it in items if isinstance(it, dict) and it.get("nextShowDate")]
             if isinstance(items, list) and items:
                 lines = ["🎬 **当前热映影片**\n"]
                 lines.append("| # | 片名 | 评分 | 时长 | 类型 |")
@@ -699,7 +725,8 @@ async def main_agent_node(state: GraphState) -> dict[str, Any]:
     lng = state.get("longitude")
 
     # ---------- 第0步：检测是否为「按类型推荐/浏览」请求 ----------
-    browse_result = await _handle_browse_request(message)
+    # 方案2优化：传入draft，避免已选影片后再次推荐电影
+    browse_result = await _handle_browse_request(message, draft)
     if browse_result is not None:
         browse_reply = browse_result["reply"]
         browse_movies = browse_result.get("movies", [])
@@ -779,10 +806,19 @@ async def main_agent_node(state: GraphState) -> dict[str, Any]:
         if v is not None and v != "" and v != []:
             merged[k] = v
 
+    # 若已选座位但未填票数，按座位数推断
+    if merged.get("seatIds") and not merged.get("count"):
+        seat_list = merged["seatIds"]
+        if isinstance(seat_list, str):
+            seat_list = [s.strip() for s in seat_list.split(",") if s.strip()]
+        if seat_list:
+            merged["count"] = len(seat_list)
+
     # ---------- 第3步：名称→ID 解析（并行），同步收集解析失败的提示 ----------
     import asyncio
 
     warnings: list[str] = []
+    cards: list[dict[str, Any]] = []
     task_keys: list[str] = []
     tasks: list = []
     if merged.get("filmTitle") and not merged.get("movieId"):
@@ -820,39 +856,41 @@ async def main_agent_node(state: GraphState) -> dict[str, Any]:
                 else:
                     warnings.append(f"🏢 暂未查询到影院「{merged.get('cinemaName')}」的信息（服务可能未就绪），请稍后再试或手动选择影院。")
 
-    # ---------- 第4步：有 movieId+cinemaId+date 但缺 showId → 查场次，同步收集警告 ----------
+    # ---------- 第4步：有 movieId+cinemaId+date 但缺 showId → 查场次并生成场次选择卡片 ----------
     show_warn_movie = merged.get("filmTitle") or merged.get("movieId")
     show_warn_cinema = merged.get("cinemaName") or merged.get("cinemaId")
     if (merged.get("movieId") and merged.get("cinemaId")
             and merged.get("date") and not merged.get("showId")):
-        show_id, total, filtered = await _resolve_show_id(
-            merged["cinemaId"], merged["movieId"],
-            merged["date"], merged.get("timeWindow")
-        )
-        if show_id:
-            merged["showId"] = show_id
-        elif total == 0:
+        shows = await _fetch_shows(merged["cinemaId"], merged["movieId"], merged["date"])
+        if not shows:
             # 全天无排片
             date_cn = merged.get("date", "")
             warnings.append(
                 f"📅 《{show_warn_movie}》在 {show_warn_cinema} {date_cn} 暂无排片，"
                 f"请换个日期或影院再试试。"
             )
-        elif filtered == 0 and merged.get("timeWindow"):
-            # 该时段无排片但全天有
-            time_label_map = {
-                "morning": "上午", "afternoon": "下午",
-                "evening": "晚上", "night": "半夜"
-            }
-            time_label = time_label_map.get(merged["timeWindow"].lower(), merged["timeWindow"])
-            warnings.append(
-                f"⏰ 《{show_warn_movie}》在 {show_warn_cinema} {merged.get('date')} {time_label} 暂无场次，"
-                f"当日还有 {total} 场其他时段的排片，您可以调整时间或直接查看所有场次。"
-            )
-            # 把全天第一个场次作为兜底自动填上？保守起见不填，提示用户即可
-            # 如果想要自动兜底：取消下面注释
-            # fallback, _, _ = await _resolve_show_id(...)
-            # if fallback: merged["showId"] = fallback
+        else:
+            # 生成场次选择动态卡片，让用户点选
+            import uuid as _uuid3
+            cards.append({
+                "cardId": f"shows_{_uuid3.uuid4().hex[:8]}",
+                "type": "show_list",
+                "title": f"《{show_warn_movie}》在 {show_warn_cinema} 的场次",
+                "payload": {"shows": shows},
+                "actions": [
+                    {
+                        "actionId": "select",
+                        "label": "选这场",
+                        "itemId": s.get("showId", ""),
+                        "draftPatch": {"showId": s.get("showId", "")},
+                    }
+                    for s in shows
+                    if isinstance(s, dict) and s.get("showId")
+                ],
+            })
+            # 仅一场时自动填入；多场时让用户从卡片选择
+            if len(shows) == 1 and isinstance(shows[0], dict):
+                merged["showId"] = shows[0].get("showId")
 
     # ---------- 第5步：回写后端 ----------
     session_id = state.get("sessionId")
@@ -925,10 +963,126 @@ async def main_agent_node(state: GraphState) -> dict[str, Any]:
     if warnings:
         events.append(f"warnings:{len(warnings)}")
 
+    # ---------- 第8步：智能卡片推荐 ----------
+    # 根据购票流程状态，主动推荐下一步需要的卡片
+    # （cards 已在第3步初始化；场次/影院卡片可能已加入）
+
+    # 方案1优化：已有影片但缺影院 → 主动推荐影院列表
+    if merged.get("movieId") and not merged.get("cinemaId") and lat is not None and lng is not None:
+        try:
+            from agent.tools.cinema_tools import fetch_cinemas
+            cinema_data = await fetch_cinemas(
+                movie_id=merged["movieId"],
+                lat=lat, lng=lng,
+                radius_meters=30000,
+                sort="distance",
+                page=1, size=8,
+            )
+            cinema_items = cinema_data.get("items") if isinstance(cinema_data, dict) else None
+            if isinstance(cinema_items, list) and cinema_items:
+                import uuid as _uuid2
+                cinema_name_display = merged.get("filmTitle") or "该影片"
+                cards.append({
+                    "cardId": f"cinemas_{_uuid2.uuid4().hex[:8]}",
+                    "type": "cinema_list",
+                    "title": f"《{cinema_name_display}》附近影院",
+                    "payload": {"cinemas": cinema_items},
+                    "actions": [
+                        {
+                            "actionId": "select",
+                            "label": "选这家",
+                            "itemId": c.get("cinemaId", ""),
+                            "draftPatch": {"cinemaId": c.get("cinemaId"), "cinemaName": c.get("name")},
+                        }
+                        for c in cinema_items
+                        if isinstance(c, dict) and c.get("cinemaId")
+                    ],
+                })
+        except Exception:
+            pass  # 搜索影院失败不阻塞主流程
+
+    # 方案2：用户已通过卡片选座（seatIds 已写入 draft）但尚未锁座 → 自动锁座
+    if merged.get("showId") and merged.get("seatIds") and not merged.get("lockId"):
+        try:
+            from agent.http import backend_url, post
+            seat_list = merged["seatIds"]
+            if isinstance(seat_list, str):
+                seat_list = [s.strip() for s in seat_list.split(",") if s.strip()]
+            idem_key = f"idem_lock_{state.get('sessionId') or ''}_{merged['showId']}_{'_'.join(seat_list)}"
+            lock_payload = await post(
+                backend_url("/locks"),
+                json={
+                    "showId": merged["showId"],
+                    "seatIds": seat_list,
+                    "ttlSeconds": 900,
+                    "sessionId": state.get("sessionId") or "",
+                },
+                headers={"Idempotency-Key": idem_key},
+                timeout=1.5,
+            )
+            if isinstance(lock_payload, dict) and lock_payload.get("code") in (0, 200, None):
+                lock_info = lock_payload.get("data") or {}
+                if lock_info.get("lockId"):
+                    merged["lockId"] = lock_info["lockId"]
+                    if lock_info.get("expireAt"):
+                        merged["expireAt"] = lock_info["expireAt"]
+        except Exception:
+            pass  # 锁座失败不阻塞，交由用户后续处理
+
+    # 方案3：已有场次但缺座位 → 生成可点击座位卡片（缩小版）
+    if merged.get("showId") and not merged.get("seatIds"):
+        try:
+            from agent.http import backend_url, get, post
+            sm_payload = await get(backend_url(f"/shows/{merged['showId']}/seat-map"), timeout=3.0)
+            if isinstance(sm_payload, dict) and sm_payload.get("code") in (0, 200, None):
+                seat_map = sm_payload.get("data")
+                if isinstance(seat_map, dict) and seat_map.get("seats"):
+                    import uuid as _uuid4
+                    # 附带推荐方案（可选）
+                    reco_data = None
+                    try:
+                        reco_payload = await post(
+                            backend_url("/reco/seats"),
+                            json={
+                                "showId": merged["showId"],
+                                "count": merged.get("count") or 2,
+                                "preferRow": merged.get("preferRow") or "middle",
+                                "preferSide": merged.get("preferSide") or "center",
+                                "together": merged.get("together", True),
+                            },
+                            timeout=3.0,
+                        )
+                        if isinstance(reco_payload, dict) and reco_payload.get("code") in (0, 200, None):
+                            reco_data = reco_payload.get("data")
+                    except Exception:
+                        pass
+                    cards.append({
+                        "cardId": f"seats_{_uuid4.uuid4().hex[:8]}",
+                        "type": "seat_plans",
+                        "title": f"《{merged.get('filmTitle') or '该影片'}》选座",
+                        "payload": {
+                            "showId": merged["showId"],
+                            "count": merged.get("count") or 2,
+                            "seatMap": seat_map,
+                            "plans": (reco_data or {}).get("plans") if isinstance(reco_data, dict) else [],
+                            "compromise": (reco_data or {}).get("compromise") if isinstance(reco_data, dict) else None,
+                        },
+                        "actions": [
+                            {
+                                "actionId": "confirm",
+                                "label": "确认选座",
+                                "itemId": merged["showId"],
+                                "draftPatch": {"showId": merged["showId"], "seatIds": []},
+                            }
+                        ],
+                    })
+        except Exception:
+            pass  # 座位图失败不阻塞主流程
+
     return {
         "bookingdraft": merged,
         "reply": reply,
-        "cards": [],
+        "cards": cards,
         "missing_fields": missing,
         "draft_complete": complete,
         "events": events,

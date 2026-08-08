@@ -1,11 +1,12 @@
-"""前端契约端点 /api/v1/agent/turns：内部走 booking_graph。
+"""前端契约端点 /api/v1/agent/turns：内部走 agent2（create_react_agent），由工具轨迹生成动态卡片。
 
-系分 §8.1 定义的前端契约端点；本模块把 booking_graph 的输出映射为前端
-``AgentTurnResponse`` 形状（replyText/sessionId/draft 等），让前端零改动接入
-booking_graph 的多轮购票流程。
+系分 §8.1 定义的前端契约端点；本模块把 agent2 的回复 + 工具调用结果映射为前端
+``AgentTurnResponse`` 形状（replyText/sessionId/draft/cards），让前端零改动接入
+agent2 的多轮购票流程。
 """
 from __future__ import annotations
 
+import ast
 import base64
 import datetime
 import json
@@ -15,36 +16,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from agent.langgraph.booking_graph import build_booking_graph
-from agent.langgraph.checkpoint import get_checkpointer, get_pool
-from agent.request_context import use_authorization
+from agent2.agent import get_agent
+from agent2.tools.booking_draft import load_draft, save_draft
 from fapi.deps import get_authorization
 
 router = APIRouter(prefix="/agent", tags=["agent"])
-
-# 编译缓存：与 booking.py 一致，lifespan 启停时由 reset_agent_graph_cache 清空
-_compiled: Any = None
-_compiled_with_cp: Any = None
-
-
-def reset_agent_graph_cache() -> None:
-    """lifespan 启停时清空编译缓存，避免挂上已关闭的 checkpointer。"""
-    global _compiled, _compiled_with_cp
-    _compiled = None
-    _compiled_with_cp = None
-
-
-def _graph() -> Any:
-    global _compiled, _compiled_with_cp
-    cp = get_checkpointer()
-    if cp is None:
-        if _compiled is None:
-            _compiled = build_booking_graph(checkpointer=None)
-        return _compiled
-    if _compiled_with_cp is None:
-        _compiled_with_cp = build_booking_graph(checkpointer=cp)
-    return _compiled_with_cp
-
 
 # ---------- 前端契约模型（对齐 src/types/index.ts） ----------
 
@@ -69,7 +45,7 @@ class AgentTurnRequest(BaseModel):
 
 
 class AgentTurnDraftVO(BaseModel):
-    """前端 BookingDraft 必填字段（booking_graph 子集 + 必填补全）。"""
+    """前端 BookingDraft 必填字段（agent2 booking_draft 子集 + 必填补全）。"""
 
     sessionId: str
     source: str = "agent"
@@ -147,102 +123,94 @@ async def _ensure_session_table() -> None:
     global _session_table_ready
     if _session_table_ready:
         return
-    pool = get_pool()
-    if pool is None:
+    try:
+        from agent2.tools.booking_draft import _get_pool
+        pool = await _get_pool()
+    except Exception:
         return
-    async with pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                CREATE TABLE IF NOT EXISTS agent_sessions (
-                    session_id     VARCHAR(128) PRIMARY KEY,
-                    user_id        VARCHAR(64)  NOT NULL,
-                    title          VARCHAR(200),
-                    created_at     TIMESTAMPTZ  DEFAULT NOW(),
-                    last_message_at TIMESTAMPTZ  DEFAULT NOW()
-                )
-                """
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS agent_sessions (
+                session_id     VARCHAR(128) PRIMARY KEY,
+                user_id        VARCHAR(64)  NOT NULL,
+                title          VARCHAR(200),
+                created_at     TIMESTAMPTZ  DEFAULT NOW(),
+                last_message_at TIMESTAMPTZ  DEFAULT NOW()
             )
-            await cur.execute(
-                "CREATE INDEX IF NOT EXISTS idx_agent_sessions_user ON agent_sessions(user_id, last_message_at DESC)"
-            )
+            """
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_agent_sessions_user ON agent_sessions(user_id, last_message_at DESC)"
+        )
     _session_table_ready = True
 
 
 async def _record_session(session_id: str, user_id: str, title: str | None = None) -> None:
     """插入或更新 session 记录。"""
-    pool = get_pool()
-    if pool is None:
-        return
-    await _ensure_session_table()
-    async with pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
+    try:
+        from agent2.tools.booking_draft import _get_pool
+        pool = await _get_pool()
+        await _ensure_session_table()
+        async with pool.acquire() as conn:
+            await conn.execute(
                 """
                 INSERT INTO agent_sessions (session_id, user_id, title, created_at, last_message_at)
-                VALUES (%s, %s, %s, NOW(), NOW())
+                VALUES ($1, $2, $3, NOW(), NOW())
                 ON CONFLICT (session_id)
                 DO UPDATE SET last_message_at = NOW(),
                               title = COALESCE(EXCLUDED.title, agent_sessions.title)
                 """,
-                (session_id, user_id, title),
+                session_id,
+                user_id,
+                title,
             )
+    except Exception:
+        pass
 
 
 async def _list_sessions(user_id: str, limit: int = 20) -> list[dict[str, Any]]:
     """获取用户的会话列表。"""
-    pool = get_pool()
-    if pool is None:
-        return []
-    await _ensure_session_table()
-    async with pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
+    try:
+        from agent2.tools.booking_draft import _get_pool
+        pool = await _get_pool()
+        await _ensure_session_table()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
                 """
                 SELECT session_id, user_id, title, created_at, last_message_at
                 FROM agent_sessions
-                WHERE user_id = %s
+                WHERE user_id = $1
                 ORDER BY last_message_at DESC
-                LIMIT %s
+                LIMIT $2
                 """,
-                (user_id, limit),
+                user_id,
+                limit,
             )
-            rows = await cur.fetchall()
-    return [dict(r) for r in rows] if rows else []
-
-
-async def _get_history_messages(session_id: str, limit: int = 5, offset: int = 0) -> list[dict[str, str]]:
-    """从 LangGraph checkpoint 的 state.history 获取历史消息（分页，从最新往最旧）。
-
-    ``offset`` 表示从末尾起已加载的消息数：
-    - offset=0  返回最近 ``limit`` 条（chronological order，最旧在前）
-    - offset=5  返回再往前 ``limit`` 条
-    """
-    graph = _graph()
-    config: dict[str, Any] = {"configurable": {"thread_id": session_id}}
-    try:
-        state = await graph.aget_state(config)
+        return [dict(r) for r in rows] if rows else []
     except Exception:
         return []
-    if state is None or not state.values:
-        return []
-    history = state.values.get("history") or []
-    total = len(history)
-    end = total - offset
-    if end <= 0:
-        return []
-    start = max(0, end - limit)
-    page = history[start:end]
-    return [{"role": h.get("role", "user"), "content": h.get("content", "")} for h in page]
 
 
-def _derive_state(draft_complete: bool, draft: dict[str, Any]) -> str:
-    """根据 draft 完备度推导前端 BookingState。"""
+# ---------- 卡片生成（从 agent2 工具轨迹映射） ----------
+
+
+def _parse_tool_result(content: str) -> Any:
+    try:
+        return ast.literal_eval(content)
+    except Exception:
+        return content
+
+
+def _derive_state(draft: dict[str, Any]) -> str:
+    """根据草稿完备度推导前端 BookingState。"""
     if draft.get("orderId"):
         return "PayMock"
-    if draft_complete:
+    if draft.get("lockId"):
         return "ConfirmOrder"
-    if draft.get("showId") or draft.get("lockId"):
+    if draft.get("seatIds"):
+        return "ConfirmOrder"
+    if draft.get("showId"):
         return "SelectSeat"
     if draft.get("cinemaId"):
         return "SelectShow"
@@ -251,46 +219,14 @@ def _derive_state(draft_complete: bool, draft: dict[str, Any]) -> str:
     return "SelectMovie"
 
 
-def _compose_message(body: AgentTurnRequest) -> str:
-    """前端可能只发 cardAction 不发 message；统一合成 booking_graph 可读文本。
-
-    卡片点击 ``select`` 时，前端会在 ``draftPatch`` 中带上 movieId/filmTitle、
-    cinemaId/cinemaName 或 showId。这里把它们翻译成自然语言，让 booking_graph
-    的字段提取能正确识别并填入 BookingDraft。
-    """
-    if body.message and body.message.strip():
-        return body.message.strip()
-    if body.cardAction:
-        ca = body.cardAction
-        patch = ca.draftPatch or {}
-
-        # 选电影卡片 → "看{片名}"
-        if patch.get("filmTitle"):
-            return f"看{patch['filmTitle']}"
-        # 选影院卡片 → "{影院名}"
-        if patch.get("cinemaName"):
-            return f"选{patch['cinemaName']}影院"
-        # 选场次卡片 → "选{showId}这场"
-        if patch.get("showId"):
-            return f"选{patch['showId']}这场"
-        # 座位方案确认 → draftPatch 里已有 seatIds
-        if patch.get("seatIds"):
-            seats = ", ".join(str(s) for s in patch["seatIds"])
-            return f"选座位 {seats}"
-
-        # 兜底：把 draftPatch 的 kv 拼出来
-        if patch:
-            kv = ", ".join(f"{k}={v}" for k, v in patch.items())
-            return f"（点卡操作：{kv}）"
-        return f"（点卡操作 {ca.actionId}）"
-    return ""
-
-
-def _to_draft_vo(sid: str, draft: dict[str, Any], draft_complete: bool) -> AgentTurnDraftVO:
+def _to_draft_vo(sid: str, draft: dict[str, Any]) -> AgentTurnDraftVO:
+    seat_ids = draft.get("seatIds") or []
+    if isinstance(seat_ids, str):
+        seat_ids = [s.strip() for s in seat_ids.split(",") if s.strip()]
     return AgentTurnDraftVO(
         sessionId=sid,
         source="agent",
-        state=_derive_state(draft_complete, draft),
+        state=_derive_state(draft),
         movieId=draft.get("movieId"),
         filmTitle=draft.get("filmTitle"),
         cinemaId=draft.get("cinemaId"),
@@ -298,8 +234,8 @@ def _to_draft_vo(sid: str, draft: dict[str, Any], draft_complete: bool) -> Agent
         showId=draft.get("showId"),
         date=draft.get("date"),
         timeWindow=draft.get("timeWindow"),
-        count=draft.get("count") or 2,
-        seatIds=list(draft.get("seatIds") or []),
+        count=int(draft.get("count") or 2),
+        seatIds=list(seat_ids),
         preferRow=draft.get("preferRow"),
         preferSide=draft.get("preferSide"),
         together=draft.get("together"),
@@ -310,6 +246,154 @@ def _to_draft_vo(sid: str, draft: dict[str, Any], draft_complete: bool) -> Agent
     )
 
 
+def _build_cards(tool_calls: list[dict[str, Any]], draft: dict[str, Any]) -> list[dict[str, Any]]:
+    """把 agent2 本轮工具调用结果映射为前端动态卡片。
+
+    按购票阶段控制卡片：
+    - 电影卡片只在选片阶段（草稿尚无 movieId）出现——浏览选片（如"周末看喜剧"）也会出卡，
+      一旦选定影片后续轮次不再重复弹电影卡；
+    - 影院/场次/座位卡片只在对应前置字段已选定后出现，避免非购票轮次或错误阶段出卡。
+    """
+    cards: list[dict[str, Any]] = []
+    for tc in tool_calls:
+        name = tc.get("name", "")
+        raw = _parse_tool_result(tc.get("content", ""))
+        if not isinstance(raw, dict):
+            continue
+        # agent2 工具返回中台信封 {code, message, data}，先解包内层
+        data = raw.get("data") if isinstance(raw.get("data"), dict) else raw
+        if not isinstance(data, dict):
+            continue
+
+        if name in ("search_movies", "searchMovies") and not draft.get("movieId"):
+            items = data.get("items") or []
+            if isinstance(items, list) and items:
+                cards.append({
+                    "cardId": f"movie_{uuid.uuid4().hex[:8]}",
+                    "type": "movie_list",
+                    "title": "为您找到这些电影",
+                    "payload": {"movies": items},
+                    "actions": [
+                        {
+                            "actionId": "select",
+                            "label": "选这部",
+                            "itemId": m.get("movieId", ""),
+                            "draftPatch": {"movieId": m.get("movieId"), "filmTitle": m.get("title")},
+                        }
+                        for m in items
+                        if isinstance(m, dict) and m.get("movieId")
+                    ],
+                })
+        elif name in ("searchCinemas", "search_cinemas") and draft.get("movieId") and not draft.get("cinemaId"):
+            items = data.get("items") or []
+            if isinstance(items, list) and items:
+                cards.append({
+                    "cardId": f"cinema_{uuid.uuid4().hex[:8]}",
+                    "type": "cinema_list",
+                    "title": "附近影院",
+                    "payload": {"cinemas": items},
+                    "actions": [
+                        {
+                            "actionId": "select",
+                            "label": "选这家",
+                            "itemId": c.get("cinemaId", ""),
+                            "draftPatch": {"cinemaId": c.get("cinemaId"), "cinemaName": c.get("name")},
+                        }
+                        for c in items
+                        if isinstance(c, dict) and c.get("cinemaId")
+                    ],
+                })
+        elif name in ("list_shows", "listShows") and draft.get("cinemaId") and not draft.get("showId"):
+            items = data.get("items") or []
+            if isinstance(items, list) and items:
+                cards.append({
+                    "cardId": f"show_{uuid.uuid4().hex[:8]}",
+                    "type": "show_list",
+                    "title": "可选场次",
+                    "payload": {"shows": items},
+                    "actions": [
+                        {
+                            "actionId": "select",
+                            "label": "选这场",
+                            "itemId": s.get("showId", ""),
+                            "draftPatch": {"showId": s.get("showId")},
+                        }
+                        for s in items
+                        if isinstance(s, dict) and s.get("showId")
+                    ],
+                })
+        elif name in ("getSeatMap", "get_seat_map", "recommendSeats", "recommend_seats") and draft.get("showId"):
+            is_reco = name in ("recommendSeats", "recommend_seats")
+            show_id = data.get("showId") or draft.get("showId") or ""
+            seat_map = data if not is_reco else None
+            plans = data.get("plans") if is_reco and isinstance(data.get("plans"), list) else []
+            compromise = data.get("compromise") if is_reco else None
+            cards.append({
+                "cardId": f"seat_{uuid.uuid4().hex[:8]}",
+                "type": "seat_plans",
+                "title": "选择座位",
+                "payload": {
+                    "showId": show_id,
+                    "count": int(draft.get("count") or 2),
+                    "seatMap": seat_map,
+                    "plans": plans,
+                    "compromise": compromise,
+                },
+                "actions": [
+                    {
+                        "actionId": "confirm",
+                        "label": "确认选座",
+                        "itemId": show_id,
+                        "draftPatch": {"showId": show_id, "seatIds": []},
+                    }
+                ],
+            })
+    # 去重：LLM 可能重复调用同一工具（如 search_movies），同类型同内容的卡片只保留一张
+    seen: set[tuple[str, tuple[str, ...]]] = set()
+    deduped: list[dict[str, Any]] = []
+    for c in cards:
+        payload = c.get("payload") or {}
+        items = payload.get("movies") or payload.get("cinemas") or payload.get("shows") or []
+        ids = tuple(sorted(
+            str(it.get("movieId") or it.get("cinemaId") or it.get("showId") or "")
+            for it in items
+            if isinstance(it, dict)
+        ))
+        key = (c.get("type", ""), ids)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(c)
+    return deduped
+
+
+def _compose_message(body: AgentTurnRequest) -> str:
+    """把 message 或 cardAction 合成为发给 agent2 的自然语言。
+
+    卡片操作合成为自然口语，不携带 movieId/cinemaId/showId 等内部技术字段——
+    选择信息已预先写入 booking_draft，agent 读草稿即可继续流程，不必把技术话术带进对话历史。
+    """
+    if body.message and body.message.strip():
+        return body.message.strip()
+    if body.cardAction:
+        ca = body.cardAction
+        patch = ca.draftPatch or {}
+        if patch.get("filmTitle"):
+            return f"我选择了电影《{patch['filmTitle']}》，请继续帮我完成购票。"
+        if patch.get("cinemaName"):
+            return f"我选择了影院 {patch['cinemaName']}，请继续。"
+        if patch.get("seatIds"):
+            seats = ", ".join(str(s) for s in patch["seatIds"])
+            return f"我选择了座位 {seats}，请帮我锁座并确认下单。"
+        if patch.get("showId"):
+            return "我选择了场次，请帮我查询座位并选座。"
+        if patch:
+            kv = ", ".join(f"{k}={v}" for k, v in patch.items())
+            return f"（点卡操作：{kv}）"
+        return f"（点卡操作 {ca.actionId}）"
+    return ""
+
+
 # ---------- 端点 ----------
 
 
@@ -318,14 +402,7 @@ async def agent_turns(
     body: AgentTurnRequest,
     authorization: str | None = Depends(get_authorization),
 ) -> AgentTurnEnvelope:
-    """前端契约端点：内部走 booking_graph 多轮购票流程。
-
-    - ``message`` 直接送入 booking_graph
-    - ``cardAction`` 的 draftPatch 会先写入 checkpoint 的 bookingdraft，再合成自然语言消息
-    - ``cards``/``progress`` 留空，前端 fallback 到 ``progressFromDraft``
-    - ``needLogin`` 在 JWT 缺失且 booking_graph 触发鉴权失败时由事件推断
-    - 响应包装为 ``{code, message, data}`` 信封，与后端 Java 一致
-    """
+    """前端契约端点：内部走 agent2，由工具轨迹生成动态卡片。"""
     user_id = _extract_user_id(authorization)
     sid = (body.sessionId or "").strip() or _generate_session_id(user_id)
     message = _compose_message(body)
@@ -335,55 +412,103 @@ async def agent_turns(
             data=AgentTurnResponse(
                 sessionId=sid,
                 replyText="请告诉我您想看什么电影，或者有什么需要帮您处理的？",
-                draft=_to_draft_vo(sid, {}, False),
+                draft=_to_draft_vo(sid, {}),
             )
         )
 
-    graph = _graph()
-    config: dict[str, Any] = {"configurable": {"thread_id": sid}}
-
-    # 卡片操作：先把 draftPatch 直接写入 checkpoint 的 bookingdraft，
-    # 这样 graph 运行时 draft 已有 movieId/cinemaId 等，直接跳到问下一个缺失字段
+    # 卡片操作：先把 draftPatch 写入 agent2 的 booking_draft
     patch = body.cardAction.draftPatch if body.cardAction else None
     if patch:
         try:
-            snap = await graph.aget_state(config)
-            existing_draft = (snap.values or {}).get("bookingdraft") or {}
-            merged = {**existing_draft, **patch}
-            await graph.aupdate_state(config, {"bookingdraft": merged})
+            existing = await load_draft(sid) or {}
+            merged = {**existing, **patch}
+            await save_draft(merged, sid)
         except Exception:
-            pass  # checkpoint 未启用或状态不存在，忽略
+            pass  # 草稿库未启用则忽略
 
-    with use_authorization(authorization):
-        payload: dict[str, Any] = {
-            "message": message,
-            "authorization": authorization,
-            "latitude": body.latitude,
-            "longitude": body.longitude,
-            "sessionId": sid,
-        }
-        result = await graph.ainvoke(payload, config)
+    agent = await get_agent()
+    # 坐标经 ContextVar 注入（run_with_trace 内部 use_location），不再拼进消息文本，
+    # 避免污染对话历史；searchCinemas 未显式传经纬度时会自动回退到该位置。
+    trace = await agent.run_with_trace(
+        message,
+        session_id=sid,
+        authorization=authorization,
+        latitude=body.latitude,
+        longitude=body.longitude,
+    )
+    reply = trace.get("reply", "")
+    tool_calls = trace.get("tool_calls", [])
+
+    try:
+        draft = await load_draft(sid) or {}
+    except Exception:
+        draft = {}
+
+    cards = _build_cards(tool_calls, draft)
+
+    # 若座位卡片缺座位图，主动补拉（供前端渲染可点击座位网格）
+    for c in cards:
+        if c.get("type") == "seat_plans" and not c.get("payload", {}).get("seatMap"):
+            show_id = c.get("payload", {}).get("showId")
+            if show_id:
+                try:
+                    from agent2.http import backend_url, get
+                    sm = await get(backend_url(f"/shows/{show_id}/seat-map"), timeout=3.0)
+                    if isinstance(sm, dict) and sm.get("code") in (0, 200, None):
+                        c["payload"]["seatMap"] = sm.get("data")
+                except Exception:
+                    pass  # 补拉失败不阻塞
+
+    # 兜底：草稿已有场次但未选座，且本轮没生成座位卡片 → 主动补一张（保证前端可选座）
+    if (draft.get("showId") and not draft.get("seatIds")
+            and not any(c.get("type") == "seat_plans" for c in cards)):
+        try:
+            from agent2.http import backend_url, get
+            sm = await get(backend_url(f"/shows/{draft['showId']}/seat-map"), timeout=3.0)
+            if isinstance(sm, dict) and sm.get("code") in (0, 200, None):
+                seat_map = sm.get("data")
+                if isinstance(seat_map, dict) and seat_map.get("seats"):
+                    cards.append({
+                        "cardId": f"seat_{uuid.uuid4().hex[:8]}",
+                        "type": "seat_plans",
+                        "title": "选择座位",
+                        "payload": {
+                            "showId": draft["showId"],
+                            "count": int(draft.get("count") or 2),
+                            "seatMap": seat_map,
+                            "plans": [],
+                            "compromise": None,
+                        },
+                        "actions": [
+                            {
+                                "actionId": "confirm",
+                                "label": "确认选座",
+                                "itemId": draft["showId"],
+                                "draftPatch": {"showId": draft["showId"], "seatIds": []},
+                            }
+                        ],
+                    })
+        except Exception:
+            pass  # 兜底失败不阻塞
 
     # 记录/更新 session 元数据
     title = message[:50] if message else None
     await _record_session(sid, user_id, title)
 
-    draft = result.get("bookingdraft") or {}
-    draft_complete = bool(result.get("draft_complete", False))
-    events = list(result.get("events") or [])
-    need_login = any("auth" in e or "unauthorized" in e.lower() for e in events)
-    cards = list(result.get("cards") or [])
+    # 基于实际 JWT 判定是否需要登录，而非从 LLM 回复中猜关键词。
+    # LLM 可能在解释流程时提到"登录"，导致误判 needLogin=true 进入死循环。
+    need_login = user_id == "anon"
 
     return AgentTurnEnvelope(
         data=AgentTurnResponse(
             sessionId=sid,
-            replyText=result.get("reply", "") or "",
-            draft=_to_draft_vo(sid, draft, draft_complete),
+            replyText=reply,
+            draft=_to_draft_vo(sid, draft),
             cards=cards,
             progress={},
             needLogin=need_login,
-            events=events,
-            toolTraces=[],
+            events=[f"agent2_done:{len(tool_calls)}"],
+            toolTraces=tool_calls,
         )
     )
 
@@ -475,6 +600,11 @@ async def get_session_messages(
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Depends(get_authorization),
 ) -> HistoryEnvelope:
-    """获取某会话的历史消息（分页，从 LangGraph checkpoint 读取）。"""
-    messages = await _get_history_messages(session_id, limit, offset)
-    return HistoryEnvelope(data=[HistoryMessage(role=m["role"], content=m["content"]) for m in messages])
+    """获取某会话的历史消息（分页，从 agent2 PostgresSaver 读取）。"""
+    agent = await get_agent()
+    history = await agent.get_history(session_id, limit=limit + offset)
+    if len(history) > limit:
+        page = history[:limit]
+    else:
+        page = history[-limit:]
+    return HistoryEnvelope(data=[HistoryMessage(role=m["role"], content=m["content"]) for m in page])

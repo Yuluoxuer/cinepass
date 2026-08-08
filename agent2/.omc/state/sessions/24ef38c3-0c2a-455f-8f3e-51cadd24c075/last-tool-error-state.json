@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd /home/rei/Code/FastAPIAgent && conda run -n langchain python -c \\\"\\nimport asyncio\\nfrom psycopg_pool import AsyncConnectionPool\\nfrom langgraph.checkpoint.postgres.aio import AsyncPost...",
+  "error": "Exit code 1\nTraceback (most recent call last):\n  File \"<string>\", line 17, in <module>\n  File \"/home/rei/miniconda3/envs/langchain/lib/python3.12/asyncio/runners.py\", line 195, in run\n    return runner.run(main)\n           ^^^^^^^^^^^^^^^^\n  File \"/home/rei/miniconda3/envs/langchain/lib/python3.12/asyncio/runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/rei/miniconda3/envs/langchain/lib/python3.12/asyncio/ba...",
+  "timestamp": "2026-08-07T17:14:54.278Z",
+  "retry_count": 1
+}
