@@ -241,6 +241,14 @@ public class OrderServiceImpl implements OrderService {
         seatStatusMapper.releaseByLockId(order.getLockId());
     }
 
+    /** 电影结束未使用清扫：仅 issued 命中置为 expired；座位支付时已售出，无需释放 */
+    @Override
+    @Transactional
+    public void expireUnusedOrder(String orderId) {
+        // 条件更新：仅 issued 命中，避免误动已核销/已取消/待支付订单
+        orderTicketMapper.updateExpiredUnused(orderId);
+    }
+
     /** 运营协助查单：admin 全量；staff 仅本影院场次订单 */
     @Override
     public PageResult<OrderVO> listAdmin(String filterUserId, String status,

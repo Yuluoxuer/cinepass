@@ -293,6 +293,35 @@
         LIMIT #{limit}
     </select>
 
+    <!-- 电影结束未使用清扫候选：已出票且场次 end_time 已过，按结束时间升序 -->
+    <select id="selectIssuedEndedOrders" resultType="string">
+        SELECT ot.order_id
+        FROM order_ticket ot
+        INNER JOIN show_schedule ss ON ss.show_id = ot.show_id
+        WHERE ot.status = 'issued'
+          AND ss.end_time &lt; #{now}
+        ORDER BY ss.end_time ASC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 电影结束未使用关单：仅 issued → expired，标记 cancel_reason 与支付超时区分；与并发核销互斥 -->
+    <update id="updateExpiredUnused" databaseId="postgresql">
+        UPDATE order_ticket
+        SET status = 'expired',
+            cancel_reason = 'unused_after_show',
+            updated_at = NOW()
+        WHERE order_id = #{orderId}
+          AND status = 'issued'
+    </update>
+    <update id="updateExpiredUnused">
+        UPDATE order_ticket
+        SET status = 'expired',
+            cancel_reason = 'unused_after_show',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE order_id = #{orderId}
+          AND status = 'issued'
+    </update>
+
     <!-- 个人推荐行为偏好：用户已出票订单的影片 ID -->
     <select id="selectIssuedMovieIdsByUser" resultType="string">
         SELECT DISTINCT ss.movie_id
