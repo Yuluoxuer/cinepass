@@ -8,12 +8,14 @@ import com.cinepass.dto.MovieUpdateDTO;
 import com.cinepass.mapper.MovieMapper;
 import com.cinepass.mapper.RecoClickMapper;
 import com.cinepass.mapper.ShowMapper;
+import com.cinepass.mapper.TagMapper;
 import com.cinepass.model.Movie;
 import com.cinepass.model.ShowSchedule;
 import com.cinepass.service.EsSearchService;
 import com.cinepass.service.EsIndexService;
 import com.cinepass.service.MovieService;
 import com.cinepass.util.MovieIds;
+import com.cinepass.util.TagIds;
 import com.cinepass.vo.CastMemberVO;
 import com.cinepass.vo.MovieVO;
 import com.cinepass.vo.PageResult;
@@ -30,9 +32,11 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Set;
 
 /**
  * {@link MovieService} 实现。
@@ -51,15 +55,17 @@ public class MovieServiceImpl implements MovieService {
     private final EsSearchService esSearchService;
     private final EsIndexService esIndexService;
     private final RecoClickMapper recoClickMapper;
+    private final TagMapper tagMapper;
 
     public MovieServiceImpl(MovieMapper movieMapper, ShowMapper showMapper,
                             EsSearchService esSearchService, EsIndexService esIndexService,
-                            RecoClickMapper recoClickMapper) {
+                            RecoClickMapper recoClickMapper, TagMapper tagMapper) {
         this.movieMapper = movieMapper;
         this.showMapper = showMapper;
         this.esSearchService = esSearchService;
         this.esIndexService = esIndexService;
         this.recoClickMapper = recoClickMapper;
+        this.tagMapper = tagMapper;
     }
 
     @Override
@@ -223,6 +229,7 @@ public class MovieServiceImpl implements MovieService {
         m.setCreatedAt(now);
         m.setUpdatedAt(now);
         movieMapper.insert(m);
+        syncTags(dto.getGenres());
         esIndexService.syncMovie(m.getMovieId());
         return toVo(movieMapper.selectById(m.getMovieId()));
     }
@@ -240,13 +247,80 @@ public class MovieServiceImpl implements MovieService {
         if (dto.getRating() != null) m.setRating(dto.getRating());
         if (dto.getDurationMin() != null) m.setDurationMin(dto.getDurationMin());
         if (dto.getReleaseDate() != null) m.setReleaseDate(LocalDate.parse(dto.getReleaseDate(), DATE_FMT));
+        if ("off".equals(dto.getStatus()) && !"off".equals(m.getStatus())) {
+            // 下架前校验：未来仍有在售场次则阻止，避免下架后场次仍可被购买
+            long onSaleShows = showMapper.countOnSaleByMovie(movieId, OffsetDateTime.now());
+            if (onSaleShows > 0) {
+                throw new BusinessException(ResultCode.CONFLICT,
+                        "该影片还有 " + onSaleShows + " 场在售场次，请先在「场次管理」取消场次后再下架");
+            }
+        }
         if (dto.getStatus() != null) m.setStatus(dto.getStatus());
         if (dto.getDescription() != null) m.setDescription(dto.getDescription());
         if (dto.getCast() != null) m.setCastText(dto.getCast());
         m.setUpdatedAt(OffsetDateTime.now());
         movieMapper.update(m);
+        if (dto.getGenres() != null) {
+            syncTags(dto.getGenres());
+        }
         esIndexService.syncMovie(movieId);
         return toVo(movieMapper.selectById(movieId));
+    }
+
+    @Override
+    @Transactional
+    public MovieVO takeDown(String movieId) {
+        Movie m = movieMapper.selectById(movieId);
+        if (m == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "影片不存在");
+        }
+        if ("off".equals(m.getStatus())) {
+            return toVo(m); // 已下架，幂等
+        }
+        MovieUpdateDTO dto = new MovieUpdateDTO();
+        dto.setStatus("off");
+        // 复用 update：内部会校验未来在售场次，有则抛 CONFLICT 阻止下架
+        return update(movieId, dto);
+    }
+
+    @Override
+    @Transactional
+    public MovieVO relist(String movieId) {
+        Movie m = movieMapper.selectById(movieId);
+        if (m == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "影片不存在");
+        }
+        // 上架状态按上映日期推导：今天已上映→热映，未上映→待映
+        String target = m.getReleaseDate() != null
+                && !m.getReleaseDate().isAfter(LocalDate.now(CLICK_ZONE))
+                ? "hot_showing" : "coming_soon";
+        MovieUpdateDTO dto = new MovieUpdateDTO();
+        dto.setStatus(target);
+        return update(movieId, dto);
+    }
+
+    @Override
+    public List<String> listGenres() {
+        List<String> names = tagMapper.listAllNames();
+        return names != null ? names : Collections.<String>emptyList();
+    }
+
+    /** 影片类型标签字典同步：trim + 去空 + 幂等写入，与建片/改片同一事务 */
+    private void syncTags(List<String> genres) {
+        if (genres == null || genres.isEmpty()) {
+            return;
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        Set<String> seen = new LinkedHashSet<String>();
+        for (String genre : genres) {
+            if (genre == null) {
+                continue;
+            }
+            String name = genre.trim();
+            if (!name.isEmpty() && seen.add(name)) {
+                tagMapper.insertIgnore(TagIds.next(), name, now);
+            }
+        }
     }
 
     private MovieVO toVo(Movie m) {

@@ -110,10 +110,10 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(ResultCode.NOT_FOUND, "账号不存在");
         }
         if (!passwordEncoder.matches(dto.getOldPassword(), user.getPasswordHash())) {
-            throw new BusinessException(ResultCode.UNAUTHORIZED, "旧密码不正确");
+            throw new BusinessException(ResultCode.PASSWORD_WRONG);
         }
         if (dto.getOldPassword().equals(dto.getNewPassword())) {
-            throw new BusinessException(ResultCode.PARAM_ERROR, "新密码不能与旧密码相同");
+            throw new BusinessException(ResultCode.PASSWORD_SAME_AS_OLD);
         }
         user.setPasswordHash(passwordEncoder.encode(dto.getNewPassword()));
         user.setUpdatedAt(OffsetDateTime.now());

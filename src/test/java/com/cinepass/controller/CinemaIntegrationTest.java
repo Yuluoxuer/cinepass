@@ -187,6 +187,27 @@ class CinemaIntegrationTest {
     }
 
     @Test
+    void creatingDuplicateNameCinemaIsRejected() throws Exception {
+        String body = "{\"cityId\":\"city_test\",\"cityName\":\"上海市\",\"name\":\"重复影院\",\"address\":\"测试路 1 号\","
+                + "\"lat\":31.240000,\"lng\":121.480000,\"trafficNote\":\"\",\"tags\":[]}";
+        String adminToken = bearer(loginAs("系统管理员", "demo123456"));
+
+        // 首次创建成功
+        mockMvc.perform(post("/api/v1/admin/cinemas")
+                        .header("Authorization", adminToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        // 同名再建 → 拒绝（CONFLICT 409）
+        mockMvc.perform(post("/api/v1/admin/cinemas")
+                        .header("Authorization", adminToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("同名影院")));
+    }
+
+    @Test
     void adminCanSoftDeleteCinemaAndStaffCannot() throws Exception {
         String adminToken = bearer(loginAs("系统管理员", "demo123456"));
         String staffToken = bearer(loginAs("运营小王", "demo123456"));

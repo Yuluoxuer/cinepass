@@ -24,6 +24,11 @@ public enum ResultCode {
     UNAUTHORIZED_TOKEN(40101, "未认证或令牌无效"),
     FORBIDDEN_PERMISSION(40301, "权限不足"),
 
+    /** 旧密码校验失败（不用 401，避免被前端按「登录已过期」统一翻译掩盖真实原因） */
+    PASSWORD_WRONG(4201, "旧密码不正确"),
+    /** 新密码与旧密码相同 */
+    PASSWORD_SAME_AS_OLD(4202, "新密码不能与旧密码相同"),
+
     LOCK_EXPIRED(4101, "锁座已失效或不可用"),
     ORDER_NOT_CANCELLABLE(4102, "订单不可取消"),
     ORDER_NOT_PAYABLE(4103, "订单不可支付"),

@@ -136,4 +136,19 @@
             updated_at = CURRENT_TIMESTAMP
         WHERE movie_id = #{movieId}
     </update>
+
+    <!-- 到上映日自动上架：候选为已到上映日仍未上架的待映影片（条件基于相对日期，天然幂等可补扫） -->
+    <select id="selectReleasedButComingSoon" resultType="string">
+        SELECT movie_id
+        FROM movie
+        WHERE status = 'coming_soon'
+          AND release_date &lt;= #{today}
+    </select>
+
+    <update id="flipComingSoonToShowing">
+        UPDATE movie
+        SET status = 'hot_showing', updated_at = NOW()
+        WHERE status = 'coming_soon'
+          AND release_date &lt;= #{today}
+    </update>
 </mapper>

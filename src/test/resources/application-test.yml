@@ -49,6 +49,8 @@ search:
   elasticsearch:
     sync-enabled: false
 
-# 测试环境关闭推荐物化后台调度，榜单重算由 GET 兜底同步触发，保证测试确定性
+# 测试环境关闭推荐缓存（不创建真实 RedissonClient，由 TestMockBeanConfig 提供 mock，走 DB 降级）
+# 与推荐物化后台调度（榜单重算由 GET 兜底同步触发），保证测试确定性
 ticket:
+  reco-cache-enabled: false
   reco-recompute-enabled: false

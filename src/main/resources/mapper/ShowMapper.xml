@@ -200,6 +200,13 @@
           </if>
     </select>
 
+    <!-- 下架前置校验：该影片未来仍在售的场次数 -->
+    <select id="countOnSaleByMovie" resultType="long">
+        SELECT COUNT(1) FROM show_schedule
+        WHERE movie_id = #{movieId}
+          AND status = 'on_sale'
+          AND start_time &gt; #{now}
+    </select>
     <!-- 按时间段查有场次的电影（distinct movieId + 最早开场时间），分页 -->
     <select id="listMoviesByTimeRange" resultType="com.cinepass.model.ShowSchedule">
         <![CDATA[

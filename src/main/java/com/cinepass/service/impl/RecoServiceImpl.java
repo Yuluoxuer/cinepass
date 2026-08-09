@@ -1,6 +1,7 @@
 package com.cinepass.service.impl;
 
 import com.alibaba.fastjson2.JSON;
+import com.cinepass.cache.RecoCacheService;
 import com.cinepass.constant.RecoConstants;
 import com.cinepass.mapper.MovieMapper;
 import com.cinepass.mapper.OrderTicketMapper;
@@ -14,10 +15,12 @@ import com.cinepass.model.RecoWeight;
 import com.cinepass.model.UserProfile;
 import com.cinepass.service.RecoService;
 import com.cinepass.vo.MovieVO;
+import com.cinepass.vo.RecoBaseVO;
 import com.cinepass.vo.PersonalRecoItemVO;
 import com.cinepass.vo.PersonalRecoVO;
 import com.cinepass.vo.WeeklyHotItemVO;
 import com.cinepass.vo.WeeklyHotVO;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -45,6 +48,7 @@ import java.util.Set;
  * <p>每周热门：reco_stats 物化周信号，热门分 = 城市权重 × 归一化信号；GET 时按城市权重重算保证权重即时生效。
  * 个人推荐：显式偏好（user_profile）做类型匹配、行为偏好（想看 ∪ 已购）做标签匹配，加权打分后做同类型连续 ≤3 贪心排布。</p>
  */
+@Slf4j
 @Service
 public class RecoServiceImpl implements RecoService {
 
@@ -60,6 +64,7 @@ public class RecoServiceImpl implements RecoService {
     private final UserProfileMapper userProfileMapper;
     private final WantSeeMapper wantSeeMapper;
     private final OrderTicketMapper orderTicketMapper;
+    private final RecoCacheService recoCacheService;
     private final TransactionTemplate tx;
 
     public RecoServiceImpl(RecoStatsMapper recoStatsMapper,
@@ -68,6 +73,7 @@ public class RecoServiceImpl implements RecoService {
                            UserProfileMapper userProfileMapper,
                            WantSeeMapper wantSeeMapper,
                            OrderTicketMapper orderTicketMapper,
+                           RecoCacheService recoCacheService,
                            PlatformTransactionManager txManager) {
         this.recoStatsMapper = recoStatsMapper;
         this.recoWeightMapper = recoWeightMapper;
@@ -75,12 +81,13 @@ public class RecoServiceImpl implements RecoService {
         this.userProfileMapper = userProfileMapper;
         this.wantSeeMapper = wantSeeMapper;
         this.orderTicketMapper = orderTicketMapper;
+        this.recoCacheService = recoCacheService;
         this.tx = new TransactionTemplate(txManager);
     }
 
     @Override
     public WeeklyHotVO weeklyHot(String cityId, Integer limit) {
-        ensureFreshStats();
+        RecoBaseVO base = base();
         String city = StringUtils.hasText(cityId) ? cityId.trim() : RecoConstants.DEFAULT_CITY;
         RecoWeight weight = recoWeightMapper.selectByCity(city);
         if (weight == null) {
@@ -89,49 +96,28 @@ public class RecoServiceImpl implements RecoService {
             weight = recoWeightMapper.selectByCity(city);
         }
 
-        List<RecoStats> stats = recoStatsMapper.selectAll();
-        if (stats == null || stats.isEmpty()) {
+        List<Ranked> ranked = rankByCityWeights(base, cityWeights(weight));
+        if (ranked.isEmpty()) {
             return WeeklyHotVO.builder()
                     .computedAt(ISO.format(OffsetDateTime.now(ZO)))
                     .items(Collections.<WeeklyHotItemVO>emptyList())
                     .build();
         }
-        // 按城市权重重打分，保证城市权重即时生效（不依赖物化 hot_score）
-        BigDecimal[] w = cityWeights(weight);
-        fillHotScore(stats, w[0], w[1], w[2], w[3]);
-        Collections.sort(stats, new Comparator<RecoStats>() {
-            @Override
-            public int compare(RecoStats a, RecoStats b) {
-                return b.getHotScore().compareTo(a.getHotScore());
-            }
-        });
 
         int n = clamp(limit == null ? 10 : limit.intValue(), 1, RecoConstants.WEEKLY_HOT_MAX);
-        List<String> ids = new ArrayList<String>();
-        int take = Math.min(n, stats.size());
-        for (int i = 0; i < take; i++) {
-            ids.add(stats.get(i).getMovieId());
-        }
-        Map<String, Movie> movies = movieMap(ids);
-
+        int take = Math.min(n, ranked.size());
         List<WeeklyHotItemVO> items = new ArrayList<WeeklyHotItemVO>();
         for (int i = 0; i < take; i++) {
-            RecoStats r = stats.get(i);
-            Movie m = movies.get(r.getMovieId());
-            if (m == null) {
-                continue;
-            }
+            Ranked r = ranked.get(i);
             items.add(WeeklyHotItemVO.builder()
                     .rank(i + 1)
-                    .hotScore(r.getHotScore())
+                    .hotScore(r.score)
                     .heatTag(heatTag(i + 1))
-                    .movie(toMovieVO(m))
+                    .movie(r.movie)
                     .build());
         }
-
-        OffsetDateTime computedAt = recoStatsMapper.selectMaxComputedAt();
         return WeeklyHotVO.builder()
-                .computedAt(ISO.format(computedAt != null ? computedAt : OffsetDateTime.now(ZO)))
+                .computedAt(base.getComputedAt())
                 .items(items)
                 .build();
     }
@@ -144,22 +130,26 @@ public class RecoServiceImpl implements RecoService {
             return fallbackHot(n, exclude);
         }
 
-        ensureFreshStats();
+        RecoBaseVO base = base();
         Set<String> prefGenres = explicitPrefs(userId);
         Set<String> behaviorGenres = behaviorGenres(userId);
-        Map<String, RecoStats> statsMap = statsByMovie();
 
         List<PersonalRecoItemVO> scored = new ArrayList<PersonalRecoItemVO>();
-        List<Movie> candidates = candidates(exclude);
-        for (Movie m : candidates) {
-            List<String> genres = genresOf(m);
+        for (Map.Entry<String, MovieVO> e : base.getMovies().entrySet()) {
+            String movieId = e.getKey();
+            if (exclude.contains(movieId)) {
+                continue;
+            }
+            MovieVO m = e.getValue();
+            RecoStats signal = base.getSignals().get(movieId);
+            List<String> genres = m.getGenres() == null ? Collections.<String>emptyList() : m.getGenres();
             double genreMatch = jaccard(genres, prefGenres);
             double tagMatch = jaccard(genres, behaviorGenres);
             double ratingNorm = ratingNorm(m.getRating()).doubleValue();
-            double hotNorm = hotNorm(statsMap.get(m.getMovieId()));
+            double hotNorm = hotNorm(signal);
             double score = 0.5 * genreMatch + 0.2 * tagMatch + 0.2 * ratingNorm + 0.1 * hotNorm;
             scored.add(PersonalRecoItemVO.builder()
-                    .movie(toMovieVO(m))
+                    .movie(m)
                     .personalScore(BigDecimal.valueOf(clamp(score, 0, 1)).setScale(4, RoundingMode.HALF_UP))
                     .reason(reason(genreMatch, ratingNorm, hotNorm, genres, prefGenres))
                     .build());
@@ -216,6 +206,12 @@ public class RecoServiceImpl implements RecoService {
             recoStatsMapper.deleteAll();
             recoStatsMapper.batchInsert(finalRows);
         });
+        // 顺带重建推荐底座缓存（用内存数据，避免再查库）；失败仅记日志，下轮调度/读触发重建
+        try {
+            recoCacheService.writeBase(toBase(rows, movies));
+        } catch (Exception e) {
+            log.warn("重建推荐底座缓存失败: {}", e.getMessage());
+        }
     }
 
     /** reco_stats 为空或物化超过 1 小时则同步重算，保证首次/长时间未调度也能出榜 */
@@ -345,34 +341,96 @@ public class RecoServiceImpl implements RecoService {
         return genres;
     }
 
-    /** 候选片：热映 + 待映，排除指定 ID */
-    private List<Movie> candidates(Set<String> exclude) {
-        List<Movie> all = movieMapper.listAll();
-        List<Movie> out = new ArrayList<Movie>();
-        if (all == null) {
-            return out;
+    /** 读推荐底座缓存；Redis 故障/无缓存时由缓存组件内部降级为 DB 现算 */
+    private RecoBaseVO base() {
+        return recoCacheService.getOrRefresh(this::computeAndCache);
+    }
+
+    /** 缓存刷新加载器：确保 reco_stats 新鲜后从 DB 构建底座 */
+    private RecoBaseVO computeAndCache() {
+        ensureFreshStats();
+        return buildBaseFromDb();
+    }
+
+    private RecoBaseVO buildBaseFromDb() {
+        return toBase(recoStatsMapper.selectAll(), movieMapper.listAll());
+    }
+
+    /** 信号 + 影片 → 底座 VO（只含 hot_showing + coming_soon） */
+    private RecoBaseVO toBase(List<RecoStats> stats, List<Movie> movies) {
+        Map<String, RecoStats> signals = new HashMap<String, RecoStats>();
+        if (stats != null) {
+            for (RecoStats r : stats) {
+                if (r.getMovieId() != null) {
+                    signals.put(r.getMovieId(), r);
+                }
+            }
         }
-        for (Movie m : all) {
-            if (m.getMovieId() == null || exclude.contains(m.getMovieId())) {
+        Map<String, MovieVO> vos = new HashMap<String, MovieVO>();
+        if (movies != null) {
+            for (Movie m : movies) {
+                if (m.getMovieId() == null || "off".equals(m.getStatus())) {
+                    continue;
+                }
+                vos.put(m.getMovieId(), toMovieVO(m));
+            }
+        }
+        return RecoBaseVO.builder().computedAt(computedAt(stats)).signals(signals).movies(vos).build();
+    }
+
+    /** 取 reco_stats 最大计算时间；无则当前时间 */
+    private String computedAt(List<RecoStats> stats) {
+        OffsetDateTime max = null;
+        if (stats != null) {
+            for (RecoStats r : stats) {
+                if (r.getComputedAt() != null && (max == null || r.getComputedAt().isAfter(max))) {
+                    max = r.getComputedAt();
+                }
+            }
+        }
+        return ISO.format(max != null ? max : OffsetDateTime.now(ZO));
+    }
+
+    /** 按城市权重对底座信号打分排序（只读缓存对象，不修改） */
+    private List<Ranked> rankByCityWeights(RecoBaseVO base, BigDecimal[] w) {
+        List<RecoStats> signals = new ArrayList<RecoStats>(base.getSignals().values());
+        int maxOrders = 0;
+        int maxClicks = 0;
+        for (RecoStats r : signals) {
+            maxOrders = Math.max(maxOrders, orZero(r.getWeekOrders()));
+            maxClicks = Math.max(maxClicks, orZero(r.getWeekClicks()));
+        }
+        List<Ranked> out = new ArrayList<Ranked>();
+        for (RecoStats r : signals) {
+            MovieVO m = base.getMovies().get(r.getMovieId());
+            if (m == null) {
                 continue;
             }
-            if ("hot_showing".equals(m.getStatus()) || "coming_soon".equals(m.getStatus())) {
-                out.add(m);
-            }
+            double nOrders = maxOrders > 0 ? (double) orZero(r.getWeekOrders()) / maxOrders : 0;
+            double nClicks = maxClicks > 0 ? (double) orZero(r.getWeekClicks()) / maxClicks : 0;
+            double rating = r.getRatingNorm() == null ? 0 : r.getRatingNorm().doubleValue();
+            double fresh = r.getFreshness() == null ? 0 : r.getFreshness().doubleValue();
+            double hot = 100 * (d(w[0]) * nOrders + d(w[1]) * nClicks
+                    + d(w[2]) * rating + d(w[3]) * fresh);
+            out.add(new Ranked(m, BigDecimal.valueOf(clamp(hot, 0, 100)).setScale(1, RoundingMode.HALF_UP)));
         }
+        // 同分按 movieId 做确定性次级排序，避免依赖 HashMap 桶序
+        out.sort((a, b) -> {
+            int c = b.score.compareTo(a.score);
+            return c != 0 ? c : a.movie.getMovieId().compareTo(b.movie.getMovieId());
+        });
         return out;
     }
 
-    /** reco_stats 按影片映射（个人推荐取热度项） */
-    private Map<String, RecoStats> statsByMovie() {
-        List<RecoStats> all = recoStatsMapper.selectAll();
-        Map<String, RecoStats> map = new HashMap<String, RecoStats>();
-        if (all != null) {
-            for (RecoStats r : all) {
-                map.put(r.getMovieId(), r);
-            }
+    /** 城市权重打分中间结果（避免修改缓存中的 RecoStats） */
+    private static class Ranked {
+        final MovieVO movie;
+        final BigDecimal score;
+
+        Ranked(MovieVO movie, BigDecimal score) {
+            this.movie = movie;
+            this.score = score;
         }
-        return map;
     }
 
     /** 热门分归一化到 0–1；无物化行按 0 */
@@ -495,21 +553,6 @@ public class RecoServiceImpl implements RecoService {
         if (rows != null) {
             for (RecoStats r : rows) {
                 map.put(r.getMovieId(), orZero(r.getWeekClicks()));
-            }
-        }
-        return map;
-    }
-
-    /** 批量取影片并转 movieId → Movie 映射 */
-    private Map<String, Movie> movieMap(List<String> ids) {
-        Map<String, Movie> map = new HashMap<String, Movie>();
-        if (ids == null || ids.isEmpty()) {
-            return map;
-        }
-        List<Movie> movies = movieMapper.selectByIds(ids);
-        if (movies != null) {
-            for (Movie m : movies) {
-                map.put(m.getMovieId(), m);
             }
         }
         return map;

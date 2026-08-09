@@ -86,6 +86,11 @@ public class AdminShowServiceImpl implements AdminShowService {
         if (movie == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影片不存在");
         }
+        if ("off".equals(movie.getStatus())) {
+            // 已下架影片不允许再排片，避免「下架保护」被单个建场次绕过
+            throw new BusinessException(ResultCode.CONFLICT,
+                    "影片《" + movie.getTitle() + "》已下架，不能创建场次");
+        }
         Cinema cinema = cinemaMapper.selectById(dto.getCinemaId());
         if (cinema == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
@@ -148,6 +153,11 @@ public class AdminShowServiceImpl implements AdminShowService {
         Movie movie = movieMapper.selectById(dto.getMovieId());
         if (movie == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影片不存在");
+        }
+        if ("off".equals(movie.getStatus())) {
+            // 已下架影片不允许再排片，避免「下架保护」被批量建场次绕过
+            throw new BusinessException(ResultCode.CONFLICT,
+                    "影片《" + movie.getTitle() + "》已下架，不能创建场次");
         }
         if (movie.getDurationMin() == null || movie.getDurationMin() <= 0) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "影片时长信息缺失");
@@ -339,7 +349,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         if (show == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "场次不存在");
         }
-        if (!"cancelled".equals(show.getStatus())) {
+        if (!"off_sale".equals(show.getStatus()) && !"cancelled".equals(show.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "仅可恢复已停售/取消的场次");
         }
         showMapper.resumeSale(showId);

@@ -75,6 +75,8 @@ public interface ShowMapper {
     /** 统计某日 on_sale 场次数；cinemaId 为空时全量 */
     long countOnSaleByDate(@Param("date") String date, @Param("cinemaId") String cinemaId);
 
+    /** 该影片 {@code now} 之后仍在售（on_sale）的场次数，下架前置校验用 */
+    long countOnSaleByMovie(@Param("movieId") String movieId, @Param("now") OffsetDateTime now);
     /**
      * 按时间段查询有 on_sale 场次的电影 ID 及最早开场时间。
      * cinemaId 为空时不限制影院。按最早开场时间升序，分页。

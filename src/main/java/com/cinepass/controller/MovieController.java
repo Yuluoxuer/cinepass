@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * C 端电影查询（公开）。
  * <pre>
@@ -53,5 +55,13 @@ public class MovieController {
     @Public
     public Result<MovieVO> get(@PathVariable String movieId) {
         return Result.success(movieService.get(movieId));
+    }
+
+    /** 全部影片类型标签（来自 tag 字典表，按名称排序） */
+    @ApiOperation("全部影片类型标签")
+    @GetMapping("/genres")
+    @Public
+    public Result<List<String>> genres() {
+        return Result.success(movieService.listGenres());
     }
 }
