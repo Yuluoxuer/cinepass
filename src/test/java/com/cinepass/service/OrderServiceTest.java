@@ -386,6 +386,32 @@ class OrderServiceTest {
         verify(orderTicketMapper).updateCancelled(ORDER, "timeout");
     }
 
+    // ---------- expireUnusedOrder ----------
+
+    @Test
+    void expireUnusedOrder_shouldMarkIssuedAsExpiredUnused() {
+        when(orderTicketMapper.updateExpiredUnused(ORDER)).thenReturn(1);
+
+        orderService.expireUnusedOrder(ORDER);
+
+        verify(orderTicketMapper).updateExpiredUnused(ORDER);
+        // 座位支付时已售出，无需触碰锁座/座位
+        verify(seatLockMapper, never()).markExpired(anyString());
+        verify(seatLockMapper, never()).markReleased(anyString());
+        verify(seatStatusMapper, never()).releaseByLockId(anyString());
+    }
+
+    @Test
+    void expireUnusedOrder_nonIssued_shouldNoOp() {
+        // 条件更新幂等：已核销/已取消/待支付订单返回 0 不影响（不抛异常）
+        when(orderTicketMapper.updateExpiredUnused(ORDER)).thenReturn(0);
+
+        orderService.expireUnusedOrder(ORDER);
+
+        verify(orderTicketMapper).updateExpiredUnused(ORDER);
+        verify(seatStatusMapper, never()).releaseByLockId(anyString());
+    }
+
     // ---------- listAdmin ----------
 
     @Test

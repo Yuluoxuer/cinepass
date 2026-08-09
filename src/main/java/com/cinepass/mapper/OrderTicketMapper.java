@@ -71,6 +71,13 @@ public interface OrderTicketMapper {
     List<String> selectExpiredPendingPay(@Param("now") OffsetDateTime now,
                                          @Param("limit") int limit);
 
+    /** 分页取场次已结束的已出票订单 ID（JOIN show_schedule 按 end_time 判断，定时清扫用，上限 limit） */
+    List<String> selectIssuedEndedOrders(@Param("now") OffsetDateTime now,
+                                         @Param("limit") int limit);
+
+    /** 仅 issued → expired：标记电影结束未使用（cancel_reason=unused_after_show）；返回影响行数 */
+    int updateExpiredUnused(@Param("orderId") String orderId);
+
     /** 查询用户已出票订单对应的影片 ID（个人推荐行为偏好；order_ticket 无 movie_id，JOIN show_schedule 补） */
     List<String> selectIssuedMovieIdsByUser(@Param("userId") String userId);
 }

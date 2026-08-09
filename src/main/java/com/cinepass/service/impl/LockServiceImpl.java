@@ -20,6 +20,7 @@ import com.cinepass.util.LockIds;
 import com.cinepass.util.RedisUtil;
 import com.cinepass.vo.LockVO;
 import com.cinepass.vo.UnlockResultVO;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +43,7 @@ import java.util.Set;
  * <p>行锁 seat_status；过期 locked 先释放再占；可选回写 Draft。
  * <p>幂等：传入 idempotencyKey 时，同 key 重复请求从 Redis 返回首次结果（TTL=锁座最大 TTL）。
  */
+@Slf4j
 @Service
 public class LockServiceImpl implements LockService {
 
@@ -83,7 +85,13 @@ public class LockServiceImpl implements LockService {
         // 幂等检查：同 idempotencyKey 的重复请求直接返回首次结果
         if (StringUtils.hasText(idempotencyKey) && redisUtil != null) {
             String cacheKey = IDEMPOTENCY_PREFIX + idempotencyKey.trim();
-            Object cached = redisUtil.get(cacheKey);
+            Object cached = null;
+            try {
+                cached = redisUtil.get(cacheKey);
+            } catch (Exception e) {
+                // Redis 不可用（未配置/故障/mock 未打桩）：降级跳过幂等去重，不影响锁座主流程
+                log.warn("读幂等缓存失败，跳过幂等去重: {}", e.getMessage());
+            }
             if (cached instanceof String) {
                 LockVO cachedVo = JSON.parseObject((String) cached, LockVO.class);
                 if (cachedVo != null && cachedVo.getLockId() != null) {

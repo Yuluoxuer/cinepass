@@ -41,4 +41,10 @@ public interface OrderService {
      * 已出票/已取消/已核销订单不受影响（条件更新幂等）。</p>
      */
     void expireOrder(String orderId);
+
+    /**
+     * 将场次已结束的已出票订单置为过期并标记「电影结束未使用」（定时清扫调用）。
+     * <p>仅 issued 命中（条件更新幂等）；座位支付时已售出，无需释放。</p>
+     */
+    void expireUnusedOrder(String orderId);
 }
