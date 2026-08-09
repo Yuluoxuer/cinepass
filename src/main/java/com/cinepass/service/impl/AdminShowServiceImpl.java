@@ -2,6 +2,7 @@ package com.cinepass.service.impl;
 
 import com.cinepass.common.BusinessException;
 import com.cinepass.common.ResultCode;
+import com.cinepass.dto.ShowBatchCreateDTO;
 import com.cinepass.dto.ShowCreateDTO;
 import com.cinepass.dto.ShowUpdateDTO;
 import com.cinepass.mapper.CinemaMapper;
@@ -9,10 +10,14 @@ import com.cinepass.mapper.HallMapper;
 import com.cinepass.mapper.MovieMapper;
 import com.cinepass.mapper.SeatMapMapper;
 import com.cinepass.mapper.ShowMapper;
+import com.cinepass.mapper.UserAccountMapper;
 import com.cinepass.model.Cinema;
 import com.cinepass.model.Hall;
 import com.cinepass.model.Movie;
 import com.cinepass.model.ShowSchedule;
+import com.cinepass.model.UserAccount;
+import com.cinepass.security.Roles;
+import com.cinepass.security.SecurityContext;
 import com.cinepass.service.AdminShowService;
 import com.cinepass.service.EsIndexService;
 import com.cinepass.service.SeatInventoryService;
@@ -25,7 +30,11 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,6 +56,7 @@ public class AdminShowServiceImpl implements AdminShowService {
     private final ShowService showService;
     private final SeatInventoryService seatInventoryService;
     private final EsIndexService esIndexService;
+    private final UserAccountMapper userAccountMapper;
 
     public AdminShowServiceImpl(ShowMapper showMapper,
                                 MovieMapper movieMapper,
@@ -55,7 +65,8 @@ public class AdminShowServiceImpl implements AdminShowService {
                                 SeatMapMapper seatMapMapper,
                                 ShowService showService,
                                 SeatInventoryService seatInventoryService,
-                                EsIndexService esIndexService) {
+                                EsIndexService esIndexService,
+                                UserAccountMapper userAccountMapper) {
         this.showMapper = showMapper;
         this.movieMapper = movieMapper;
         this.cinemaMapper = cinemaMapper;
@@ -64,11 +75,13 @@ public class AdminShowServiceImpl implements AdminShowService {
         this.showService = showService;
         this.seatInventoryService = seatInventoryService;
         this.esIndexService = esIndexService;
+        this.userAccountMapper = userAccountMapper;
     }
 
     @Override
     @Transactional
     public ShowVO create(ShowCreateDTO dto) {
+        assertCinemaScope(dto.getCinemaId());
         Movie movie = movieMapper.selectById(dto.getMovieId());
         if (movie == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影片不存在");
@@ -125,6 +138,126 @@ public class AdminShowServiceImpl implements AdminShowService {
 
         ShowSchedule saved = showMapper.selectById(show.getShowId());
         return showService.buildShowVO(saved, toZonePriceVOs(dto.getZonePrices(), showPrice));
+    }
+
+    @Override
+    @Transactional
+    public List<ShowVO> batchCreate(ShowBatchCreateDTO dto) {
+        assertCinemaScope(dto.getCinemaId());
+        // 1. 校验基础数据
+        Movie movie = movieMapper.selectById(dto.getMovieId());
+        if (movie == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "影片不存在");
+        }
+        if (movie.getDurationMin() == null || movie.getDurationMin() <= 0) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "影片时长信息缺失");
+        }
+        int durationMin = movie.getDurationMin();
+        Cinema cinema = cinemaMapper.selectById(dto.getCinemaId());
+        if (cinema == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
+        }
+        Hall hall = hallMapper.selectById(dto.getHallId());
+        if (hall == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "影厅不存在");
+        }
+        if (!hall.getCinemaId().equals(dto.getCinemaId())) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "影厅不属于所选影院");
+        }
+
+        // 2. 校验时间参数
+        if (dto.getIntervalMin() < durationMin) {
+            throw new BusinessException(ResultCode.PARAM_ERROR,
+                    "场次间隔（" + dto.getIntervalMin() + " 分钟）不得小于影片时长（"
+                            + durationMin + " 分钟）");
+        }
+
+        LocalDate dateStart = LocalDate.parse(dto.getDateStart(), DateTimeFormatter.ISO_LOCAL_DATE);
+        LocalDate dateEnd = LocalDate.parse(dto.getDateEnd(), DateTimeFormatter.ISO_LOCAL_DATE);
+        if (dateEnd.isBefore(dateStart)) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "结束日期必须不早于开始日期");
+        }
+
+        LocalTime timeStart = LocalTime.parse(dto.getTimeStart(), DateTimeFormatter.ofPattern("HH:mm"));
+        LocalTime timeEnd = LocalTime.parse(dto.getTimeEnd(), DateTimeFormatter.ofPattern("HH:mm"));
+        if (!timeEnd.isAfter(timeStart)) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "每日结束时间必须晚于开始时间");
+        }
+
+        // 3. 生成场次列表，逐场校验冲突并创建
+        BigDecimal showPrice = computePrice(dto.getZonePrices(), dto.getPrice());
+        OffsetDateTime now = OffsetDateTime.now();
+        int intervalMin = dto.getIntervalMin();
+        List<ShowVO> created = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (LocalDate date = dateStart; !date.isAfter(dateEnd); date = date.plusDays(1)) {
+            LocalTime cursor = timeStart;
+            while (true) {
+                // 下一场开场时间
+                OffsetDateTime startTime = OffsetDateTime.of(date, cursor, ZoneOffset.ofHours(8));
+                // 散场时间 = 开场 + 影片时长
+                OffsetDateTime endTime = startTime.plusMinutes(durationMin);
+
+                // 末场散场不能晚于 timeEnd
+                if (endTime.toLocalTime().isAfter(timeEnd)) {
+                    break;
+                }
+                // 不允许创建过去场次
+                if (startTime.isBefore(now)) {
+                    cursor = cursor.plusMinutes(intervalMin);
+                    continue;
+                }
+
+                // 冲突检测
+                List<ShowSchedule> overlaps = showMapper.findOverlapping(
+                        hall.getHallId(), startTime, endTime, null);
+                if (overlaps != null && !overlaps.isEmpty()) {
+                    String label = date + " " + cursor;
+                    errors.add(label + " 与已有场次冲突，已跳过");
+                    cursor = cursor.plusMinutes(intervalMin);
+                    continue;
+                }
+
+                // 创建场次
+                ShowSchedule show = new ShowSchedule();
+                show.setShowId(ShowIds.next());
+                show.setMovieId(dto.getMovieId());
+                show.setCinemaId(dto.getCinemaId());
+                show.setHallId(dto.getHallId());
+                show.setSeatMapId(hall.getSeatMapId());
+                show.setStartTime(startTime);
+                show.setEndTime(endTime);
+                show.setPrice(showPrice);
+                show.setStatus("on_sale");
+                show.setCreatedAt(now);
+                show.setUpdatedAt(now);
+                showMapper.insert(show);
+
+                if (StringUtils.hasText(show.getSeatMapId())) {
+                    seatMapMapper.markImmutable(show.getSeatMapId());
+                }
+                seatInventoryService.ensureSeatStatus(show.getShowId(), show.getSeatMapId());
+
+                ShowSchedule saved = showMapper.selectById(show.getShowId());
+                created.add(showService.buildShowVO(saved,
+                        toZonePriceVOs(dto.getZonePrices(), showPrice)));
+
+                // 下一场：开场 = 当前开场 + interval
+                cursor = cursor.plusMinutes(intervalMin);
+            }
+        }
+
+        // 4. ES 同步
+        esIndexService.syncCinema(dto.getCinemaId());
+
+        // 5. 一个都没创建成功则报错
+        if (created.isEmpty() && !errors.isEmpty()) {
+            throw new BusinessException(ResultCode.CONFLICT,
+                    "批量创建失败：" + String.join("；", errors));
+        }
+
+        return created;
     }
 
     @Override
@@ -239,5 +372,25 @@ public class AdminShowServiceImpl implements AdminShowService {
                     .build());
         }
         return vos;
+    }
+
+    // ── Staff 影院范围校验 ──────────────────────────────────────────
+
+    /** staff 只能操作自己绑定的影院；admin 不受限 */
+    private void assertCinemaScope(String cinemaId) {
+        if (SecurityContext.isAdmin()) return;
+        if (!SecurityContext.hasRole(Roles.STAFF) || !currentStaffCinemaId().equals(cinemaId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作该影院");
+        }
+    }
+
+    private String currentStaffCinemaId() {
+        String cinemaIdFromToken = SecurityContext.getCurrentCinemaId();
+        if (StringUtils.hasText(cinemaIdFromToken)) return cinemaIdFromToken;
+        UserAccount user = userAccountMapper.findById(SecurityContext.getCurrentUserId());
+        if (user == null || !StringUtils.hasText(user.getCinemaId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "工作人员未绑定影院");
+        }
+        return user.getCinemaId();
     }
 }
