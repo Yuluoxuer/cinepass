@@ -124,6 +124,23 @@ export function createShow(body: {
   return post<ShowVO>('/admin/shows', body);
 }
 
+export interface BatchCreateShowBody {
+  movieId: string;
+  cinemaId: string;
+  hallId: string;
+  dateStart: string;   // yyyy-MM-dd
+  dateEnd: string;     // yyyy-MM-dd
+  timeStart: string;   // HH:mm
+  timeEnd: string;     // HH:mm
+  intervalMin: number; // 场次间隔（分钟），须 ≥ 影片时长
+  zonePrices: ZonePrice[];
+  price?: number;
+}
+
+export function createBatchShows(body: BatchCreateShowBody) {
+  return post<ShowVO[]>('/admin/shows/batch', body);
+}
+
 export function adminListShows(params: { cinemaId: string; movieId?: string; date?: string }) {
   const query: Record<string, string> = { cinemaId: params.cinemaId };
   if (params.movieId) query.movieId = params.movieId;
