@@ -9,14 +9,18 @@ import '@/styles/tokens.css';
 const AdminLoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const setLogin = useAuthStore((s) => s.setLogin);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const loc = useLocation();
   const redirect = new URLSearchParams(loc.search).get('redirect') || '/admin';
 
   const onFinish = async (v: { account: string; password: string }) => {
     setLoading(true);
     try {
-      const res = await authApi.login(v.account, v.password);
+      // silent + skipAuthRedirect：密码错误等 401 不触发登录过期挂起，错误由下方 message 展示
+      const res = await authApi.login(v.account, v.password, { silent: true, skipAuthRedirect: true });
       if (!isStaffOrAdmin(res.role)) {
+        // 拦截器已把返回 token 写入 store，需一并清除，避免半登录态
+        clearAuth();
         message.error('该账号无管理端权限');
         return;
       }
@@ -25,7 +29,6 @@ const AdminLoginPage: React.FC = () => {
         nickname: res.nickname,
         phone: res.phone,
         role: res.role,
-        cinemaId: res.cinemaId ?? null,
         avatarUrl: null,
         cinemaId: res.cinemaId || getCinemaIdFromAccessToken(res.accessToken),
       };

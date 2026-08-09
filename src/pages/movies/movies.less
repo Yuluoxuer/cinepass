@@ -103,6 +103,35 @@
   color: var(--color-text-muted);
 }
 
+/* 即将上映影片的「想看」按钮 */
+.wantBtn {
+  background: transparent;
+  border: 1px solid #aab0b8;
+  color: var(--color-text-primary);
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.wantBtn:hover {
+  border-color: var(--color-agent);
+  color: #167b6d;
+}
+
+.wantActive {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.wantActive:hover {
+  color: #fff;
+}
+
 .pager {
   display: flex;
   justify-content: center;
@@ -149,7 +178,8 @@
   }
 
   .row .miaoyu-btn-primary,
-  .row button.miaoyu-btn-primary {
+  .row button.miaoyu-btn-primary,
+  .row .wantBtn {
     grid-column: 2;
   }
 }

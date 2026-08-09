@@ -69,7 +69,7 @@ const HallsPage: React.FC = () => {
     <Button
       type="link"
       style={{ padding: 0 }}
-      onClick={() => history.push(`/admin/seat-maps/new?cinemaId=${encodeURIComponent(cinemaId)}`)}
+      onClick={() => history.push(`/admin/seat-maps/new?cinemaId=${encodeURIComponent(cinemaId ?? '')}`)}
     >
       当前影院暂无座位图，去新建
     </Button>
@@ -79,7 +79,7 @@ const HallsPage: React.FC = () => {
     <div>
       <Space style={{ margin: '12px 0' }}>
         <Button type="primary" onClick={openCreateModal}>+ 新建影厅</Button>
-        <Button onClick={() => history.push(`/admin/seat-maps/new?cinemaId=${encodeURIComponent(cinemaId)}`)}>
+        <Button onClick={() => history.push(`/admin/seat-maps/new?cinemaId=${encodeURIComponent(cinemaId ?? '')}`)}>
           新建座位图
         </Button>
       </Space>

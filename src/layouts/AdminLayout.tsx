@@ -12,11 +12,13 @@ import {
   BookOutlined,
   UserOutlined,
   LogoutOutlined,
+  KeyOutlined,
   ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { getCinemaIdFromAccessToken, restoreLoginState, useAuthStore, isStaffOrAdmin } from '@/stores/auth';
 import * as authApi from '@/api/auth';
 import AdminErrorBoundary from '@/components/AdminErrorBoundary';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
 import '@/styles/tokens.css';
 
 const { Header, Sider, Content } = Layout;
@@ -101,6 +103,7 @@ const AdminLayout: React.FC = () => {
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const setUser = useAuthStore((s) => s.setUser);
   const [verified, setVerified] = useState(false);
+  const [changePwdOpen, setChangePwdOpen] = useState(false);
 
   useEffect(() => {
     let disposed = false;
@@ -178,7 +181,11 @@ const AdminLayout: React.FC = () => {
 
   const logout = async () => {
     try {
-      await authApi.logout();
+      // 接口异常/挂起时也要保证能退出：3 秒内没返回就继续走本地清理流程
+      await Promise.race([
+        authApi.logout(),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ]);
     } catch {
       /* ignore */
     }
@@ -317,15 +324,24 @@ const AdminLayout: React.FC = () => {
             </span>
           </div>
           <Dropdown
+            trigger={['click', 'hover']}
             menu={{
               items: [
+                {
+                  key: 'change-password',
+                  icon: <KeyOutlined />,
+                  label: '修改密码',
+                },
                 {
                   key: 'logout',
                   icon: <LogoutOutlined />,
                   label: '退出',
-                  onClick: () => void logout(),
                 },
               ],
+              onClick: ({ key }) => {
+                if (key === 'change-password') setChangePwdOpen(true);
+                if (key === 'logout') void logout();
+              },
             }}
           >
             <span style={{ cursor: 'pointer', fontSize: 13 }}>{user?.nickname || '管理员'} ▾</span>
@@ -387,6 +403,17 @@ const AdminLayout: React.FC = () => {
           </AdminErrorBoundary>
         </Content>
       </Layout>
+      <ChangePasswordModal
+        open={changePwdOpen}
+        account={user?.nickname || user?.phone || ''}
+        onClose={() => setChangePwdOpen(false)}
+        onChanged={() => {
+          // 后端已吊销旧会话，清空本地登录态并回后台登录页用新密码重新登录
+          clearAuth();
+          setChangePwdOpen(false);
+          history.replace('/admin/login');
+        }}
+      />
     </Layout>
   );
 };

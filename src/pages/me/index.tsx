@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { history } from 'umi';
 import { isStaffOrAdmin, useAuthStore } from '@/stores/auth';
 import * as authApi from '@/api/auth';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
+import ProfileEditModal from '@/components/ProfileEditModal';
 import styles from './me.less';
 
 const MePage: React.FC = () => {
@@ -9,6 +11,8 @@ const MePage: React.FC = () => {
   const openLogin = useAuthStore((s) => s.openLoginModal);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const isOps = isStaffOrAdmin(user?.role);
+  const [changePwdOpen, setChangePwdOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const logout = async () => {
     try {
@@ -42,8 +46,7 @@ const MePage: React.FC = () => {
       {isOps ? (
         <button
           type="button"
-          className="miaoyu-btn-primary"
-          style={{ width: '100%', marginTop: 10, height: 36 }}
+          className={`miaoyu-btn-primary ${styles.adminEntry}`}
           onClick={() => history.push('/admin')}
         >
           进入运营后台
@@ -57,17 +60,39 @@ const MePage: React.FC = () => {
           </div>
         ))}
         {user ? (
-          <div className={styles.item} onClick={() => openLogin()}>
-            <span>修改密码</span>
-            <span>›</span>
-          </div>
+          <>
+            <div className={styles.item} onClick={() => setProfileOpen(true)}>
+              <span>观影偏好</span>
+              <span>›</span>
+            </div>
+            <div className={styles.item} onClick={() => setChangePwdOpen(true)}>
+              <span>修改密码</span>
+              <span>›</span>
+            </div>
+          </>
         ) : null}
       </div>
       {user ? (
-        <button type="button" className="miaoyu-btn-text" style={{ marginTop: 24 }} onClick={logout}>
+        <button
+          type="button"
+          className={`miaoyu-btn-text ${styles.logout}`}
+          onClick={logout}
+        >
           退出登录
         </button>
       ) : null}
+      <ChangePasswordModal
+        open={changePwdOpen}
+        account={user?.nickname || user?.phone || ''}
+        onClose={() => setChangePwdOpen(false)}
+        onChanged={() => {
+          // 后端已吊销旧会话，清空本地登录态并引导用新密码重新登录
+          clearAuth();
+          setChangePwdOpen(false);
+          openLogin();
+        }}
+      />
+      <ProfileEditModal open={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   );
 };

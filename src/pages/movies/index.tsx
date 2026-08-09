@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { history, useLocation } from 'umi';
+import { message } from 'antd';
 import * as catalogApi from '@/api/catalog';
 import type { MovieVO } from '@/types';
 import { useBookingStore } from '@/stores/booking';
+import { useAuthStore } from '@/stores/auth';
 import LoadingView from '@/components/LoadingView';
 import StateView from '@/components/StateView';
 import styles from './movies.less';
@@ -16,6 +18,65 @@ const MoviesPage: React.FC = () => {
   const [data, setData] = useState<{ items: MovieVO[]; total: number }>({ items: [], total: 0 });
   const [loading, setLoading] = useState(true);
   const patchLocal = useBookingStore((s) => s.patchLocal);
+  const user = useAuthStore((s) => s.user);
+  const openLogin = useAuthStore((s) => s.openLoginModal);
+  const [wantedIds, setWantedIds] = useState<Set<string>>(new Set());
+
+  // 加载当前用户「想看」的影片，用于即将上映影片的「想看」按钮状态
+  useEffect(() => {
+    if (!user) {
+      setWantedIds(new Set());
+      return;
+    }
+    let active = true;
+    void catalogApi
+      .listWantSee({ page: 1, size: 100 })
+      .then((res) => {
+        if (active) setWantedIds(new Set(res.items.map((m) => m.movieId)));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  const toggleWant = async (movie: MovieVO) => {
+    let currentUser = user;
+    if (!currentUser) {
+      const ok = await openLogin();
+      if (!ok) return;
+      currentUser = useAuthStore.getState().user;
+      if (!currentUser) return;
+    }
+    const wasWanted = wantedIds.has(movie.movieId);
+    // 乐观更新，失败回滚
+    setWantedIds((prev) => {
+      const next = new Set(prev);
+      if (wasWanted) next.delete(movie.movieId);
+      else next.add(movie.movieId);
+      return next;
+    });
+    try {
+      const result = wasWanted
+        ? await catalogApi.unwantSee(movie.movieId)
+        : await catalogApi.wantSee(movie.movieId);
+      // 以服务端返回为准
+      setWantedIds((prev) => {
+        const next = new Set(prev);
+        if (result.wanted) next.add(movie.movieId);
+        else next.delete(movie.movieId);
+        return next;
+      });
+    } catch {
+      setWantedIds((prev) => {
+        const next = new Set(prev);
+        if (wasWanted) next.add(movie.movieId);
+        else next.delete(movie.movieId);
+        return next;
+      });
+      message.error('操作失败，请稍后重试');
+    }
+  };
 
   useEffect(() => {
     let c = false;
@@ -88,24 +149,37 @@ const MoviesPage: React.FC = () => {
                 </p>
                 <p className={styles.desc}>{m.description}</p>
               </div>
-              <button
-                type="button"
-                className="miaoyu-btn-primary"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  try {
-                    await patchLocal(
-                      { movieId: m.movieId, filmTitle: m.title, state: 'SelectCinema' },
-                      { debounce: false },
-                    );
-                  } catch {
-                    /* 拦截器已提示 */
-                  }
-                  history.push(`/booking/cinemas?movieId=${m.movieId}`);
-                }}
-              >
-                选场购票
-              </button>
+              {m.status === 'coming_soon' ? (
+                <button
+                  type="button"
+                  className={wantedIds.has(m.movieId) ? `${styles.wantBtn} ${styles.wantActive}` : styles.wantBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void toggleWant(m);
+                  }}
+                >
+                  {wantedIds.has(m.movieId) ? '♥ 已想看' : '想看'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="miaoyu-btn-primary"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      await patchLocal(
+                        { movieId: m.movieId, filmTitle: m.title, state: 'SelectCinema' },
+                        { debounce: false },
+                      );
+                    } catch {
+                      /* 拦截器已提示 */
+                    }
+                    history.push(`/booking/cinemas?movieId=${m.movieId}`);
+                  }}
+                >
+                  选场购票
+                </button>
+              )}
             </div>
           ))}
         </div>

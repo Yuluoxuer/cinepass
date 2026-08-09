@@ -240,7 +240,12 @@ select:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  /* 只禁用应用自身的装饰性动画，保留 antd 组件动效。
+     否则 rc-motion 收不到 animationend，Modal 关闭会卡死在 zoom-leave 态，
+     .ant-modal-container 一直保持 pointer-events:none，整块弹窗无法交互。 */
+  [class*='miaoyu-'],
+  [class*='miaoyu-']::before,
+  [class*='miaoyu-']::after {
     scroll-behavior: auto !important;
     animation: none !important;
     transition: none !important;

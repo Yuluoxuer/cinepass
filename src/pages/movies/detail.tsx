@@ -12,7 +12,7 @@ import styles from './detail.less';
 type CastMember = {
   name: string;
   role?: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
 };
 
 type DetailMovie = MovieVO & {
@@ -205,7 +205,7 @@ const MovieDetailPage: React.FC = () => {
     );
   }
 
-  const ctaLabel = movie.status === 'coming_soon' ? '预售' : '选影院购票';
+  const isComingSoon = movie.status === 'coming_soon';
 
   return (
     <div className={styles.page}>
@@ -233,9 +233,11 @@ const MovieDetailPage: React.FC = () => {
             </div>
             <p className={styles.cast}>导演：{movie.director || '待公布'}　主演：{movie.cast || '待公布'}</p>
             <p className={styles.heroDesc}>{movie.description}</p>
-            <button type="button" className={styles.agentLink} onClick={onOpenAgent}>
-              Agent 帮我订这部 →
-            </button>
+            {!isComingSoon ? (
+              <button type="button" className={styles.agentLink} onClick={onOpenAgent}>
+                Agent 帮我订这部 →
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -296,8 +298,12 @@ const MovieDetailPage: React.FC = () => {
               ) : null}
             </>
           ) : null}
-          <button type="button" className="miaoyu-btn-primary" onClick={onBuy}>{ctaLabel}</button>
-          <button type="button" className={styles.agentButton} onClick={onOpenAgent}>✦ 打开 Agent 订票</button>
+          {!isComingSoon ? (
+            <button type="button" className="miaoyu-btn-primary" onClick={onBuy}>选影院购票</button>
+          ) : null}
+          {!isComingSoon ? (
+            <button type="button" className={styles.agentButton} onClick={onOpenAgent}>✦ 打开 Agent 订票</button>
+          ) : null}
         </aside>
       </main>
 
@@ -307,9 +313,15 @@ const MovieDetailPage: React.FC = () => {
             <strong>{movie.title}</strong>
             <span>{movie.rating != null ? `${movie.rating}分` : '暂无评分'} · {movie.genres.join('/')}</span>
           </div>
-          <button type="button" className="miaoyu-btn-primary" style={{ minWidth: 200 }} onClick={onBuy}>
-            {ctaLabel}{purchaseSummary.minPrice != null ? ` ¥${purchaseSummary.minPrice}起` : ''}
-          </button>
+          {isComingSoon ? (
+            <button type="button" className={styles.barWant} onClick={onWant} disabled={wantLoading}>
+              {wanted ? '♥ 已想看' : '♡ 想看'}
+            </button>
+          ) : (
+            <button type="button" className="miaoyu-btn-primary" style={{ minWidth: 200 }} onClick={onBuy}>
+              选影院购票{purchaseSummary.minPrice != null ? ` ¥${purchaseSummary.minPrice}起` : ''}
+            </button>
+          )}
         </div>
       </div>
     </div>

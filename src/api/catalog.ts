@@ -89,3 +89,8 @@ export function recommendSeats(body: {
 export function searchSuggestions(q: string, size = 8) {
   return get<SearchSuggestionResult>('/search/suggestions', { q, size }, { silent: true });
 }
+
+/** 全部影片类型标签（后端 tag 字典表，按名称排序） */
+export function listGenres() {
+  return get<string[]>('/movies/genres');
+}
