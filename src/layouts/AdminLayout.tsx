@@ -9,6 +9,7 @@ import {
   CalendarOutlined,
   OrderedListOutlined,
   SafetyCertificateOutlined,
+  BookOutlined,
   UserOutlined,
   LogoutOutlined,
   ArrowLeftOutlined,
@@ -85,6 +86,12 @@ const ADMIN_ROUTE_META: AdminRouteMeta[] = [
     match: (path) => path === '/admin/tickets/verify',
   },
   { menuKey: '/admin/users', crumbs: ['用户权限'], match: (path) => path === '/admin/users' },
+  {
+    menuKey: '/admin/knowledge',
+    crumbs: ['知识库'],
+    description: '维护供购票助手检索的知识文档（admin 管理系统的，staff 管理本院）。',
+    match: (path) => path === '/admin/knowledge',
+  },
   { menuKey: '/admin', crumbs: ['运营总览'], match: (path) => path === '/admin' },
 ];
 
@@ -163,6 +170,7 @@ const AdminLayout: React.FC = () => {
     { key: '/admin/shows', icon: <CalendarOutlined />, label: '排片工作台' },
     { key: '/admin/orders', icon: <OrderedListOutlined />, label: '订单' },
     { key: '/admin/tickets/verify', icon: <SafetyCertificateOutlined />, label: '订单与验票' },
+    { key: '/admin/knowledge', icon: <BookOutlined />, label: '知识库' },
     ...(user?.role === 'admin'
       ? [{ key: '/admin/users', icon: <UserOutlined />, label: '用户权限' }]
       : []),

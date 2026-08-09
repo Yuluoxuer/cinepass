@@ -223,3 +223,41 @@ export async function uploadPoster(file: File): Promise<string> {
   }
   return json.data as string;
 }
+
+/** ===== 知识库管理（agent4 RAG，前缀 /agent4/knowledge） ===== */
+
+export interface KnowledgeFileVO {
+  filename: string;
+  chunkCount: number;
+  scope: string;
+  cinemaId?: string | null;
+  updatedAt?: string | null;
+}
+
+/** 列出当前账号作用域知识库的文档（admin→系统知识库，staff→本院知识库）。 */
+export function listKnowledgeFiles() {
+  return get<KnowledgeFileVO[]>('/agent4/knowledge/files');
+}
+
+/** 上传 Markdown 知识文档到当前账号作用域知识库。 */
+export async function uploadKnowledgeFile(file: File): Promise<KnowledgeFileVO> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { getAccessToken } = await import('@/stores/auth');
+  const token = getAccessToken();
+  const resp = await fetch('/api/v1/agent4/knowledge/files', {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  const json = await resp.json();
+  if (json.code !== 200) {
+    throw new Error(json.message || '上传失败');
+  }
+  return json.data as KnowledgeFileVO;
+}
+
+/** 删除知识库中的指定文档（向量块 + 磁盘原文）。 */
+export function deleteKnowledgeFile(filename: string) {
+  return del<null>(`/agent4/knowledge/files/${encodeURIComponent(filename)}`);
+}

@@ -85,21 +85,14 @@ export default defineConfig({
         { path: '/admin/shows', component: '@/pages/admin/shows' },
         { path: '/admin/orders', component: '@/pages/admin/orders' },
         { path: '/admin/tickets/verify', component: '@/pages/admin/ticketVerify' },
+        { path: '/admin/knowledge', component: '@/pages/admin/knowledge' },
         { path: '/admin/users', component: '@/pages/admin/users' },
       ],
     },
   ],
   npmClient: 'pnpm',
   proxy: {
-    '/api/v1/agent': {
-      target: 'http://localhost:8001',
-      changeOrigin: true,
-    },
     '/api/v1/agent4': {
-      target: 'http://localhost:8001',
-      changeOrigin: true,
-    },
-    '/api/v1/booking/': {
       target: 'http://localhost:8001',
       changeOrigin: true,
     },

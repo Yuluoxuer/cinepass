@@ -14,6 +14,8 @@ interface Props {
 
 const CardRenderer: React.FC<Props> = ({ card, onAction }) => {
   const p = card.payload;
+  // movie_list 卡片本地分页（每页 5 部），其余卡片类型不使用该状态
+  const [moviePage, setMoviePage] = useState(1);
 
   const invokeAction = (
     itemId: string | undefined,
@@ -31,10 +33,14 @@ const CardRenderer: React.FC<Props> = ({ card, onAction }) => {
 
   if (card.type === 'movie_list') {
     const movies = (p.movies || []) as MovieVO[];
+    const PAGE_SIZE = 5;
+    const totalPages = Math.max(1, Math.ceil(movies.length / PAGE_SIZE));
+    const currentPage = Math.min(moviePage, totalPages);
+    const pageMovies = movies.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
     return (
       <div className={styles.card}>
         <div className={styles.title}>{card.title}</div>
-        {movies.map((m) => (
+        {pageMovies.map((m) => (
           <div key={m.movieId} className={styles.row}>
             <img src={m.posterUrl} alt="" />
             <div className={styles.info}>
@@ -51,6 +57,27 @@ const CardRenderer: React.FC<Props> = ({ card, onAction }) => {
             </button>
           </div>
         ))}
+        {totalPages > 1 && (
+          <div className={styles.pager}>
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => setMoviePage(currentPage - 1)}
+            >
+              上一页
+            </button>
+            <span>
+              {currentPage} / {totalPages}（共 {movies.length} 部）
+            </span>
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setMoviePage(currentPage + 1)}
+            >
+              下一页
+            </button>
+          </div>
+        )}
       </div>
     );
   }

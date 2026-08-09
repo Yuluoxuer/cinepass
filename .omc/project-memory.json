@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "cd /home/rei/Code/movie/cinepass_leijieming_frontend && npx tsc --noEmit --skipLibCheck 2>&1 | grep -E \"stores/agent\" | head",
+    "buildCommand": "cd /home/rei/Code/movie/cinepass_leijieming_frontend && npx tsc --noEmit --skipLibCheck 2>&1 | grep -E \"api/agent|stores/agent\" | head",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "pnpm dev",
