@@ -100,6 +100,34 @@ export interface LoginResult {
   cinemaId?: string | null;
 }
 
+/** 观影偏好：排位（前排/中排/后排） */
+export type PreferRow = 'front' | 'middle' | 'back';
+
+/** 观影偏好：侧向（中间/靠过道/靠边） */
+export type PreferSide = 'center' | 'aisle' | 'edge';
+
+/** 个人资料：观影偏好 + 想看电影 ID 列表（后端 ProfileVO） */
+export interface ProfileVO {
+  preferGenres: string[];
+  preferRow: PreferRow;
+  preferSide: PreferSide;
+  wantSeeMovieIds: string[];
+}
+
+/** 更新观影偏好入参（后端 ProfileUpdateDTO，排位/侧向可空表示不偏好） */
+export interface ProfileUpdateBody {
+  preferGenres: string[];
+  preferRow?: PreferRow;
+  preferSide?: PreferSide;
+}
+
+/** 修改密码入参；已登录时 account 可省略（后端 PasswordChangeDTO） */
+export interface PasswordChangeBody {
+  account?: string;
+  oldPassword: string;
+  newPassword: string;
+}
+
 export interface MovieVO {
   movieId: string;
   title: string;

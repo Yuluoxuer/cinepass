@@ -12,7 +12,7 @@ import styles from './detail.less';
 type CastMember = {
   name: string;
   role?: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
 };
 
 type DetailMovie = MovieVO & {

@@ -386,6 +386,27 @@ const AdminShowsPage: React.FC = () => {
                 </Button>
                 <Button
                   type="link"
+                  disabled={r.status !== 'off_sale' && r.status !== 'cancelled'}
+                  onClick={() => {
+                    Modal.confirm({
+                      title: '确认恢复售票？',
+                      content: '恢复后将重新开放该场次购票。',
+                      onOk: async () => {
+                        try {
+                          await adminApi.resumeShowSale(r.showId);
+                          message.success('该场次已恢复售票');
+                          await query();
+                        } catch {
+                          // 请求层已处理。
+                        }
+                      },
+                    });
+                  }}
+                >
+                  恢复售票
+                </Button>
+                <Button
+                  type="link"
                   danger
                   disabled={r.status === 'cancelled'}
                   onClick={async () => {
