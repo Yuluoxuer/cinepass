@@ -7,6 +7,7 @@ import com.cinepass.vo.ShowDetailVO;
 import com.cinepass.vo.ShowListResult;
 import com.cinepass.vo.ShowVO;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -34,4 +35,11 @@ public interface ShowService {
 
     /** 组装 ShowVO，并覆盖分区价展示 */
     ShowVO buildShowVO(ShowSchedule s, List<ShowVO.ZonePriceVO> zonePrices);
+
+    /**
+     * 按时间段搜索有 on_sale 场次的电影（分页）。
+     * cinemaId 为空时不限制影院；按最早开场时间升序。
+     */
+    PageResult<MovieVO> listMoviesByTimeRange(OffsetDateTime startTime, OffsetDateTime endTime,
+                                              String cinemaId, int page, int size);
 }

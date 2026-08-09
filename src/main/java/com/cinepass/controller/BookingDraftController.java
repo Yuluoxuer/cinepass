@@ -2,6 +2,7 @@ package com.cinepass.controller;
 
 import com.cinepass.common.Result;
 import com.cinepass.dto.CreateBookingDraftDTO;
+import com.cinepass.dto.MergeBookingDraftDTO;
 import com.cinepass.dto.UpdateBookingDraftDTO;
 import com.cinepass.security.SecurityContext;
 import com.cinepass.service.BookingDraftService;
@@ -54,5 +55,12 @@ public class BookingDraftController {
     public Result<BookingDraftVO> update(@PathVariable String sessionId,
                                          @Valid @RequestBody UpdateBookingDraftDTO dto) {
         return Result.success(bookingDraftService.update(sessionId, dto, SecurityContext.getCurrentUserId()));
+    }
+
+    /** Agent 写回合并：整份草稿 version 感知合并，供手动页面读取 Agent 成果 */
+    @PostMapping("/{sessionId}/merge")
+    public Result<BookingDraftVO> merge(@PathVariable String sessionId,
+                                        @Valid @RequestBody MergeBookingDraftDTO dto) {
+        return Result.success(bookingDraftService.merge(sessionId, dto.getDraft(), SecurityContext.getCurrentUserId()));
     }
 }

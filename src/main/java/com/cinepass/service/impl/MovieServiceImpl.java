@@ -173,7 +173,7 @@ public class MovieServiceImpl implements MovieService {
         return map;
     }
 
-    /** 批量查询影片最近排片日期，返回 movieId → yyyy-MM-dd 映射 */
+    /** 批量查询影片最近排片日期，返回 movieId → yyyy-MM-dd 映射（统一东八区，避免 JVM 默认时区偏移一天） */
     private Map<String, String> batchGetNextShowDates(List<String> movieIds) {
         if (movieIds.isEmpty()) return Collections.emptyMap();
         List<ShowSchedule> rows = showMapper.listEarliestByMovieIds(movieIds, OffsetDateTime.now());
@@ -181,7 +181,8 @@ public class MovieServiceImpl implements MovieService {
         if (rows != null) {
             for (ShowSchedule s : rows) {
                 if (s.getMovieId() != null && s.getStartTime() != null) {
-                    map.put(s.getMovieId(), s.getStartTime().toLocalDate().toString());
+                    map.put(s.getMovieId(),
+                            s.getStartTime().atZoneSameInstant(CLICK_ZONE).toLocalDate().toString());
                 }
             }
         }
