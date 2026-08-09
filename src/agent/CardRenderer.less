@@ -99,3 +99,46 @@
   border-color: var(--color-agent);
   color: #167b6d;
 }
+
+.dateTabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.dateTab {
+  flex: 1;
+  border: 1px solid #bbb6ae;
+  background: transparent;
+  border-radius: 8px;
+  padding: 6px 4px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  color: #5f6671;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.dateTab small {
+  font-size: 10px;
+  font-weight: 400;
+  color: #999;
+}
+
+.dateTab:hover {
+  border-color: var(--color-agent);
+  color: #167b6d;
+}
+
+.dateTabActive {
+  border-color: var(--color-agent);
+  background: var(--color-agent);
+  color: #fff;
+}
+
+.dateTabActive small {
+  color: rgba(255, 255, 255, 0.85);
+}

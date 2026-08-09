@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1786092532790,
+  "lastScanned": 1786221142271,
   "projectRoot": "/media/rei/Data/Code/movie/cinepass_leijieming_frontend",
   "techStack": {
     "languages": [
@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit src/pages/search/index.tsx 2>&1 | head -30",
+    "buildCommand": "cd /home/rei/Code/movie/cinepass_leijieming_frontend && npx tsc --noEmit --skipLibCheck 2>&1 | grep -E \"stores/agent\" | head",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "pnpm dev",
@@ -67,7 +67,7 @@
       "path": "dist",
       "purpose": "Distribution/build output",
       "fileCount": 93,
-      "lastAccessed": 1786092532767,
+      "lastAccessed": 1786221142182,
       "keyFiles": [
         "1078.async.js",
         "1289.async.js",
@@ -80,7 +80,7 @@
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 1,
-      "lastAccessed": 1786092532773,
+      "lastAccessed": 1786221142195,
       "keyFiles": [
         "search-api.md"
       ]
@@ -89,7 +89,7 @@
       "path": "public",
       "purpose": "Public files",
       "fileCount": 3,
-      "lastAccessed": 1786092532778,
+      "lastAccessed": 1786221142204,
       "keyFiles": [
         "AGENTS.md",
         "app-icon.png"
@@ -99,7 +99,7 @@
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 8,
-      "lastAccessed": 1786092532780,
+      "lastAccessed": 1786221142210,
       "keyFiles": [
         "_conflict_dump.txt",
         "_dump_conflicts.py",
@@ -112,7 +112,7 @@
       "path": "src",
       "purpose": "Source code",
       "fileCount": 5,
-      "lastAccessed": 1786092532780,
+      "lastAccessed": 1786221142220,
       "keyFiles": [
         "AGENTS.md",
         "access.ts",
@@ -124,7 +124,7 @@
       "path": "src/api",
       "purpose": "API routes",
       "fileCount": 8,
-      "lastAccessed": 1786092532785,
+      "lastAccessed": 1786221142242,
       "keyFiles": [
         "admin.ts",
         "agent.ts",
@@ -135,7 +135,7 @@
       "path": "src/components",
       "purpose": "UI components",
       "fileCount": 2,
-      "lastAccessed": 1786092532785,
+      "lastAccessed": 1786221142251,
       "keyFiles": [
         "AGENTS.md"
       ]
@@ -150,20 +150,86 @@
     },
     {
       "path": "src/stores/location.ts",
-      "accessCount": 3,
-      "lastAccessed": 1786093438198,
+      "accessCount": 8,
+      "lastAccessed": 1786159383408,
       "type": "file"
     },
     {
       "path": ".umirc.ts",
+      "accessCount": 4,
+      "lastAccessed": 1786158689976,
+      "type": "file"
+    },
+    {
+      "path": "src/components/SiteHeader/index.tsx",
       "accessCount": 3,
-      "lastAccessed": 1786096409998,
+      "lastAccessed": 1786158457477,
+      "type": "file"
+    },
+    {
+      "path": "src/stores/auth.ts",
+      "accessCount": 2,
+      "lastAccessed": 1786158389736,
+      "type": "file"
+    },
+    {
+      "path": "src/layouts/ClientLayout.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786158402849,
+      "type": "file"
+    },
+    {
+      "path": "src/components/AmapLocationPicker/index.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786158917254,
       "type": "file"
     },
     {
       "path": "src/api/admin.ts",
       "accessCount": 1,
       "lastAccessed": 1786096709025,
+      "type": "file"
+    },
+    {
+      "path": "src/agent/AgentDrawer.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1786158403933,
+      "type": "file"
+    },
+    {
+      "path": "src/stores/agent.ts",
+      "accessCount": 1,
+      "lastAccessed": 1786158407919,
+      "type": "file"
+    },
+    {
+      "path": "src/constants/index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1786158831305,
+      "type": "file"
+    },
+    {
+      "path": "package.json",
+      "accessCount": 1,
+      "lastAccessed": 1786193214054,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 1,
+      "lastAccessed": 1786193228590,
+      "type": "file"
+    },
+    {
+      "path": "src/api/client.ts",
+      "accessCount": 1,
+      "lastAccessed": 1786193232156,
+      "type": "file"
+    },
+    {
+      "path": "src/utils/lanIp.ts",
+      "accessCount": 1,
+      "lastAccessed": 1786193247305,
       "type": "file"
     }
   ],

@@ -95,6 +95,14 @@ export default defineConfig({
       target: 'http://localhost:8001',
       changeOrigin: true,
     },
+    '/api/v1/agent4': {
+      target: 'http://localhost:8001',
+      changeOrigin: true,
+    },
+    '/api/v1/booking/': {
+      target: 'http://localhost:8001',
+      changeOrigin: true,
+    },
     '/api': {
       target: 'http://localhost:8080',
       changeOrigin: true,

@@ -95,13 +95,27 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     useBookingStore.getState().setAgentPaused(true);
     const init = async () => {
       const booking = useBookingStore.getState();
-      const draft = booking.draft || (await booking.ensureSession());
-      try {
-        await booking.hydrateFromServer(draft.sessionId);
-      } catch {
-        /* keep local */
+      // 主界面/其他页面打开时，从选片开始：不沿用历史手动草稿。
+      // 仅当在手动购票流程（/booking/*）中打开才同步当前草稿。
+      const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+      const inBookingFlow = pathname.startsWith('/booking');
+      const draft = inBookingFlow
+        ? booking.draft || (await booking.ensureSession())
+        : null;
+
+      if (draft) {
+        try {
+          await booking.hydrateFromServer(draft.sessionId);
+        } catch {
+          /* keep local */
+        }
       }
-      const latest = useBookingStore.getState().draft || draft;
+      // 主界面/其他页面打开时从选片开始：清空手动购票草稿，不沿用历史选择，
+      // 避免残留的《封神第二部》选座状态导致 progress 停留在选座阶段
+      if (!inBookingFlow) {
+        useBookingStore.setState({ draft: null });
+      }
+      const latest = useBookingStore.getState().draft || draft || null;
       const progress = progressFromDraft(latest);
 
       // 加载会话列表
@@ -111,7 +125,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       set({ open: true, progress });
 
       if (sessions.length > 0) {
-        // 切换到最近的会话，加载历史
+        // 进入用户最近的一个会话（保留历史上下文）
         await get().switchSession(sessions[0].sessionId);
       } else {
         // 没有会话，新建一个
@@ -178,11 +192,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }));
     try {
       const loc = await getCurrentLocation();
+      const bookingDraft = useBookingStore.getState().draft;
       const res = await agentApi.postTurn({
         sessionId,
         message,
         latitude: loc?.latitude,
         longitude: loc?.longitude,
+        clientDraft: bookingDraft || undefined,
+        clientDraftVersion: bookingDraft?.version,
       });
       get().applyTurn(res);
     } catch (e) {
@@ -213,11 +230,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }));
     try {
       const loc = await getCurrentLocation();
+      const bookingDraft = useBookingStore.getState().draft;
       const res = await agentApi.postTurn({
         sessionId,
         cardAction: opts,
         latitude: loc?.latitude,
         longitude: loc?.longitude,
+        clientDraft: bookingDraft || undefined,
+        clientDraftVersion: bookingDraft?.version,
       });
       get().applyTurn(res);
       return res;
@@ -260,6 +280,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
 
   createNewSession: async () => {
+    // 清空手动购票草稿：避免旧草稿作为 clientDraft 同步给新会话，
+    // 导致新对话继承了上一个会话的 bookingdraft（影片/影院等残留状态）
+    useBookingStore.setState({ draft: null });
     try {
       const session = await agentApi.createSession();
       set((s) => ({

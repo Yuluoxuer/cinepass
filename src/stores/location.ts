@@ -1,6 +1,7 @@
 import { create } from 'zustand';
+import AMapLoader from '@amap/amap-jsapi-loader';
 import { wgs84ToGcj02, resolveCityId } from '@/components/AmapLocationPicker/cityMap';
-import { AMAP_WEB_KEY } from '@/constants';
+import { AMAP_API_KEY, AMAP_API_VERSION, AMAP_WEB_KEY } from '@/constants';
 
 const STORAGE_KEY = 'miaoyu_location';
 const CITY_KEY = 'miaoyu_city_id';
@@ -109,38 +110,116 @@ function isInChina(lng: number, lat: number): boolean {
   return lng >= 72.004 && lng <= 137.8347 && lat >= 0.8293 && lat <= 55.8271;
 }
 
+/** 给 Promise 加超时：超时/失败统一返回 null，避免定位流程挂起 */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(null);
+      },
+    );
+  });
+}
+
+/** 模块级单例：复用 JS API SDK，避免每次定位重复加载脚本 */
+let amapSdkPromise: Promise<any> | null = null;
+function loadAmapSdk(): Promise<any> {
+  if (!amapSdkPromise) {
+    amapSdkPromise = AMapLoader.load({
+      key: AMAP_API_KEY,
+      version: AMAP_API_VERSION,
+      plugins: ['AMap.CitySearch'],
+    });
+  }
+  return amapSdkPromise;
+}
+
+/** JS API CitySearch IP 定位：返回 GCJ-02 城市中心坐标；回调不触发由外层超时兜底 */
+function jsApiCityLocation(): Promise<{ lng: number; lat: number } | null> {
+  return loadAmapSdk()
+    .then(
+      (AMap: any) =>
+        new Promise<{ lng: number; lat: number } | null>((resolve) => {
+          try {
+            AMap.plugin('AMap.CitySearch', () => {
+              try {
+                const citySearch = new AMap.CitySearch();
+                citySearch.getLocalCity((status: string, result: any) => {
+                  if (status === 'complete' && result?.bounds?.southWest && result.bounds?.northEast) {
+                    const { southWest, northEast } = result.bounds;
+                    const lng = (southWest.lng + northEast.lng) / 2;
+                    const lat = (southWest.lat + northEast.lat) / 2;
+                    if (Number.isFinite(lng) && Number.isFinite(lat)) {
+                      resolve({ lng, lat });
+                      return;
+                    }
+                  }
+                  resolve(null);
+                });
+              } catch {
+                resolve(null);
+              }
+            });
+          } catch {
+            resolve(null);
+          }
+        }),
+    )
+    .catch(() => null);
+}
+
 /**
- * 高德 IP 定位（REST /v3/ip）：基于真实出口 IP 判定位置，无需浏览器授权。
- * 用于纠正浏览器旧缓存定位（如梯子残留的新加坡坐标）。
+ * 高德 IP 定位：优先走 JS API AMap.CitySearch（浏览器端 happy-eyeballs 自动回退 IPv4，
+ * 规避 REST /v3/ip 走 IPv6 出口返回空数组的问题）；失败再回落 REST 接口。
+ * 整体带超时，避免任一环节回调不触发导致定位流程挂起。
  * 返回 GCJ-02 城市中心坐标；失败返回 null。
  */
 async function amapIpLocation(): Promise<{ lng: number; lat: number } | null> {
+  // 1) JS API CitySearch IP 定位（5s 超时兜底）
+  const city = await withTimeout(jsApiCityLocation(), 5000);
+  if (city) return city;
+
+  // 2) REST /v3/ip 兜底：两个 URL 并行发，任一带 rectangle 即返回（整体 5s 超时防 fetch 挂起）
   const params = `key=${AMAP_WEB_KEY}`;
   const urls = [
     `https://restapi.amap.com/v3/ip?${params}`,
     `/amap-api/v3/ip?${params}`,
   ];
-  for (const url of urls) {
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data?.status !== '1') continue;
-      // location 字段（个别返回）："lng,lat"
-      if (typeof data.location === 'string' && data.location.includes(',')) {
-        const [lng, lat] = data.location.split(',').map(Number);
-        if (Number.isFinite(lng) && Number.isFinite(lat)) return { lng, lat };
-      }
-      // 标准返回：rectangle 城市包围盒，取中心
-      if (typeof data.rectangle === 'string' && data.rectangle.includes(';')) {
-        const [a, b] = data.rectangle.split(';');
-        const [lng1, lat1] = a.split(',').map(Number);
-        const [lng2, lat2] = b.split(',').map(Number);
-        if ([lng1, lat1, lng2, lat2].every(Number.isFinite)) {
-          return { lng: (lng1 + lng2) / 2, lat: (lat1 + lat2) / 2 };
-        }
-      }
-    } catch {
-      /* 尝试下一个 URL */
+  const race = Promise.allSettled(
+    urls.map((url) =>
+      fetch(url)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.status !== '1') return null;
+          // location 字段（个别返回）："lng,lat"
+          if (typeof data.location === 'string' && data.location.includes(',')) {
+            const [lng, lat] = data.location.split(',').map(Number);
+            if (Number.isFinite(lng) && Number.isFinite(lat)) return { lng, lat };
+          }
+          // 标准返回：rectangle 城市包围盒，取中心
+          if (typeof data.rectangle === 'string' && data.rectangle.includes(';')) {
+            const [a, b] = data.rectangle.split(';');
+            const [lng1, lat1] = a.split(',').map(Number);
+            const [lng2, lat2] = b.split(',').map(Number);
+            if ([lng1, lat1, lng2, lat2].every(Number.isFinite)) {
+              return { lng: (lng1 + lng2) / 2, lat: (lat1 + lat2) / 2 };
+            }
+          }
+          return null;
+        })
+        .catch(() => null),
+    ),
+  );
+  const settled = await withTimeout(race, 5000);
+  if (settled) {
+    for (const r of settled) {
+      if (r.status === 'fulfilled' && r.value) return r.value;
     }
   }
   return null;
