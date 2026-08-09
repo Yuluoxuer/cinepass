@@ -176,4 +176,38 @@ public class ShowServiceImpl implements ShowService {
         if (ratio >= 0.15) return "tight";
         return "almost_full";
     }
+
+    @Override
+    public PageResult<MovieVO> listMoviesByTimeRange(OffsetDateTime startTime, OffsetDateTime endTime,
+                                                     String cinemaId, int page, int size) {
+        // 归一化分页
+        if (page < 1) page = 1;
+        if (size < 1 || size > 50) size = 10;
+        int offset = (page - 1) * size;
+
+        long total = showMapper.countMoviesByTimeRange(startTime, endTime, cinemaId);
+        if (total == 0) {
+            return new PageResult<>(Collections.<MovieVO>emptyList(), page, size, 0);
+        }
+
+        List<ShowSchedule> rows = showMapper.listMoviesByTimeRange(startTime, endTime, cinemaId, offset, size);
+        List<MovieVO> items = new ArrayList<>();
+        if (rows != null) {
+            for (ShowSchedule row : rows) {
+                if (row == null || row.getMovieId() == null) {
+                    continue;
+                }
+                MovieVO vo = buildMovieVO(row.getMovieId());
+                if (vo == null) {
+                    continue;
+                }
+                // nextShowDate 使用该时间段内最早开场日期
+                if (row.getStartTime() != null) {
+                    vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DISPLAY_ZONE).toLocalDate().toString());
+                }
+                items.add(vo);
+            }
+        }
+        return new PageResult<>(items, page, size, total);
+    }
 }

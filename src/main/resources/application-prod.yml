@@ -1,4 +1,5 @@
 # ============ 生产环境配置 ============
+
 spring:
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
@@ -33,8 +34,5 @@ jwt:
 
 logging:
   level:
-    com.cinepass: info
-    org.springframework: warn
-
-knife4j:
-  enable: false
+    com.cinepass: debug
+    org.springframework: info
