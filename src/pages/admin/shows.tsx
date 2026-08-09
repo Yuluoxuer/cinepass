@@ -42,6 +42,13 @@ const AdminShowsPage: React.FC = () => {
   const [formZones, setFormZones] = useState<string[]>([]);
   const [editZones, setEditZones] = useState<string[]>([]);
 
+  // 批量创建
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchForm] = Form.useForm();
+  const [batchHalls, setBatchHalls] = useState<HallVO[]>([]);
+  const [batchZones, setBatchZones] = useState<string[]>([]);
+  const [batchMovieDuration, setBatchMovieDuration] = useState<number>(120);
+
   const movieTitleById = useMemo(() => {
     const map = new Map<string, string>();
     movies.forEach((m) => map.set(m.movieId, m.title));
@@ -229,6 +236,46 @@ const AdminShowsPage: React.FC = () => {
     editForm.setFieldsValue({ zonePriceMap: priceMap, startTime: dayjs(show.startTime) });
   };
 
+  /** 批量创建：打开预填表单 */
+  const openBatchCreate = async () => {
+    if (!cinemaId) { message.warning('请先选择影院'); return; }
+    batchForm.resetFields();
+    setBatchZones([]);
+    setBatchMovieDuration(120);
+    // 预填影院
+    batchForm.setFieldsValue({ cinemaId });
+    // 加载该影院所有影厅
+    try {
+      const list = await adminApi.listHalls({ cinemaId, page: 1, size: 200 });
+      setBatchHalls(list.items || []);
+    } catch { setBatchHalls([]); }
+    setBatchOpen(true);
+  };
+
+  /** 批量创建：选择影厅后加载分区 */
+  const loadBatchZones = async (hallId: string) => {
+    const hall = batchHalls.find((h) => h.hallId === hallId);
+    if (!hall?.seatMapId) { setBatchZones([]); return; }
+    try {
+      const seatMap = await adminApi.getSeatMapTemplate(hall.seatMapId);
+      const zones = distinctZones(seatMap?.seats || []);
+      setBatchZones(zones);
+      if (!zones.length) zones.push('A');
+      const init: Record<string, number> = {};
+      zones.forEach((z) => { init[z] = 0; });
+      batchForm.setFieldsValue({ batchZonePrices: init });
+    } catch { setBatchZones([]); }
+  };
+
+  /** 批量创建：选择影片后更新时长 */
+  const onBatchMovieChange = (movieId: string) => {
+    const movie = movies.find((m) => m.movieId === movieId);
+    if (movie?.durationMin) {
+      setBatchMovieDuration(movie.durationMin);
+      batchForm.setFieldsValue({ intervalMin: movie.durationMin + 30 });
+    }
+  };
+
   const emptyText = !cinemaId
     ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="请先选择影院" />
     : querying
@@ -266,6 +313,7 @@ const AdminShowsPage: React.FC = () => {
           查询
         </Button>
         <Button onClick={openCreate}>+ 新建场次</Button>
+        <Button onClick={openBatchCreate}>📋 批量创建</Button>
       </Space>
       <div style={{ marginBottom: 16 }}>
         <span style={{ marginRight: 12, color: 'rgba(0,0,0,0.65)' }}>场次状态</span>
@@ -515,6 +563,125 @@ const AdminShowsPage: React.FC = () => {
               <InputNumber min={0.01} precision={2} style={{ width: '100%' }} addonBefore="¥" />
             </Form.Item>
           ))}
+        </Form>
+      </Modal>
+
+      {/* 批量创建场次 */}
+      <Modal
+        title="📋 批量创建场次"
+        open={batchOpen}
+        onCancel={() => setBatchOpen(false)}
+        onOk={() => batchForm.submit()}
+        width={600}
+        destroyOnClose
+        okText="批量创建"
+      >
+        <Form
+          form={batchForm}
+          layout="vertical"
+          onFinish={async (v) => {
+            const zonePriceMap = (v.batchZonePrices || {}) as Record<string, number>;
+            const zonePrices: ZonePrice[] = batchZones.map((z) => ({
+              zone: z,
+              price: Number(zonePriceMap[z] || 0),
+            }));
+            if (!batchZones.length) {
+              message.error('所选影厅没有座位分区，无法批量创建');
+              return;
+            }
+            const hasPrice = zonePrices.some((z) => z.price > 0);
+            if (!hasPrice) {
+              message.error('请至少填写一个分区的票价');
+              return;
+            }
+            try {
+              const res = await adminApi.createBatchShows({
+                movieId: v.movieId,
+                cinemaId: v.cinemaId,
+                hallId: v.hallId,
+                dateStart: v.dateRange[0].format('YYYY-MM-DD'),
+                dateEnd: v.dateRange[1].format('YYYY-MM-DD'),
+                timeStart: v.timeRange[0].format('HH:mm'),
+                timeEnd: v.timeRange[1].format('HH:mm'),
+                intervalMin: v.intervalMin,
+                zonePrices,
+              });
+              message.success(`成功创建 ${res.length} 个场次`);
+              setBatchOpen(false);
+              await query();
+            } catch {
+              // 请求层已处理
+            }
+          }}
+        >
+          <Form.Item name="cinemaId" label="影院" rules={[{ required: true }]}>
+            <Select
+              disabled={!!staffCinemaId}
+              options={cinemas.map((c) => ({ value: c.cinemaId, label: c.name }))}
+            />
+          </Form.Item>
+          <Form.Item name="movieId" label="影片" rules={[{ required: true }]}>
+            <Select
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+              options={movies.map((m) => ({ value: m.movieId, label: `${m.title}（${m.durationMin || '?'}分钟）` }))}
+              onChange={(v) => onBatchMovieChange(v)}
+            />
+          </Form.Item>
+          <Form.Item name="hallId" label="影厅" rules={[{ required: true }]}>
+            <Select
+              options={batchHalls.map((h) => ({ value: h.hallId, label: h.name }))}
+              onChange={(v) => void loadBatchZones(v)}
+            />
+          </Form.Item>
+          <Form.Item
+            name="dateRange"
+            label="日期范围"
+            rules={[{ required: true, message: '请选择起止日期' }]}
+            extra={`影片时长 ${batchMovieDuration} 分钟，间隔不得小于该值`}
+          >
+            <DatePicker.RangePicker style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name="timeRange"
+            label="每日时段"
+            rules={[{ required: true, message: '请选择每日起止时间' }]}
+          >
+            <DatePicker.RangePicker picker="time" format="HH:mm" style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name="intervalMin"
+            label="场次间隔（分钟）"
+            rules={[
+              { required: true, message: '请输入间隔分钟数' },
+              {
+                validator: (_, v) =>
+                  v >= batchMovieDuration
+                    ? Promise.resolve()
+                    : Promise.reject(`间隔不得小于影片时长 ${batchMovieDuration} 分钟`),
+              },
+            ]}
+            extra="两场之间（上一场开场→下一场开场）的间隔"
+          >
+            <InputNumber min={batchMovieDuration} style={{ width: '100%' }} addonAfter="分钟" />
+          </Form.Item>
+          {batchZones.length > 0 && (
+            <>
+              <div style={{ marginBottom: 8, fontWeight: 600 }}>分区票价</div>
+              {batchZones.map((z) => (
+                <Form.Item
+                  key={z}
+                  name={['batchZonePrices', z]}
+                  label={`${zoneLabel(z)} 价格`}
+                  rules={[{ required: true, message: `请填写${zoneLabel(z)}价格` }]}
+                >
+                  <InputNumber min={0.01} precision={2} style={{ width: '100%' }} addonBefore="¥" />
+                </Form.Item>
+              ))}
+            </>
+          )}
         </Form>
       </Modal>
     </div>
