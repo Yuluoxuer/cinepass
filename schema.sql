@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS movie (
 
 CREATE INDEX IF NOT EXISTS idx_movie_status ON movie (status);
 CREATE INDEX IF NOT EXISTS idx_movie_title ON movie (title);
+-- 到上映日自动上架扫描：status 等值 + release_date 范围（MovieStatusScheduler）
+CREATE INDEX IF NOT EXISTS idx_movie_status_release ON movie (status, release_date);
 
 CREATE TABLE IF NOT EXISTS cinema (
   cinema_id   VARCHAR(32)    NOT NULL,

@@ -199,4 +199,12 @@
               AND cinema_id = #{cinemaId}
           </if>
     </select>
+
+    <!-- 下架前置校验：该影片未来仍在售的场次数 -->
+    <select id="countOnSaleByMovie" resultType="long">
+        SELECT COUNT(1) FROM show_schedule
+        WHERE movie_id = #{movieId}
+          AND status = 'on_sale'
+          AND start_time &gt; #{now}
+    </select>
 </mapper>

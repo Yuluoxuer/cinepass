@@ -246,6 +246,14 @@ public class MovieServiceImpl implements MovieService {
         if (dto.getRating() != null) m.setRating(dto.getRating());
         if (dto.getDurationMin() != null) m.setDurationMin(dto.getDurationMin());
         if (dto.getReleaseDate() != null) m.setReleaseDate(LocalDate.parse(dto.getReleaseDate(), DATE_FMT));
+        if ("off".equals(dto.getStatus()) && !"off".equals(m.getStatus())) {
+            // 下架前校验：未来仍有在售场次则阻止，避免下架后场次仍可被购买
+            long onSaleShows = showMapper.countOnSaleByMovie(movieId, OffsetDateTime.now());
+            if (onSaleShows > 0) {
+                throw new BusinessException(ResultCode.CONFLICT,
+                        "该影片还有 " + onSaleShows + " 场在售场次，请先在「场次管理」取消场次后再下架");
+            }
+        }
         if (dto.getStatus() != null) m.setStatus(dto.getStatus());
         if (dto.getDescription() != null) m.setDescription(dto.getDescription());
         if (dto.getCast() != null) m.setCastText(dto.getCast());
@@ -256,6 +264,38 @@ public class MovieServiceImpl implements MovieService {
         }
         esIndexService.syncMovie(movieId);
         return toVo(movieMapper.selectById(movieId));
+    }
+
+    @Override
+    @Transactional
+    public MovieVO takeDown(String movieId) {
+        Movie m = movieMapper.selectById(movieId);
+        if (m == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "影片不存在");
+        }
+        if ("off".equals(m.getStatus())) {
+            return toVo(m); // 已下架，幂等
+        }
+        MovieUpdateDTO dto = new MovieUpdateDTO();
+        dto.setStatus("off");
+        // 复用 update：内部会校验未来在售场次，有则抛 CONFLICT 阻止下架
+        return update(movieId, dto);
+    }
+
+    @Override
+    @Transactional
+    public MovieVO relist(String movieId) {
+        Movie m = movieMapper.selectById(movieId);
+        if (m == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "影片不存在");
+        }
+        // 上架状态按上映日期推导：今天已上映→热映，未上映→待映
+        String target = m.getReleaseDate() != null
+                && !m.getReleaseDate().isAfter(LocalDate.now(CLICK_ZONE))
+                ? "hot_showing" : "coming_soon";
+        MovieUpdateDTO dto = new MovieUpdateDTO();
+        dto.setStatus(target);
+        return update(movieId, dto);
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.cinepass.model.Movie;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -44,4 +45,10 @@ public interface MovieMapper {
 
     /** 想看人数加减；delta 可为负 */
     int incrWantSeeCount(@Param("movieId") String movieId, @Param("delta") int delta);
+
+    /** 查询已到上映日（release_date <= today）仍未上架的待映影片 ID，供自动上架扫描 */
+    List<String> selectReleasedButComingSoon(@Param("today") LocalDate today);
+
+    /** 到上映日自动上架：status=coming_soon 且 release_date <= today → hot_showing，返回翻转行数 */
+    int flipComingSoonToShowing(@Param("today") LocalDate today);
 }

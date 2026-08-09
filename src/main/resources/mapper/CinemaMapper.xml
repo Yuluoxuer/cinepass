@@ -150,4 +150,15 @@
         WHERE cinema_id = #{cinemaId}
           AND is_delete = FALSE
     </update>
+
+    <!-- 同名影院判重：未删除 + 名称完全一致（可选排除自身） -->
+    <select id="countActiveByName" resultType="long">
+        SELECT COUNT(1)
+        FROM cinema
+        WHERE is_delete = FALSE
+          AND name = #{name}
+          <if test="excludeCinemaId != null and excludeCinemaId != ''">
+              AND cinema_id != #{excludeCinemaId}
+          </if>
+    </select>
 </mapper>

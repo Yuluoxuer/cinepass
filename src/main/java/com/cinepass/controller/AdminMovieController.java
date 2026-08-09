@@ -1,11 +1,13 @@
 package com.cinepass.controller;
 
+import com.cinepass.cache.MovieChangedEvent;
 import com.cinepass.common.Result;
 import com.cinepass.dto.MovieCreateDTO;
 import com.cinepass.dto.MovieUpdateDTO;
 import com.cinepass.security.Staff;
 import com.cinepass.service.MovieService;
 import com.cinepass.vo.MovieVO;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -28,21 +30,45 @@ import javax.validation.Valid;
 public class AdminMovieController {
 
     private final MovieService movieService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public AdminMovieController(MovieService movieService) {
+    public AdminMovieController(MovieService movieService, ApplicationEventPublisher eventPublisher) {
         this.movieService = movieService;
+        this.eventPublisher = eventPublisher;
     }
 
     /** 新建影片 */
     @PostMapping
     public Result<MovieVO> create(@Valid @RequestBody MovieCreateDTO body) {
-        return Result.success(movieService.create(body));
+        MovieVO vo = movieService.create(body);
+        // 新片进入候选集，失效推荐底座缓存
+        eventPublisher.publishEvent(new MovieChangedEvent(vo.getMovieId()));
+        return Result.success(vo);
     }
 
     /** 部分更新影片 */
     @PutMapping("/{movieId}")
     public Result<MovieVO> update(@PathVariable String movieId,
                                   @Valid @RequestBody MovieUpdateDTO body) {
-        return Result.success(movieService.update(movieId, body));
+        MovieVO vo = movieService.update(movieId, body);
+        // 评分/类型/状态变化会影响推荐打分与候选集，失效推荐底座缓存
+        eventPublisher.publishEvent(new MovieChangedEvent(movieId));
+        return Result.success(vo);
+    }
+
+    /** 下架：校验该影片未来无在售场次；有则返回冲突提示 */
+    @PostMapping("/{movieId}/take-down")
+    public Result<MovieVO> takeDown(@PathVariable String movieId) {
+        MovieVO vo = movieService.takeDown(movieId);
+        eventPublisher.publishEvent(new MovieChangedEvent(movieId));
+        return Result.success(vo);
+    }
+
+    /** 上架：按上映日期自动推导为热映或待映 */
+    @PostMapping("/{movieId}/relist")
+    public Result<MovieVO> relist(@PathVariable String movieId) {
+        MovieVO vo = movieService.relist(movieId);
+        eventPublisher.publishEvent(new MovieChangedEvent(movieId));
+        return Result.success(vo);
     }
 }

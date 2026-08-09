@@ -59,4 +59,7 @@ public interface CinemaMapper {
 
     /** 软删除；影响行数 1 表示成功 */
     int softDelete(@Param("cinemaId") String cinemaId);
+
+    /** 统计未删除的同名影院数；excludeCinemaId 非空时排除自身（改名校验用） */
+    long countActiveByName(@Param("name") String name, @Param("excludeCinemaId") String excludeCinemaId);
 }

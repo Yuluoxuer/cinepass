@@ -27,7 +27,7 @@ import javax.validation.Valid;
  * </pre>
  */
 @RestController
-@RequestMapping("/api/v1/reco")
+    @RequestMapping("/api/v1/reco")
 public class RecoController {
 
     private final SeatRecoService seatRecoService;
