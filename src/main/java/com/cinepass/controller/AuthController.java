@@ -48,6 +48,8 @@ public class AuthController {
     @PostMapping("/password/change")
     public Result<Map<String, Boolean>> changePassword(@Valid @RequestBody PasswordChangeDTO body) {
         authService.changePassword(SecurityContext.getCurrentUserId(), body);
+        // 已登录改密后吊销当前会话，强制用新密码重新登录（logout 对 null sid/jti 安全）
+        authService.logout(SecurityContext.getCurrentSid(), SecurityContext.getCurrentJti());
         return Result.success(Collections.singletonMap("changed", true));
     }
 

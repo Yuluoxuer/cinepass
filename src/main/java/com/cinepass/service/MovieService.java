@@ -5,6 +5,8 @@ import com.cinepass.dto.MovieUpdateDTO;
 import com.cinepass.vo.MovieVO;
 import com.cinepass.vo.PageResult;
 
+import java.util.List;
+
 /**
  * 电影查询与运营维护。
  */
@@ -21,4 +23,7 @@ public interface MovieService {
 
     /** 部分更新；字段 null 表示不改 */
     MovieVO update(String movieId, MovieUpdateDTO dto);
+
+    /** 全部影片类型标签（按名称排序），来自 tag 字典表 */
+    List<String> listGenres();
 }

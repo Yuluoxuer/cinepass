@@ -24,6 +24,14 @@ CREATE TABLE IF NOT EXISTS user_profile (
   PRIMARY KEY (user_id)
 );
 
+CREATE TABLE IF NOT EXISTS tag (
+  tag_id       VARCHAR(32)    NOT NULL,
+  name         VARCHAR(32)    NOT NULL,
+  created_at   TIMESTAMP WITH TIME ZONE NOT NULL,
+  PRIMARY KEY (tag_id),
+  CONSTRAINT uk_tag_name UNIQUE (name)
+);
+
 CREATE TABLE IF NOT EXISTS movie (
   movie_id        VARCHAR(32)    NOT NULL,
   title           VARCHAR(128)   NOT NULL,

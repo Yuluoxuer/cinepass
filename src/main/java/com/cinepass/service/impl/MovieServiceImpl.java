@@ -8,12 +8,14 @@ import com.cinepass.dto.MovieUpdateDTO;
 import com.cinepass.mapper.MovieMapper;
 import com.cinepass.mapper.RecoClickMapper;
 import com.cinepass.mapper.ShowMapper;
+import com.cinepass.mapper.TagMapper;
 import com.cinepass.model.Movie;
 import com.cinepass.model.ShowSchedule;
 import com.cinepass.service.EsSearchService;
 import com.cinepass.service.EsIndexService;
 import com.cinepass.service.MovieService;
 import com.cinepass.util.MovieIds;
+import com.cinepass.util.TagIds;
 import com.cinepass.vo.CastMemberVO;
 import com.cinepass.vo.MovieVO;
 import com.cinepass.vo.PageResult;
@@ -30,9 +32,11 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Set;
 
 /**
  * {@link MovieService} 实现。
@@ -51,15 +55,17 @@ public class MovieServiceImpl implements MovieService {
     private final EsSearchService esSearchService;
     private final EsIndexService esIndexService;
     private final RecoClickMapper recoClickMapper;
+    private final TagMapper tagMapper;
 
     public MovieServiceImpl(MovieMapper movieMapper, ShowMapper showMapper,
                             EsSearchService esSearchService, EsIndexService esIndexService,
-                            RecoClickMapper recoClickMapper) {
+                            RecoClickMapper recoClickMapper, TagMapper tagMapper) {
         this.movieMapper = movieMapper;
         this.showMapper = showMapper;
         this.esSearchService = esSearchService;
         this.esIndexService = esIndexService;
         this.recoClickMapper = recoClickMapper;
+        this.tagMapper = tagMapper;
     }
 
     @Override
@@ -222,6 +228,7 @@ public class MovieServiceImpl implements MovieService {
         m.setCreatedAt(now);
         m.setUpdatedAt(now);
         movieMapper.insert(m);
+        syncTags(dto.getGenres());
         esIndexService.syncMovie(m.getMovieId());
         return toVo(movieMapper.selectById(m.getMovieId()));
     }
@@ -244,8 +251,35 @@ public class MovieServiceImpl implements MovieService {
         if (dto.getCast() != null) m.setCastText(dto.getCast());
         m.setUpdatedAt(OffsetDateTime.now());
         movieMapper.update(m);
+        if (dto.getGenres() != null) {
+            syncTags(dto.getGenres());
+        }
         esIndexService.syncMovie(movieId);
         return toVo(movieMapper.selectById(movieId));
+    }
+
+    @Override
+    public List<String> listGenres() {
+        List<String> names = tagMapper.listAllNames();
+        return names != null ? names : Collections.<String>emptyList();
+    }
+
+    /** 影片类型标签字典同步：trim + 去空 + 幂等写入，与建片/改片同一事务 */
+    private void syncTags(List<String> genres) {
+        if (genres == null || genres.isEmpty()) {
+            return;
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        Set<String> seen = new LinkedHashSet<String>();
+        for (String genre : genres) {
+            if (genre == null) {
+                continue;
+            }
+            String name = genre.trim();
+            if (!name.isEmpty() && seen.add(name)) {
+                tagMapper.insertIgnore(TagIds.next(), name, now);
+            }
+        }
     }
 
     private MovieVO toVo(Movie m) {

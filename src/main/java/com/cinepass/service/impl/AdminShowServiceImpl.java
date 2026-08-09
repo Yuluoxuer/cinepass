@@ -339,7 +339,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         if (show == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "场次不存在");
         }
-        if (!"cancelled".equals(show.getStatus())) {
+        if (!"off_sale".equals(show.getStatus()) && !"cancelled".equals(show.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "仅可恢复已停售/取消的场次");
         }
         showMapper.resumeSale(showId);

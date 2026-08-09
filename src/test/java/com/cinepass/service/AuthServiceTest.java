@@ -171,7 +171,7 @@ class AuthServiceTest {
         PasswordChangeDTO dto = new PasswordChangeDTO();
         dto.setOldPassword("wrongold1");
         dto.setNewPassword("newpass12");
-        assertBiz(() -> authService.changePassword(USER_ID, dto), ResultCode.UNAUTHORIZED);
+        assertBiz(() -> authService.changePassword(USER_ID, dto), ResultCode.PASSWORD_WRONG);
     }
 
     @Test
@@ -181,7 +181,7 @@ class AuthServiceTest {
         PasswordChangeDTO dto = new PasswordChangeDTO();
         dto.setOldPassword("password1");
         dto.setNewPassword("password1");
-        assertBiz(() -> authService.changePassword(USER_ID, dto), ResultCode.PARAM_ERROR);
+        assertBiz(() -> authService.changePassword(USER_ID, dto), ResultCode.PASSWORD_SAME_AS_OLD);
     }
 
     @Test

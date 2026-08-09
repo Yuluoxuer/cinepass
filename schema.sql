@@ -38,6 +38,15 @@ CREATE TABLE IF NOT EXISTS user_profile (
   PRIMARY KEY (user_id)
 );
 
+-- 1.5 影片类型标签字典：name 唯一；建片/改片时事务内同步填充，供类型列表接口
+CREATE TABLE IF NOT EXISTS tag (
+  tag_id       VARCHAR(32)    NOT NULL,
+  name         VARCHAR(32)    NOT NULL,
+  created_at   TIMESTAMPTZ(3) NOT NULL,
+  PRIMARY KEY (tag_id),
+  CONSTRAINT uk_tag_name UNIQUE (name)
+);
+
 -- 2. 目录
 CREATE TABLE IF NOT EXISTS movie (
   movie_id        VARCHAR(32)    NOT NULL,
