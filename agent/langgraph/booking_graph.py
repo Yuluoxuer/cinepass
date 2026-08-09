@@ -154,11 +154,12 @@ def _intent_regex_fallback(message: str, draft: dict[str, Any]) -> BookingIntent
     )
     if is_info_question:
         return "chitchat"
-    # 购票/浏览：包含购票关键词、影院/时间/票数暗示、或「看+片名」模式
+    # 购票/浏览：包含购票关键词、影院/时间/票数暗示、或「看+片名/类型」模式
     buy_ticket_pattern = (
         r"电影|影片|想看|热映|推荐|影院|影城|附近|场次|排片|"
         r"买票|订票|订座|购票|选座|票|座位|"
-        r"看.*?(球|侠|战|记|传|2|3|之|大|小|神|鬼|爱|恨|情|谜|密)"  # 看+片名常见后缀
+        r"看.*?(球|侠|战|记|传|2|3|之|大|小|神|鬼|爱|恨|情|谜|密)|"  # 看+片名常见后缀
+        r"看.*?(喜剧|搞笑|动作|科幻|爱情|恐怖|惊悚|动画|动漫|悬疑|犯罪|战争|纪录|冒险|奇幻|剧情|历史|武侠|古装)"  # 看+类型词（如"周末看喜剧"）
     )
     time_pattern = r"(今天|明天|后天|大后天|周一|周二|周三|周四|周五|周六|周日|上午|下午|晚上|中午|早上|明晚|今晚)"
     count_pattern = r"(一张|两张|三张|四张|五张|六张|七张|八张|九张|十张|一个人|两个人|三个人|四个人|几人|几个人|一人|两人|三人)"
@@ -591,7 +592,7 @@ async def _handle_browse_request(message: str, draft: dict[str, Any] | None = No
             matched_genre = genre_val
             break
 
-    if matched_genre and re.search(recommend_words, text):
+    if matched_genre and (re.search(recommend_words, text) or any(k in text for k in ("看", "找", "订", "买"))):
         # 从数据库搜索该类型的电影
         from agent.tools.movie_tools import search_movies
         try:
@@ -625,26 +626,52 @@ async def _handle_browse_request(message: str, draft: dict[str, Any] | None = No
                     lines.append(f"| {i} | {title} | {rating_str} | {dur_str} | {genres_str} |")
                 lines.append(f"\n以上{len(items)}部{matched_genre}电影正在热映，您对哪部感兴趣？")
                 return {"reply": "\n".join(lines), "movies": items}
-            else:
-                # 也查一下即将上映
-                result2 = await search_movies.ainvoke({
-                    "genre": matched_genre,
-                    "status": "coming_soon",
-                    "page": 1,
-                    "size": 5,
-                })
-                data2 = ast.literal_eval(result2) if isinstance(result2, str) else result2
-                items2 = data2.get("items") if isinstance(data2, dict) else None
-                if isinstance(items2, list) and items2:
-                    lines = [f"当前{matched_genre}类暂无热映影片，以下{matched_genre}类即将上映：\n"]
-                    for i, item in enumerate(items2, 1):
-                        if not isinstance(item, dict):
-                            continue
-                        title = item.get("title", "未知")
-                        release = item.get("releaseDate", "")
-                        lines.append(f"{i}. 《{title}》 上映日期：{release}")
-                    return {"reply": "\n".join(lines), "movies": []}
-                return {"reply": f"暂未查询到{matched_genre}类型的影片排片信息，请稍后再试或换一种类型。", "movies": []}
+            # 该类型暂无可用排片 → 兜底：查询全部有排片的在映影片，让用户仍有可选的影片
+            result_all = await search_movies.ainvoke({
+                "status": "hot_showing",
+                "page": 1,
+                "size": 8,
+            })
+            data_all = ast.literal_eval(result_all) if isinstance(result_all, str) else result_all
+            items_all = data_all.get("items") if isinstance(data_all, dict) else None
+            if isinstance(items_all, list):
+                items_all = [it for it in items_all if isinstance(it, dict) and it.get("nextShowDate")]
+            if items_all:
+                lines = [f"当前{matched_genre}类影片暂无在映排片，不过这些电影正在上映：\n"]
+                lines.append("| # | 片名 | 评分 | 时长 | 类型 |")
+                lines.append("|---|------|------|------|------|")
+                for i, item in enumerate(items_all, 1):
+                    if not isinstance(item, dict):
+                        continue
+                    title = item.get("title", "未知")
+                    rating = item.get("rating", "")
+                    duration = item.get("durationMin", "")
+                    genres = item.get("genres", [])
+                    genres_str = "/".join(genres) if genres else "-"
+                    rating_str = f"⭐{rating}" if rating else "-"
+                    dur_str = f"{duration}分钟" if duration else "-"
+                    lines.append(f"| {i} | {title} | {rating_str} | {dur_str} | {genres_str} |")
+                lines.append(f"\n以上{len(items_all)}部影片正在热映，您对哪部感兴趣？")
+                return {"reply": "\n".join(lines), "movies": items_all}
+            # 也查一下即将上映
+            result2 = await search_movies.ainvoke({
+                "genre": matched_genre,
+                "status": "coming_soon",
+                "page": 1,
+                "size": 5,
+            })
+            data2 = ast.literal_eval(result2) if isinstance(result2, str) else result2
+            items2 = data2.get("items") if isinstance(data2, dict) else None
+            if isinstance(items2, list) and items2:
+                lines = [f"当前{matched_genre}类暂无热映影片，以下{matched_genre}类即将上映：\n"]
+                for i, item in enumerate(items2, 1):
+                    if not isinstance(item, dict):
+                        continue
+                    title = item.get("title", "未知")
+                    release = item.get("releaseDate", "")
+                    lines.append(f"{i}. 《{title}》 上映日期：{release}")
+                return {"reply": "\n".join(lines), "movies": []}
+            return {"reply": f"暂未查询到{matched_genre}类型的影片排片信息，请稍后再试或换一种类型。", "movies": []}
         except Exception:
             return {"reply": f"暂未查询到{matched_genre}类型的影片信息（服务可能未就绪），请稍后再试。", "movies": []}
 
@@ -856,6 +883,57 @@ async def main_agent_node(state: GraphState) -> dict[str, Any]:
                 else:
                     warnings.append(f"🏢 暂未查询到影院「{merged.get('cinemaName')}」的信息（服务可能未就绪），请稍后再试或手动选择影院。")
 
+    # ---------- 第4步A：有 movieId+cinemaId 但缺 date → 生成未来三天场次卡片 ----------
+    # 对齐 agent2 的 date_show_list：用户还没定日期时，一次展示未来 3 天的排期让用户选场次
+    if (merged.get("movieId") and merged.get("cinemaId") and not merged.get("date")
+            and not merged.get("showId") and not any(c.get("type") == "date_show_list" for c in cards)):
+        try:
+            from datetime import date, timedelta
+            from agent.tools.show_tools import list_shows
+            days_data: list[dict[str, Any]] = []
+            today = date.today()
+            labels = ["今天", "明天", "后天"]
+            for i in range(3):
+                d = today + timedelta(days=i)
+                date_str = d.isoformat()
+                try:
+                    result = await list_shows.ainvoke({
+                        "cinema_id": merged["cinemaId"],
+                        "movie_id": merged["movieId"],
+                        "date": date_str,
+                    })
+                    import ast
+                    data = ast.literal_eval(result) if isinstance(result, str) else result
+                    items = data.get("items") if isinstance(data, dict) else None
+                    days_data.append({
+                        "date": date_str,
+                        "label": labels[i],
+                        "shows": [it for it in items if isinstance(it, dict)] if isinstance(items, list) else [],
+                    })
+                except Exception:
+                    days_data.append({"date": date_str, "label": labels[i], "shows": []})
+            if any(d["shows"] for d in days_data):
+                import uuid as _uuid_date
+                actions = []
+                for d in days_data:
+                    for s in d["shows"]:
+                        if s.get("showId"):
+                            actions.append({
+                                "actionId": "select",
+                                "label": "选这场",
+                                "itemId": s["showId"],
+                                "draftPatch": {"showId": s["showId"], "date": d["date"]},
+                            })
+                cards.append({
+                    "cardId": f"date_shows_{_uuid_date.uuid4().hex[:8]}",
+                    "type": "date_show_list",
+                    "title": f"《{merged.get('filmTitle') or '该影片'}》未来三天场次",
+                    "payload": {"days": days_data},
+                    "actions": actions,
+                })
+        except Exception:
+            pass  # 日期卡片生成失败不阻塞主流程
+
     # ---------- 第4步：有 movieId+cinemaId+date 但缺 showId → 查场次并生成场次选择卡片 ----------
     show_warn_movie = merged.get("filmTitle") or merged.get("movieId")
     show_warn_cinema = merged.get("cinemaName") or merged.get("cinemaId")
@@ -901,37 +979,36 @@ async def main_agent_node(state: GraphState) -> dict[str, Any]:
     missing = get_missing_fields(merged)
     complete = len(missing) == 0
 
-    # ---------- 第7步：生成回复（warnings 优先于记录/缺失提示） ----------
+    # ---------- 第7步：生成回复（自然语言确认已选信息 + 一次追问最关键的缺失项） ----------
+    # 不暴露「已记录：影片=xxx」这种草稿内部结构，改用自然语言衔接
     reply_parts: list[str] = []
 
     # 1) 先列「无上映/未找到/无排片」的警告
     if warnings:
         reply_parts.extend(warnings)
 
-    # 2) 已记录信息
-    recorded = []
-    for k, label in [("filmTitle", "影片"), ("cinemaName", "影院"), ("date", "日期"),
-                      ("timeWindow", "时间段"), ("count", "票数")]:
-        v = merged.get(k)
-        if v:
-            if k == "timeWindow" and isinstance(v, str):
-                tl_map = {"morning": "上午", "afternoon": "下午", "evening": "晚上", "night": "半夜"}
-                v = tl_map.get(v.lower(), v)
-            recorded.append(f"{label}={v}")
-    recorded_str = ""
-    if recorded:
-        recorded_str = f"已记录：{', '.join(recorded)}。"
+    # 2) 已确认的信息用自然语言描述（用于衔接追问）
+    confirmed_bits: list[str] = []
+    if merged.get("filmTitle"):
+        confirmed_bits.append(f"《{merged['filmTitle']}》")
+    if merged.get("cinemaName"):
+        confirmed_bits.append(f"影院 {merged['cinemaName']}")
+    if merged.get("date"):
+        confirmed_bits.append(f"{merged['date']}")
+    if merged.get("timeWindow"):
+        tl_map = {"morning": "上午", "afternoon": "下午", "evening": "晚上", "night": "半夜"}
+        confirmed_bits.append(tl_map.get(str(merged["timeWindow"]).lower(), str(merged["timeWindow"])))
+    if merged.get("count"):
+        confirmed_bits.append(f"{merged['count']}张")
 
     if complete:
         reply = format_draft_for_user(merged) + "\n\n以上信息是否正确？确认后我将为您下单。"
         if warnings:
             reply = "\n\n".join(warnings) + "\n\n" + reply
     elif missing:
-        missing_labels = [DRAFT_LABELS.get(f, f) for f in missing]
         # 过滤掉因为 warnings 导致的伪缺失
-        # 例：用户说了流浪地球3但影片未上映，已经 warning 了，就不要再问「请选择影片」
         still_need: list[str] = []
-        for label, field in zip(missing_labels, missing):
+        for field in missing:
             already_warned = False
             if field == "movieId" and any("暂无热映" in w for w in warnings):
                 already_warned = True
@@ -940,24 +1017,36 @@ async def main_agent_node(state: GraphState) -> dict[str, Any]:
             if field == "showId" and any("暂无排片" in w or "暂无场次" in w for w in warnings):
                 already_warned = True
             if not already_warned:
-                still_need.append(label)
+                still_need.append(field)
 
         if still_need:
-            question = f"还需要您补充：{', '.join(still_need)}。请问您想选择哪部{'/'.join(still_need)}？"
+            # 自然语言确认已选信息 + 按购票流程顺序追问最关键的下一项（一次只问一项）
+            lead = ""
+            if confirmed_bits:
+                lead = "好的，已为您确认：" + "、".join(confirmed_bits) + "。"
+            if "movieId" in still_need:
+                question = "想看哪部电影呢？我可以为您推荐正在上映的影片，或您直接告诉我片名。"
+            elif "cinemaId" in still_need:
+                question = "接下来想看哪家影院呢？我也可以按您的位置为您推荐附近的影院。"
+            elif "showId" in still_need:
+                question = "想选哪天、哪个场次呢？我来为您查询可选的排片。"
+            elif "count" in still_need:
+                question = "请问需要购买几张票呢？"
+            elif "seatIds" in still_need:
+                question = "想选哪个座位呢？我可以为您智能推荐合适的位置。"
+            else:
+                question = "还需要补充一些信息，请继续告诉我您的需求。"
+            reply = f"{lead}\n{question}" if lead else question
+            if warnings:
+                reply = "\n\n".join(warnings) + "\n\n" + reply
         else:
-            question = "请根据上方提示重新选择合适的信息。"
-
-        if warnings:
-            reply_parts.append(recorded_str + question)
-            reply = "\n\n".join(reply_parts)
-        else:
-            reply = f"{recorded_str}{question}"
+            reply = "请根据上方提示重新选择合适的信息。"
     else:
         # 兜底：没有 missing 也没有 complete 时，至少展示 warnings
         if warnings:
-            reply = "\n\n".join(warnings) + (f"\n\n{recorded_str}" if recorded_str else "")
+            reply = "\n\n".join(warnings)
         else:
-            reply = recorded_str or "已收到您的信息，请继续补充下一步。"
+            reply = "已收到您的信息，请继续补充下一步。"
 
     events = [f"main_agent:complete={complete}"]
     if warnings:
@@ -1004,7 +1093,7 @@ async def main_agent_node(state: GraphState) -> dict[str, Any]:
     # 方案2：用户已通过卡片选座（seatIds 已写入 draft）但尚未锁座 → 自动锁座
     if merged.get("showId") and merged.get("seatIds") and not merged.get("lockId"):
         try:
-            from agent.http import backend_url, post
+            from agent.http import backend_url, get, post
             seat_list = merged["seatIds"]
             if isinstance(seat_list, str):
                 seat_list = [s.strip() for s in seat_list.split(",") if s.strip()]
@@ -1026,11 +1115,88 @@ async def main_agent_node(state: GraphState) -> dict[str, Any]:
                     merged["lockId"] = lock_info["lockId"]
                     if lock_info.get("expireAt"):
                         merged["expireAt"] = lock_info["expireAt"]
+                    # 锁座成功后自动创建订单并生成付款二维码（对齐 agent2）
+                    try:
+                        order_payload = await post(
+                            backend_url("/orders"),
+                            json={
+                                "lockId": merged["lockId"],
+                                "sessionId": state.get("sessionId") or "",
+                            },
+                            timeout=1.5,
+                        )
+                        if isinstance(order_payload, dict) and order_payload.get("code") in (0, 200, None):
+                            order_info = order_payload.get("data") or {}
+                            if order_info.get("orderId"):
+                                merged["orderId"] = order_info["orderId"]
+                                # 拉取支付二维码
+                                pay_qr: dict[str, Any] = {}
+                                try:
+                                    pay_resp = await get(
+                                        backend_url(f"/orders/{order_info['orderId']}/pay-qrcode"),
+                                        timeout=1.5,
+                                    )
+                                    if isinstance(pay_resp, dict) and pay_resp.get("code") in (0, 200, None):
+                                        pay_qr = pay_resp.get("data") or {}
+                                except Exception:
+                                    pass
+                                import uuid as _uuid_pay
+                                cards.append({
+                                    "cardId": f"pay_{_uuid_pay.uuid4().hex[:8]}",
+                                    "type": "pay_mock",
+                                    "title": "扫码支付",
+                                    "payload": {
+                                        "orderId": order_info["orderId"],
+                                        "amount": order_info.get("amount") or pay_qr.get("amount") or 0,
+                                        "payUrl": pay_qr.get("payUrl") or "",
+                                        "pollIntervalMs": pay_qr.get("pollIntervalMs") or 2000,
+                                        "movieTitle": merged.get("filmTitle") or "",
+                                        "cinemaName": merged.get("cinemaName") or "",
+                                        "seatIds": seat_list,
+                                        "count": len(seat_list),
+                                    },
+                                    "actions": [
+                                        {
+                                            "actionId": "payment_done",
+                                            "label": "已完成支付",
+                                            "itemId": order_info["orderId"],
+                                        }
+                                    ],
+                                })
+                    except Exception:
+                        pass  # 下单失败不阻塞，用户可后续手动处理
         except Exception:
             pass  # 锁座失败不阻塞，交由用户后续处理
 
     # 方案3：已有场次但缺座位 → 生成可点击座位卡片（缩小版）
-    if merged.get("showId") and not merged.get("seatIds"):
+    # 先确认票数：count 缺失/未确认时，选座前追问票数（对齐 agent2「选场次后必须问票数」）
+    count_missing = (
+        merged.get("showId")
+        and not merged.get("seatIds")
+        and not merged.get("lockId")
+        and not (merged.get("count") and int(merged.get("count") or 0) > 0)
+    )
+    if count_missing:
+        import uuid as _uuid_count
+        cards.append({
+            "cardId": f"ask_count_{_uuid_count.uuid4().hex[:8]}",
+            "type": "ask",
+            "title": "请问需要购买几张票呢？",
+            "payload": {
+                "prompt": "请问需要购买几张票呢？",
+                "suggestions": ["1张", "2张", "3张", "4张"],
+            },
+            "actions": [
+                {"actionId": "fill_slot", "label": "1张", "itemId": "1张", "draftPatch": {"count": 1}},
+                {"actionId": "fill_slot", "label": "2张", "itemId": "2张", "draftPatch": {"count": 2}},
+                {"actionId": "fill_slot", "label": "3张", "itemId": "3张", "draftPatch": {"count": 3}},
+                {"actionId": "fill_slot", "label": "4张", "itemId": "4张", "draftPatch": {"count": 4}},
+            ],
+        })
+
+    # 方案3：已有场次、票数已确认但缺座位 → 生成可点击座位卡片（缩小版）
+    if (merged.get("showId") and not merged.get("seatIds")
+            and not count_missing and not merged.get("lockId")):
         try:
             from agent.http import backend_url, get, post
             sm_payload = await get(backend_url(f"/shows/{merged['showId']}/seat-map"), timeout=3.0)

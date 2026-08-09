@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"python3 - <<'EOF'\\nimport re, ast, uuid\\nfrom typing import Any\\n\\n# ---- 复制 _rule_route 逻辑 ----\\ndef _rule_route(message, draft):\\n    text = message or \\\"\\\"\\n    if re.search(r\\\"你好|谢谢|再见...",
+  "error": "Exit code 1\n=== 监督者规则路由 ===\n  OK  '周末看喜剧' draft={} -> movie (期望 movie)\n  OK  '你好' draft={} -> chat (期望 chat)\n  OK  '我想看《封神第二部》' draft={} -> movie (期望 movie)\n  OK  '万达影城' draft={'movieId': 'm1'} -> cinema (期望 cinema)\n  OK  '明天下午' draft={'movieId': 'm1', 'cinemaId': 'c1'} -> show (期望 show)\n  OK  'A5 A6' draft={'movieId': 'm1', 'cinemaId': 'c1', 'showId': 's1'} -> seat (期望 seat)\n  OK  '确认下单' draft={'movieId': 'm1', 'cinemaId': 'c1', 'showId': 's1', 'seatIds': ['A5'], 'lockId': 'L1'} -> order (期望 or...",
+  "timestamp": "2026-08-09T06:42:53.009Z",
+  "retry_count": 1
+}

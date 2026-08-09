@@ -92,7 +92,9 @@ async def save_draft(draft: dict[str, Any], session_id: str | None = None) -> di
 async def get_booking_draft() -> str:
     """查看当前购票草稿中已记录的信息。返回原始 JSON（movieId/cinemaId/showId/seatIds 等字段）。"""
     draft = await load_draft()
-    return json.dumps(draft, ensure_ascii=False) if draft else "{}"
+    # 过滤内部字段（如 _history），避免暴露给 LLM
+    public = {k: v for k, v in draft.items() if not str(k).startswith("_")}
+    return json.dumps(public, ensure_ascii=False) if public else "{}"
 
 
 @tool

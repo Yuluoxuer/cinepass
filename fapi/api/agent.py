@@ -17,7 +17,9 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from agent2.agent import get_agent
+from agent2.request_context import use_authorization
 from agent2.tools.booking_draft import load_draft, save_draft
+from fapi.api._draft_merge import resolve_draft_merge
 from fapi.deps import get_authorization
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -42,6 +44,8 @@ class AgentTurnRequest(BaseModel):
     debug: bool = False
     latitude: float | None = None
     longitude: float | None = None
+    # 前端手动页面/中台草稿快照，用于同步到 agent2 草稿表（避免 Agent 不知道手动选片）
+    clientDraft: dict[str, Any] | None = None
 
 
 class AgentTurnDraftVO(BaseModel):
@@ -242,7 +246,7 @@ def _to_draft_vo(sid: str, draft: dict[str, Any]) -> AgentTurnDraftVO:
         lockId=draft.get("lockId"),
         orderId=draft.get("orderId"),
         expireAt=draft.get("expireAt"),
-        version=1,
+        version=int(draft.get("version") or 0),
     )
 
 
@@ -265,7 +269,12 @@ def _build_cards(tool_calls: list[dict[str, Any]], draft: dict[str, Any]) -> lis
         if not isinstance(data, dict):
             continue
 
-        if name in ("search_movies", "searchMovies") and not draft.get("movieId"):
+        if (
+            name in ("search_movies", "searchMovies")
+            and not draft.get("movieId")
+            and not draft.get("lockId")
+            and not draft.get("orderId")
+        ):
             items = data.get("items") or []
             if isinstance(items, list) and items:
                 cards.append({
@@ -322,7 +331,7 @@ def _build_cards(tool_calls: list[dict[str, Any]], draft: dict[str, Any]) -> lis
                         if isinstance(s, dict) and s.get("showId")
                     ],
                 })
-        elif name in ("getSeatMap", "get_seat_map", "recommendSeats", "recommend_seats") and draft.get("showId"):
+        elif name in ("getSeatMap", "get_seat_map", "recommendSeats", "recommend_seats") and draft.get("showId") and not draft.get("lockId"):
             is_reco = name in ("recommendSeats", "recommend_seats")
             show_id = data.get("showId") or draft.get("showId") or ""
             seat_map = data if not is_reco else None
@@ -344,8 +353,22 @@ def _build_cards(tool_calls: list[dict[str, Any]], draft: dict[str, Any]) -> lis
                         "actionId": "confirm",
                         "label": "确认选座",
                         "itemId": show_id,
-                        "draftPatch": {"showId": show_id, "seatIds": []},
                     }
+                ],
+            })
+        elif name in ("create_order", "createOrder") and data.get("orderId"):
+            cards.append({
+                "cardId": f"pay_{uuid.uuid4().hex[:8]}",
+                "type": "pay_mock",
+                "title": "扫码支付",
+                "payload": {
+                    "orderId": data.get("orderId", ""),
+                    "amount": data.get("amount") or data.get("totalAmount") or 0,
+                    "payUrl": data.get("payUrl") or data.get("pay_url") or data.get("paymentUrl") or "",
+                    "pollIntervalMs": 2000,
+                },
+                "actions": [
+                    {"actionId": "payment_done", "label": "已完成支付", "itemId": data.get("orderId", "")},
                 ],
             })
     # 去重：LLM 可能重复调用同一工具（如 search_movies），同类型同内容的卡片只保留一张
@@ -386,12 +409,40 @@ def _compose_message(body: AgentTurnRequest) -> str:
             seats = ", ".join(str(s) for s in patch["seatIds"])
             return f"我选择了座位 {seats}，请帮我锁座并确认下单。"
         if patch.get("showId"):
+            if patch.get("date"):
+                return f"我选择了 {patch['date']} 的场次，请帮我查询座位并选座。"
             return "我选择了场次，请帮我查询座位并选座。"
         if patch:
             kv = ", ".join(f"{k}={v}" for k, v in patch.items())
             return f"（点卡操作：{kv}）"
         return f"（点卡操作 {ca.actionId}）"
     return ""
+
+
+# ---------- 中台草稿同步辅助 ----------
+
+
+async def _load_middle_draft(sid: str) -> dict[str, Any]:
+    """从中台 /booking-drafts 读取草稿（手动购票页面的数据源）。"""
+    from agent2.http import backend_url, get
+    try:
+        payload = await get(backend_url(f"/booking-drafts/{sid}"), timeout=1.0)
+        if isinstance(payload, dict) and payload.get("code") in (0, 200, None):
+            data = payload.get("data")
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {}
+
+
+async def _save_middle_draft(sid: str, draft: dict[str, Any]) -> None:
+    """把草稿合并写回中台，供手动页面读取。"""
+    from agent2.http import backend_url, post
+    try:
+        await post(backend_url(f"/booking-drafts/{sid}/merge"), json={"draft": draft}, timeout=1.0)
+    except Exception:
+        pass
 
 
 # ---------- 端点 ----------
@@ -416,15 +467,38 @@ async def agent_turns(
             )
         )
 
-    # 卡片操作：先把 draftPatch 写入 agent2 的 booking_draft
-    patch = body.cardAction.draftPatch if body.cardAction else None
-    if patch:
+    # ---------- 草稿同步：中台(手动页面) ↔ 本地(agent2) ----------
+    # 手动页面草稿存中台，agent2 草稿存本地表；每轮对话前把中台/页面快照/点卡合并进本地表，
+    # 让 agent 的 getBookingDraft 读到最新；对话后再把 agent 结果写回中台。
+    _DRAFT_KEYS = (
+        "movieId", "filmTitle", "cinemaId", "cinemaName", "showId",
+        "date", "timeWindow", "count", "seatIds",
+        "preferRow", "preferSide", "together", "lockId", "orderId", "expireAt",
+    )
+
+    def _pick(src: dict[str, Any] | None) -> dict[str, Any]:
+        return {k: v for k, v in (src or {}).items() if k in _DRAFT_KEYS and v not in (None, "", [])}
+
+    with use_authorization(authorization):
         try:
-            existing = await load_draft(sid) or {}
-            merged = {**existing, **patch}
+            middle = await _load_middle_draft(sid)
+            local_existing = await load_draft(sid) or {}
+            middle_clean = {k: v for k, v in middle.items() if not str(k).startswith("_")}
+            # 乐观锁：以中台草稿为 server_draft（version 以中台为准，页面基于它发 clientDraftVersion）
+            sv = int(middle_clean.get("version") or local_existing.get("version") or 0)
+            server_draft = {**local_existing, **middle_clean, "version": sv}
+            merged, _new_v = resolve_draft_merge(server_draft, body.clientDraft, body.clientDraftVersion)
+            # 点卡操作：明确选择优先（覆盖）
+            patch = body.cardAction.draftPatch if body.cardAction else None
+            if patch:
+                merged = {**merged, **_pick(patch)}
+            # agent 已锁座/下单成果以本地为准，不被页面/中台旧快照覆盖
+            for k in ("lockId", "orderId", "expireAt"):
+                if local_existing.get(k):
+                    merged[k] = local_existing[k]
             await save_draft(merged, sid)
         except Exception:
-            pass  # 草稿库未启用则忽略
+            pass  # 草稿库/中台不可用则忽略
 
     agent = await get_agent()
     # 坐标经 ContextVar 注入（run_with_trace 内部 use_location），不再拼进消息文本，
@@ -444,23 +518,196 @@ async def agent_turns(
     except Exception:
         draft = {}
 
+    # ---------- 锁座成功：先把 lockId 写入 draft（必须在 _build_cards 之前） ----------
+    # 用户在座位卡片点「确认选座」→ LLM 调 lockSeats 成功。
+    # 先写 lockId 再构建卡片，这样 _build_cards 的 seat_plans/电影卡片分支
+    # 会因为 draft.lockId 已存在而跳过，避免锁座后再次出现选座/电影卡片。
+    lock_success: dict[str, Any] | None = None
+    for tc in tool_calls:
+        if tc.get("name") in ("lockSeats", "lock_seats"):
+            raw = _parse_tool_result(tc.get("content", ""))
+            if isinstance(raw, dict):
+                data = raw.get("data") if isinstance(raw.get("data"), dict) else raw
+                if isinstance(data, dict) and data.get("lockId"):
+                    lock_success = data
+                    break
+
+    if lock_success and not draft.get("orderId"):
+        draft["lockId"] = lock_success["lockId"]
+        if lock_success.get("expireAt"):
+            draft["expireAt"] = lock_success["expireAt"]
+        # 锁座接口可能返回 seatIds，回填 draft 确保订单摘要能读到已选座位
+        locked_seat_ids = lock_success.get("seatIds") or lock_success.get("seat_ids")
+        if locked_seat_ids and not draft.get("seatIds"):
+            if isinstance(locked_seat_ids, list):
+                draft["seatIds"] = [str(s) for s in locked_seat_ids]
+            else:
+                draft["seatIds"] = str(locked_seat_ids)
+        try:
+            await save_draft(draft, sid)
+        except Exception:
+            pass  # 写库失败不阻塞主流程
+
+    # 同步 agent2 本地草稿回中台（让手动页面看到 agent 的选择/锁座/下单）
+    if sid and draft:
+        try:
+            with use_authorization(authorization):
+                await _save_middle_draft(sid, draft)
+        except Exception:
+            pass  # 中台不可用不阻塞主流程
+
     cards = _build_cards(tool_calls, draft)
 
-    # 若座位卡片缺座位图，主动补拉（供前端渲染可点击座位网格）
-    for c in cards:
-        if c.get("type") == "seat_plans" and not c.get("payload", {}).get("seatMap"):
-            show_id = c.get("payload", {}).get("showId")
-            if show_id:
-                try:
-                    from agent2.http import backend_url, get
-                    sm = await get(backend_url(f"/shows/{show_id}/seat-map"), timeout=3.0)
-                    if isinstance(sm, dict) and sm.get("code") in (0, 200, None):
-                        c["payload"]["seatMap"] = sm.get("data")
-                except Exception:
-                    pass  # 补拉失败不阻塞
+    # ---------- 锁座成功：自动创建订单生成付款码 ----------
+    if lock_success and not draft.get("orderId"):
+        # 自动创建订单（座位已锁，直接下单）
+        try:
+            from agent2.http import backend_url, get, post
+            from agent2.request_context import use_authorization
 
-    # 兜底：草稿已有场次但未选座，且本轮没生成座位卡片 → 主动补一张（保证前端可选座）
-    if (draft.get("showId") and not draft.get("seatIds")
+            with use_authorization(authorization):
+                order_resp = await post(
+                    backend_url("/orders"),
+                    json={"lockId": draft["lockId"], "sessionId": sid},
+                    timeout=2.0,
+                )
+            if isinstance(order_resp, dict) and order_resp.get("code") in (0, 200, None):
+                order_data = order_resp.get("data") or {}
+                if order_data.get("orderId"):
+                    draft["orderId"] = order_data["orderId"]
+                    try:
+                        await save_draft(draft, sid)
+                    except Exception:
+                        pass
+                    # 拉取支付二维码
+                    pay_qr: dict[str, Any] = {}
+                    try:
+                        with use_authorization(authorization):
+                            pay_resp = await get(
+                                backend_url(f"/orders/{order_data['orderId']}/pay-qrcode"),
+                                timeout=2.0,
+                            )
+                        if isinstance(pay_resp, dict) and pay_resp.get("code") in (0, 200, None):
+                            pay_qr = pay_resp.get("data") or {}
+                    except Exception:
+                        pass
+                    # 生成付款卡片（若本轮尚未生成），并携带已选座位供前端回显
+                    if not any(c.get("type") == "pay_mock" for c in cards):
+                        seat_ids = draft.get("seatIds") or []
+                        if isinstance(seat_ids, str):
+                            seat_ids = [s.strip() for s in seat_ids.split(",") if s.strip()]
+                        cards.append({
+                            "cardId": f"pay_{uuid.uuid4().hex[:8]}",
+                            "type": "pay_mock",
+                            "title": "扫码支付",
+                            "payload": {
+                                "orderId": order_data["orderId"],
+                                "amount": order_data.get("amount") or pay_qr.get("amount") or 0,
+                                "payUrl": pay_qr.get("payUrl") or "",
+                                "pollIntervalMs": pay_qr.get("pollIntervalMs") or 2000,
+                                "movieTitle": draft.get("filmTitle") or "",
+                                "cinemaName": draft.get("cinemaName") or "",
+                                "showId": draft.get("showId") or "",
+                                "seatIds": seat_ids,
+                                "count": int(draft.get("count") or 0),
+                            },
+                            "actions": [
+                                {"actionId": "payment_done", "label": "已完成支付", "itemId": order_data["orderId"]},
+                            ],
+                        })
+        except Exception:
+            pass  # 下单失败不阻塞，用户可后续手动处理
+
+    # ---------- 未选日期但已选影院 → 生成未来三天场次卡片 ----------
+    if (draft.get("movieId") and draft.get("cinemaId") and not draft.get("date")
+            and not draft.get("showId") and not draft.get("lockId")
+            and not any(c.get("type") == "date_show_list" for c in cards)):
+        try:
+            from datetime import date, timedelta
+            from agent2.http import backend_url, get
+
+            days_data: list[dict[str, Any]] = []
+            today = date.today()
+            labels = ["今天", "明天", "后天"]
+            for i in range(3):
+                d = today + timedelta(days=i)
+                date_str = d.isoformat()
+                try:
+                    resp = await get(
+                        backend_url("/shows"),
+                        params={
+                            "cinemaId": draft["cinemaId"],
+                            "movieId": draft["movieId"],
+                            "date": date_str,
+                        },
+                        timeout=2.0,
+                    )
+                    items: list[dict[str, Any]] = []
+                    if isinstance(resp, dict):
+                        data = resp.get("data") if resp.get("code") in (0, 200, None) else None
+                        if isinstance(data, dict):
+                            items = data.get("items") or []
+                    days_data.append({"date": date_str, "label": labels[i], "shows": items})
+                except Exception:
+                    days_data.append({"date": date_str, "label": labels[i], "shows": []})
+            if any(d["shows"] for d in days_data):
+                actions: list[dict[str, Any]] = []
+                for d in days_data:
+                    for s in d["shows"]:
+                        if isinstance(s, dict) and s.get("showId"):
+                            actions.append({
+                                "actionId": "select",
+                                "label": "选这场",
+                                "itemId": s.get("showId"),
+                                "draftPatch": {"showId": s.get("showId"), "date": d["date"]},
+                            })
+                cards.append({
+                    "cardId": f"date_shows_{uuid.uuid4().hex[:8]}",
+                    "type": "date_show_list",
+                    "title": "未来三天场次",
+                    "payload": {"days": days_data},
+                    "actions": actions,
+                })
+        except Exception:
+            pass  # 日期卡片生成失败不阻塞主流程
+
+    # 若座位卡片缺座位图/推荐方案，主动补拉（供前端渲染可点击座位网格并自动预选）
+    for c in cards:
+        if c.get("type") != "seat_plans":
+            continue
+        payload = c.get("payload") or {}
+        show_id = payload.get("showId")
+        if not show_id:
+            continue
+        try:
+            from agent2.http import backend_url, get, post
+            if not payload.get("seatMap"):
+                sm = await get(backend_url(f"/shows/{show_id}/seat-map"), timeout=3.0)
+                if isinstance(sm, dict) and sm.get("code") in (0, 200, None):
+                    payload["seatMap"] = sm.get("data")
+            # 补拉推荐方案，让前端自动预选（避免"已选 0/N 座"需要用户手挑）
+            if not payload.get("plans"):
+                reco_payload = await post(
+                    backend_url("/reco/seats"),
+                    json={
+                        "showId": show_id,
+                        "count": int(payload.get("count") or draft.get("count") or 2),
+                        "preferRow": draft.get("preferRow") or "middle",
+                        "preferSide": draft.get("preferSide") or "center",
+                        "together": draft.get("together", True),
+                    },
+                    timeout=2.0,
+                )
+                if isinstance(reco_payload, dict) and reco_payload.get("code") in (0, 200, None):
+                    reco_data = reco_payload.get("data") or {}
+                    if isinstance(reco_data.get("plans"), list):
+                        payload["plans"] = reco_data["plans"]
+                    payload["compromise"] = reco_data.get("compromise")
+        except Exception:
+            pass  # 补拉失败不阻塞
+
+    # 兜底：草稿已有场次、未锁座且未选座，且本轮没生成座位卡片 → 主动补一张（保证前端可选座）
+    if (draft.get("showId") and not draft.get("seatIds") and not draft.get("lockId")
             and not any(c.get("type") == "seat_plans" for c in cards)):
         try:
             from agent2.http import backend_url, get
@@ -468,6 +715,28 @@ async def agent_turns(
             if isinstance(sm, dict) and sm.get("code") in (0, 200, None):
                 seat_map = sm.get("data")
                 if isinstance(seat_map, dict) and seat_map.get("seats"):
+                    # 补调推荐座位，让前端能自动预选（避免"已选 0/N 座"需要用户手挑）
+                    reco_plans: list[dict[str, Any]] = []
+                    reco_compromise: dict[str, Any] | None = None
+                    try:
+                        reco_payload = await post(
+                            backend_url("/reco/seats"),
+                            json={
+                                "showId": draft["showId"],
+                                "count": int(draft.get("count") or 2),
+                                "preferRow": draft.get("preferRow") or "middle",
+                                "preferSide": draft.get("preferSide") or "center",
+                                "together": draft.get("together", True),
+                            },
+                            timeout=2.0,
+                        )
+                        if isinstance(reco_payload, dict) and reco_payload.get("code") in (0, 200, None):
+                            reco_data = reco_payload.get("data") or {}
+                            if isinstance(reco_data.get("plans"), list):
+                                reco_plans = reco_data["plans"]
+                            reco_compromise = reco_data.get("compromise")
+                    except Exception:
+                        pass  # 推荐失败不阻塞，前端仍可手动选座
                     cards.append({
                         "cardId": f"seat_{uuid.uuid4().hex[:8]}",
                         "type": "seat_plans",
@@ -476,15 +745,14 @@ async def agent_turns(
                             "showId": draft["showId"],
                             "count": int(draft.get("count") or 2),
                             "seatMap": seat_map,
-                            "plans": [],
-                            "compromise": None,
+                            "plans": reco_plans,
+                            "compromise": reco_compromise,
                         },
                         "actions": [
                             {
                                 "actionId": "confirm",
                                 "label": "确认选座",
                                 "itemId": draft["showId"],
-                                "draftPatch": {"showId": draft["showId"], "seatIds": []},
                             }
                         ],
                     })
