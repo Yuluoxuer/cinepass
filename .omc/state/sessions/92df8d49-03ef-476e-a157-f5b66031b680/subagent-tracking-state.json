@@ -1,0 +1,17 @@
+{
+  "agents": [
+    {
+      "agent_id": "ad17c6e13c4f4aeb5",
+      "agent_type": "ecc:planner",
+      "started_at": "2026-08-09T18:10:48.433Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-09T18:18:03.506Z",
+      "duration_ms": 435073
+    }
+  ],
+  "total_spawned": 1,
+  "total_completed": 2,
+  "total_failed": 0,
+  "last_updated": "2026-08-09T18:18:03.644Z"
+}

@@ -18,8 +18,8 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "cd /home/rei/Code/movie/cinepass_leijieming_frontend && npx tsc --noEmit --skipLibCheck 2>&1 | grep -E \"api/agent|stores/agent\" | head; echo \"=== 后端编译 ===\"; cd /home/rei/Code/movie/cinepass_leijieming_aiagent && python3 -m py_compile agent4/api/__init__.py agent4/api/contract.py && echo \"PY OK\"",
-    "testCommand": null,
+    "buildCommand": "cd /home/rei/Code/movie/cinepass_leijieming_frontend && npx tsc --noEmit --skipLibCheck > /tmp/tsc3.txt 2>&1; echo \"tsc exit: $?\"; echo \"CardRenderer 相关错误:\"; grep -E \"CardRenderer\" /tmp/tsc3.txt | head; echo \"全项目错误数:\"; grep -cE \"error TS\" /tmp/tsc3.txt",
+    "testCommand": "/home/rei/miniconda3/envs/langchain/bin/python -m pytest tests/test_cli.py tests/test_knowledge.py -q 2>&1 | tail -8",
     "lintCommand": null,
     "devCommand": null,
     "scripts": {}
@@ -140,21 +140,27 @@
       "type": "file"
     },
     {
+      "path": "fapi/main.py",
+      "accessCount": 13,
+      "lastAccessed": 1786305738761,
+      "type": "file"
+    },
+    {
       "path": "agent3/config.py",
       "accessCount": 11,
       "lastAccessed": 1786276624170,
       "type": "file"
     },
     {
-      "path": "agent3/tools/movie_tools.py",
-      "accessCount": 10,
-      "lastAccessed": 1786264750314,
+      "path": "fapi/api/__init__.py",
+      "accessCount": 11,
+      "lastAccessed": 1786305744276,
       "type": "file"
     },
     {
-      "path": "fapi/main.py",
+      "path": "agent3/tools/movie_tools.py",
       "accessCount": 10,
-      "lastAccessed": 1786281649335,
+      "lastAccessed": 1786264750314,
       "type": "file"
     },
     {
@@ -200,12 +206,6 @@
       "type": "file"
     },
     {
-      "path": "fapi/api/__init__.py",
-      "accessCount": 7,
-      "lastAccessed": 1786280282394,
-      "type": "file"
-    },
-    {
       "path": "agent3/tools/show_tools.py",
       "accessCount": 6,
       "lastAccessed": 1786264752484,
@@ -233,6 +233,12 @@
       "path": "fapi/models/booking.py",
       "accessCount": 4,
       "lastAccessed": 1786260839091,
+      "type": "file"
+    },
+    {
+      "path": "requirements.txt",
+      "accessCount": 4,
+      "lastAccessed": 1786302622453,
       "type": "file"
     },
     {
@@ -293,6 +299,12 @@
       "path": "agent2/llm.py",
       "accessCount": 2,
       "lastAccessed": 1786263689470,
+      "type": "file"
+    },
+    {
+      "path": "tests/test_cinema.py",
+      "accessCount": 2,
+      "lastAccessed": 1786299348767,
       "type": "file"
     },
     {
@@ -392,12 +404,6 @@
       "type": "file"
     },
     {
-      "path": "requirements.txt",
-      "accessCount": 1,
-      "lastAccessed": 1786260685807,
-      "type": "file"
-    },
-    {
       "path": "agent3/tools/__init__.py",
       "accessCount": 1,
       "lastAccessed": 1786260797688,
@@ -413,12 +419,6 @@
       "path": "agent3/draft_merge.py",
       "accessCount": 1,
       "lastAccessed": 1786261081866,
-      "type": "file"
-    },
-    {
-      "path": "tests/test_cinema.py",
-      "accessCount": 1,
-      "lastAccessed": 1786261619443,
       "type": "file"
     }
   ],

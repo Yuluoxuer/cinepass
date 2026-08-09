@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd /media/rei/Data/Code/movie/cinepass_leijieming_aiagent && python3 - << 'PYEOF'\\nimport sys\\nROOT = \\\"/media/rei/Data/Code/movie/cinepass_leijieming_aiagent/\\\"\\nPLAN = {\\n \\\"agent3/tools...",
-  "error": "Exit code 1\nOK  agent3/tools/backend_tools.py\nOK  agent3/tools/cinema_tools.py\nOK  agent3/tools/movie_tools.py\nOK  agent3/tools/order_tools.py\nOK  agent3/tools/seat_tools.py\nOK  agent3/tools/show_tools.py\nOK  agent3/draft_tools.py\nOK  agent3/cards.py\nOK  agent3/graph.py\n\nFAILURES:\n  agent3/graph.py: COUNT=2 -> 'searchMovies'\n  agent3/graph.py: COUNT=4 -> 'updateBookingDraft'",
-  "timestamp": "2026-08-09T07:56:06.287Z",
-  "retry_count": 2
-}

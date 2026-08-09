@@ -30,6 +30,7 @@ from agent4.tools.AgentTools.booking_draft import (
     save_draft as save_local_draft,
     use_session_id,
 )
+from agent4.tools.AgentTools.rag_tools import RAG_TOOLS, search_knowledge_base
 
 # 子 agent 共用的草稿读写工具
 BOOKING_TOOLS = [get_booking_draft, update_booking_draft, clear_booking_draft]
@@ -60,5 +61,7 @@ __all__ = [
     "save_local_draft",
     "use_session_id",
     "get_session_id",
+    "RAG_TOOLS",
+    "search_knowledge_base",
     "BOOKING_TOOLS",
 ]

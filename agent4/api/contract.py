@@ -80,29 +80,35 @@ class AgentTurnEnvelope(BaseModel):
 # ---------- 辅助 ----------
 
 
-def _extract_user_id(authorization: str | None) -> str:
-    """从 JWT payload 解析 userId（验证签名后取 userId）。
+def decode_jwt_claims(authorization: str | None) -> dict | None:
+    """验签解码 JWT claims；验签失败 / 未配置密钥 / 格式错误返回 None。
 
     通过 PyJWT 校验 HS256 签名（secret 与中台 jwt.secret 一致）后才信任 payload，
-    防止伪造/篡改 JWT 冒充他人 userId 绕过会话归属校验（IDOR）。
-    验签失败或未配置 secret 时返回 "anon"。
+    防止伪造/篡改 JWT 冒充他人身份。供角色 / 影院归属校验（知识库管理、检索作用域）使用。
     """
     if not authorization:
-        return "anon"
+        return None
     token = authorization.removeprefix("Bearer ").strip()
     parts = token.split(".")
     if len(parts) < 2:
-        return "anon"
+        return None
     try:
         from agent4.config import get_settings
         secret = get_settings().jwt_secret
         if not secret:
-            return "anon"  # 未配置签名密钥时不可信，一律视为匿名
+            return None  # 未配置签名密钥时不可信
         import jwt as pyjwt
-        data = pyjwt.decode(token, secret, algorithms=["HS256"])
-        return str(data.get("userId") or data.get("user_id") or data.get("sub") or "anon")
+        return pyjwt.decode(token, secret, algorithms=["HS256"])
     except Exception:
-        return "anon"  # 验签失败/过期/格式错误 → 匿名，不信任伪造内容
+        return None
+
+
+def _extract_user_id(authorization: str | None) -> str:
+    """从 JWT payload 解析 userId；验签失败或未配置 secret 时返回 "anon"。"""
+    data = decode_jwt_claims(authorization)
+    if not data:
+        return "anon"
+    return str(data.get("userId") or data.get("user_id") or data.get("sub") or "anon")
 
 
 def _generate_session_id(user_id: str) -> str:
@@ -300,3 +306,34 @@ class HistoryEnvelope(BaseModel):
     code: int = 200
     message: str = "ok"
     data: list[HistoryMessage]
+
+
+# ---------- 知识库管理模型 ----------
+
+
+class KnowledgeFileVO(BaseModel):
+    """知识库文件（某个作用域 collection 中的一个源文档）。"""
+
+    filename: str
+    chunkCount: int = 0
+    scope: str = "system"
+    cinemaId: str | None = None
+    updatedAt: str | None = None
+
+
+class KnowledgeUploadEnvelope(BaseModel):
+    code: int = 200
+    message: str = "ok"
+    data: KnowledgeFileVO
+
+
+class KnowledgeFileListEnvelope(BaseModel):
+    code: int = 200
+    message: str = "ok"
+    data: list[KnowledgeFileVO]
+
+
+class KnowledgeDeleteEnvelope(BaseModel):
+    code: int = 200
+    message: str = "ok"
+    data: dict[str, Any] | None = None

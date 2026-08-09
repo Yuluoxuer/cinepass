@@ -38,7 +38,7 @@ async def search_movies(
     size: int = 10,
 ) -> str:
     """搜索影片。query=片名模糊搜索，genre=类型筛选，status=hot_showing|coming_soon。
-    仅返回有影院上映（有排片、可购票）的影片，无排片影片会被过滤掉。"""
+    hot_showing 仅返回有排片可购票的影片；coming_soon 是预告片单，全部展示。"""
     url = f"{_base()}/movies"
     params: dict = {"status": status, "page": page, "size": size}
     if query:
@@ -46,6 +46,10 @@ async def search_movies(
     if genre:
         params["genre"] = genre
     data = await get(url, params=params)
+    # 即将上映是预告，很多片子还没定档日期（nextShowDate=None），
+    # 不能按「有排片可购票」过滤，否则会被全部滤掉。
+    if status == "coming_soon":
+        return str(data)
     return str(_filter_available_movies(data))
 
 

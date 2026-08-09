@@ -10,10 +10,18 @@ from agent4.tools.AgentTools import (
     get_current_user,
     list_shows,
     search_cinemas,
+    search_knowledge_base,
     search_movies,
 )
 
 
 def build_chat_agent() -> Any:
-    tools = [get_current_user, search_movies, search_cinemas, list_shows, *BOOKING_TOOLS]
+    tools = [
+        get_current_user,
+        search_movies,
+        search_cinemas,
+        list_shows,
+        search_knowledge_base,
+        *BOOKING_TOOLS,
+    ]
     return make_subagent("chat", tools, load_skill("chat"))

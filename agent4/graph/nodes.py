@@ -17,7 +17,7 @@ import re
 import uuid
 from typing import Any, Literal
 
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, ToolMessage
 from pydantic import BaseModel, Field
 
 from agent4.api.cards import build_cards
@@ -28,6 +28,7 @@ from agent4.tools.AgentTools import (
     lock_seats,
     recommend_seats,
     search_cinemas,
+    search_knowledge_base,
     search_movies,
     search_movies_by_time_range,
 )
@@ -291,6 +292,22 @@ async def optimize_node(state: Agent4State) -> dict[str, Any]:
     return {"optimized_message": optimized, "stage": "intent"}
 
 
+# 购票意图信号词：命中才可能判为 booking；完全不命中时一律 chat，
+# 避免 LLM 失败被兜底成 booking 后，把"软件测试基础包括哪些"这类普通问答
+# 误走购票提取流程（答非所问 + 旧草稿残留）
+_BOOKING_SIGNAL_RE = re.compile(
+    r"电影|影片|片子|片|热映|上映|排片|场次|影院|影城|"
+    r"买票|订票|购票|选座|锁座|座位|票|"
+    r"看.{0,4}(电影|片|球|侠|战|记|传|神|鬼|爱|情)|"
+    r"万达|CGV|金逸|横店|星美|UME|保利|中影|华谊|IMAX"
+)
+
+
+def _rule_intent(message: str) -> str:
+    """确定性意图规则：含购票信号词 → booking；否则 → chat。"""
+    return "booking" if _BOOKING_SIGNAL_RE.search(message or "") else "chat"
+
+
 async def intent_node(state: Agent4State) -> dict[str, Any]:
     """LLM 意图识别：购票 or 聊天。"""
     llm = get_llm()
@@ -300,28 +317,58 @@ async def intent_node(state: Agent4State) -> dict[str, Any]:
         "用户消息：{msg}".format(msg=msg)
     )
     try:
-        structured = llm.with_structured_output(BookingIntent)
+        # DeepSeek 不支持 json_schema response_format，需显式走 function_calling，
+        # 否则每次结构化输出都 400、被 except 兜底成 booking（意图识别失效）
+        structured = llm.with_structured_output(BookingIntent, method="function_calling")
         decision = await structured.ainvoke(prompt)
         intent: str = decision.intent
+        # LLM 结果与确定性规则冲突时以规则为准（如明显非购票问题被 LLM 误判）
+        rule = _rule_intent(msg)
+        if rule == "chat":
+            intent = "chat"
     except Exception:
-        intent = "booking"
+        intent = _rule_intent(msg)  # LLM 失败：按信号词规则，不默认 booking
     if intent == "chat":
         return {"intent": "chat", "stage": "chat"}
     return {"intent": "booking"}
 
 
 async def chat_node(state: Agent4State) -> dict[str, Any]:
-    """聊天回复节点（普通问答，可查询电影/影院数据）。"""
+    """聊天回复节点（普通问答，可检索知识库 / 查电影 / 影院数据）。"""
     llm = get_llm()
     hist = state.get("history") or []
-    msgs: list[Any] = [SystemMessage(content="你是电影购票助手，负责闲聊与普通问答。回答尽量简洁友好。")]
+    msgs: list[Any] = [
+        SystemMessage(
+            content=(
+                "你是电影购票助手，负责闲聊与普通问答。回答尽量简洁友好。"
+                "当用户询问退票政策、改签规则、退款到账、使用方法、操作指南、常见问题，"
+                "或某影院的位置、活动等运营信息时，请先调用 search_knowledge_base 检索知识库，"
+                "再依据检索结果回答；知识库没有相关内容时如实说明，不要编造。"
+            )
+        )
+    ]
     for h in hist[-4:]:
         role = "human" if h.get("role") == "user" else "assistant"
         msgs.append((role, h.get("content", "")))
     msgs.append(("human", state.get("message") or ""))
     try:
-        resp = await llm.ainvoke(msgs)
-        reply = getattr(resp, "content", None)
+        # 绑定知识库检索工具：命中政策/运营类问题时先检索再作答
+        agent = llm.bind_tools([search_knowledge_base])
+        resp = await agent.ainvoke(msgs)
+        tool_calls = getattr(resp, "tool_calls", None) or []
+        if tool_calls:
+            msgs.append(resp)
+            for tc in tool_calls:
+                if (tc.get("name") or "") == "search_knowledge_base":
+                    query = (tc.get("args") or {}).get("query") or ""
+                    result = await search_knowledge_base.ainvoke({"query": query})
+                    msgs.append(
+                        ToolMessage(content=str(result), tool_call_id=tc.get("id") or "")
+                    )
+            final = await llm.ainvoke(msgs)
+            reply = getattr(final, "content", None)
+        else:
+            reply = getattr(resp, "content", None)
         reply = reply if isinstance(reply, str) and reply.strip() else "好的，我在听。"
     except Exception:
         reply = "抱歉，我暂时无法处理这个请求。"
@@ -343,7 +390,7 @@ async def extract_node(state: Agent4State) -> dict[str, Any]:
         )
     )
     try:
-        structured = llm.with_structured_output(BookingDraftInfo)
+        structured = llm.with_structured_output(BookingDraftInfo, method="function_calling")
         info = await structured.ainvoke(prompt)
         data = info.model_dump()
     except Exception:
@@ -367,6 +414,15 @@ async def extract_node(state: Agent4State) -> dict[str, Any]:
     if _QUERY_RE.search(msg):
         for k in ("movieId", "filmTitle", "cinemaId", "cinemaName", "showId", "seatIds"):
             draft.pop(k, None)
+    # 消息不含购票信号词（如"软件测试基础包括哪些"被 LLM 误提取）→ 清空旧草稿购票字段，
+    # 避免上一轮残留的 startDate/endDate/genre/movieId 等污染本轮（答非所问）
+    if not _BOOKING_SIGNAL_RE.search(state.get("message") or ""):
+        for k in (
+            "movieId", "filmTitle", "cinemaId", "cinemaName", "showId",
+            "date", "startDate", "endDate", "timeWindow", "genre", "count",
+            "seatIds", "preferRow", "preferSide", "together",
+        ):
+            draft.pop(k, None)
     missing = _missing_fields(draft)
     return {"bookingdraft": draft, "missing": missing, "stage": "collect" if missing else "confirm"}
 
@@ -385,7 +441,12 @@ async def collect_node(state: Agent4State) -> dict[str, Any]:
         genre = draft.get("genre") or ""
         start_date = draft.get("startDate") or ""
         end_date = draft.get("endDate") or ""
-        if start_date and end_date:
+        # 「即将上映」：查 coming_soon，返回全量（前端 movie_list 卡片本地分页，每页 5 部）
+        if re.search(r"即将上映|coming ?soon|待映|即将", state.get("message") or ""):
+            data = await search_movies.ainvoke({"status": "coming_soon", "size": 100})
+            cards = build_cards([{"name": "search_movies", "content": data}], draft)
+            reply = "即将上映的电影如下，请选择：" if cards else "亲，暂时没有即将上映的电影"
+        elif start_date and end_date:
             # 日期区间（如"这周"）：startDate 00:00 ~ endDate 23:59
             cards = await _range_movie_cards(
                 draft, _iso_ts(start_date, 0), _iso_ts_end(end_date), start_date, end_date

@@ -1,13 +1,13 @@
-"""本地终端对话入口：直接调用 Agent，不启动 FastAPI 服务。"""
+"""本地终端对话入口：直接调用 agent4，不启动 FastAPI 服务。"""
 from __future__ import annotations
 
 import asyncio
 import uuid
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 
-from agent import stream_chat
-from agent.langgraph.checkpoint import checkpoint_lifespan
-from agent.langgraph.runner import reset_graph_cache
+from agent4.api import _run_agent4
+from agent4.api.contract import AgentTurnRequest
+from agent4.graph.checkpoint import checkpoint_lifespan
 
 Input = Callable[[str], str]
 Output = Callable[..., None]
@@ -27,6 +27,33 @@ def _parse_location(command: str) -> tuple[float, float] | None:
     return latitude, longitude
 
 
+async def stream_chat(
+    message: str,
+    session_id: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    authorization: str | None = None,
+) -> AsyncIterator[dict]:
+    """跑一轮 agent4，把整段回复作为一个 token 事件输出（保持旧事件契约）。
+
+    事件形状与旧版一致：``{"type": "token", "content": ...}`` / ``{"type": "done", ...}`` /
+    ``{"type": "error", "message": ...}``，方便终端打印与自动化测试复用。
+    """
+    sid = (session_id or "").strip() or str(uuid.uuid4())
+    body = AgentTurnRequest(
+        message=message,
+        sessionId=sid,
+        latitude=latitude,
+        longitude=longitude,
+    )
+    try:
+        out = await _run_agent4(body, authorization, sid)
+        yield {"type": "token", "content": out.get("reply", "")}
+        yield {"type": "done", "route": "agent4", "reply": out.get("reply", ""), "session_id": sid}
+    except Exception as exc:  # noqa: BLE001 - 终端需把内部异常转成可读事件
+        yield {"type": "error", "message": str(exc)}
+
+
 async def run_terminal_chat(
     *,
     input_fn: Input = input,
@@ -37,7 +64,7 @@ async def run_terminal_chat(
     latitude: float | None = None
     longitude: float | None = None
 
-    output("终端 Agent 已启动。输入 /help 查看命令，/quit 或 /exit 退出。")
+    output("终端 Agent（agent4）已启动。输入 /help 查看命令，/quit 或 /exit 退出。")
     output(f"本次会话 ID：{session_id}")
     while True:
         try:
@@ -93,12 +120,12 @@ async def run_terminal_chat(
 
 
 async def main() -> None:
-    """初始化可选 Postgres Checkpointer，并确保图缓存随进程清理。"""
+    """初始化 agent4 Postgres Checkpointer，并确保图缓存随进程清理。"""
     async with checkpoint_lifespan():
-        reset_graph_cache()
         try:
             await run_terminal_chat()
         finally:
+            from agent4.graph import reset_graph_cache
             reset_graph_cache()
 
 
