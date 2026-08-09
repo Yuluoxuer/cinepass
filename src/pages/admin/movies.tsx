@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Input, Space, Table, Tag, Empty} from 'antd';
+import { Alert, Button, Input, Space, Table, Tag, Empty, Modal, message } from 'antd';
 import { history } from 'umi';
 import * as catalogApi from '@/api/catalog';
+import { takeDownMovie, relistMovie } from '@/api/admin';
 import type { MovieVO } from '@/types';
 
 const movieStatusMeta: Record<MovieVO['status'], { label: string; color: string }> = {
@@ -15,6 +16,42 @@ const AdminMoviesPage: React.FC = () => {
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const confirmDown = (r: MovieVO) => {
+    Modal.confirm({
+      title: `下架《${r.title}》？`,
+      content: '下架前会校验该影片是否还有未来在售场次；下架后不再出现在热映/待映列表及推荐中。',
+      okText: '下架',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await takeDownMovie(r.movieId);
+          message.success('已下架');
+          void load();
+        } catch (error) {
+          // 后端会返回「还有 N 场在售场次」等冲突提示
+          message.error(error instanceof Error ? error.message : '下架失败，请稍后重试');
+        }
+      },
+    });
+  };
+
+  const confirmRelist = (r: MovieVO) => {
+    Modal.confirm({
+      title: `上架《${r.title}》？`,
+      content: '将根据上映日期自动设为「热映」或「待映」。',
+      okText: '上架',
+      onOk: async () => {
+        try {
+          const updated = await relistMovie(r.movieId);
+          message.success(updated.status === 'hot_showing' ? '已上架为热映' : '已上架为待映');
+          void load();
+        } catch (error) {
+          message.error(error instanceof Error ? error.message : '上架失败，请稍后重试');
+        }
+      },
+    });
+  };
 
   const load = async () => {
     setLoading(true);
@@ -77,9 +114,20 @@ const AdminMoviesPage: React.FC = () => {
           {
             title: '操作',
             render: (_, r) => (
-              <Button type="link" onClick={() => history.push(`/admin/movies/${r.movieId}`)}>
-                编辑
-              </Button>
+              <>
+                <Button type="link" onClick={() => history.push(`/admin/movies/${r.movieId}`)}>
+                  编辑
+                </Button>
+                {r.status === 'off' ? (
+                  <Button type="link" onClick={() => confirmRelist(r)}>
+                    上架
+                  </Button>
+                ) : (
+                  <Button type="link" danger onClick={() => confirmDown(r)}>
+                    下架
+                  </Button>
+                )}
+              </>
             ),
           },
         ]}

@@ -242,57 +242,9 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
   );
 
   // ---- 定位到我 ----
+  // 直接使用浏览器定位（WGS-84）并换算到高德坐标系（GCJ-02），
+  // 不依赖 AMap.Geolocation 插件（该插件在高德 Key/安全配置异常时经常失效）。
   const handleLocateMe = useCallback(() => {
-    const AMap = amapNSRef.current;
-    if (!AMap) return;
-
-    setLocating(true);
-
-    AMap.plugin('AMap.Geolocation', () => {
-      if (!mountedRef.current) {
-        setLocating(false);
-        return;
-      }
-
-      try {
-        const geolocation = new AMap.Geolocation({
-          enableHighAccuracy: true,
-          timeout: 10000,
-          noGeoLocation: 3,
-        });
-
-        geolocation.getCurrentPosition((status: string, result: any) => {
-          setLocating(false);
-          if (!mountedRef.current) return;
-
-          if (status === 'complete' && result.position) {
-            const lng = result.position.lng;
-            const lat = result.position.lat;
-            const accuracy = result.accuracy || 0;
-
-            if (mapInstanceRef.current) {
-              mapInstanceRef.current.setZoomAndCenter(16, [lng, lat]);
-            }
-
-            handleMapClick(lng, lat);
-            if (accuracy > 0) {
-              message.info(`定位精度约 ${Math.round(accuracy)} 米`);
-            }
-          } else {
-            message.warning('高德定位失败，尝试浏览器定位...');
-            fallbackBrowserLocate();
-          }
-        });
-      } catch {
-        setLocating(false);
-        message.warning('高德定位服务不可用，尝试浏览器定位...');
-        fallbackBrowserLocate();
-      }
-    });
-  }, [handleMapClick]);
-
-  /** 浏览器原生定位（回退方案） */
-  const fallbackBrowserLocate = useCallback(() => {
     if (!navigator.geolocation) {
       message.error('您的浏览器不支持定位功能');
       return;
@@ -305,7 +257,7 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
         if (!mountedRef.current) return;
 
         const [lng, lat] = wgs84ToGcj02(pos.coords.longitude, pos.coords.latitude);
-        const accuracy = pos.coords.accuracy;
+        const accuracy = pos.coords.accuracy || 0;
 
         if (mapInstanceRef.current) {
           mapInstanceRef.current.setZoomAndCenter(16, [lng, lat]);
@@ -318,9 +270,9 @@ const AmapLocationPicker: React.FC<AmapLocationPickerProps> = ({
         setLocating(false);
         if (!mountedRef.current) return;
         if (err.code === err.PERMISSION_DENIED) {
-          message.warning('定位权限被拒绝，请在浏览器设置中允许获取位置');
+          message.error('定位权限被拒绝，请在浏览器设置中允许获取位置');
         } else {
-          message.warning('定位失败，请手动点击地图选址');
+          message.error('定位失败，请手动点击地图选址');
         }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },

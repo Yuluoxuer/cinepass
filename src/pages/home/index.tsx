@@ -9,13 +9,14 @@ import { useAgentStore } from '@/stores/agent';
 import { useBookingStore } from '@/stores/booking';
 import { INTENT_CHIPS } from '@/constants';
 import BlankPlaceholder from '@/components/BlankPlaceholder';
+import MoviePosterCard from '@/components/MoviePosterCard';
 import styles from './home.less';
 
 const PROMPT_PLACEHOLDER = '明天下午，两张科幻片…';
 
 const HomePage: React.FC = () => {
-  const [tab, setTab] = useState<'hot_showing' | 'coming_soon'>('hot_showing');
-  const [movies, setMovies] = useState<MovieVO[]>([]);
+  const [hotShowing, setHotShowing] = useState<MovieVO[]>([]);
+  const [comingSoon, setComingSoon] = useState<MovieVO[]>([]);
   const [hot, setHot] = useState<WeeklyHotItem[]>([]);
   const [personal, setPersonal] = useState<PersonalRecoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,18 +30,21 @@ const HomePage: React.FC = () => {
     (async () => {
       setLoading(true);
       try {
-        const [list, weekly, reco] = await Promise.all([
-          catalogApi.listMovies({ status: tab, page: 1, size: 8 }),
+        const [hotList, comingList, weekly, reco] = await Promise.all([
+          catalogApi.listMovies({ status: 'hot_showing', page: 1, size: 8 }),
+          catalogApi.listMovies({ status: 'coming_soon', page: 1, size: 8 }),
           catalogApi.weeklyHot(10),
-          catalogApi.personalReco(10).catch(() => ({ mode: 'fallback_hot', items: [] })),
+          catalogApi.personalReco(6).catch(() => ({ mode: 'fallback_hot', items: [] })),
         ]);
         if (cancelled) return;
-        setMovies(list.items);
+        setHotShowing(hotList.items);
+        setComingSoon(comingList.items);
         setHot(weekly.items);
         setPersonal(reco.items);
       } catch {
         if (!cancelled) {
-          setMovies([]);
+          setHotShowing([]);
+          setComingSoon([]);
           setHot([]);
           setPersonal([]);
         }
@@ -51,21 +55,11 @@ const HomePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [tab]);
+  }, []);
 
-  // 切换 tab 时重置轮播到第一项
-  useEffect(() => {
-    setCarouselIndex(0);
-    carouselRef.current?.goTo(0);
-  }, [tab]);
-
-  const featured = movies[carouselIndex] || movies[0] || hot[0]?.movie;
-  const strip = movies.slice(0, 4);
-  const ranking = hot.slice(0, 3);
-  const recoReason =
-    personal.find((p) => p.reason)?.reason ||
-    '你喜欢的不是科幻，是人在未知里仍然选择靠近。';
-  const recoCount = personal.filter((p) => p.reason).length || personal.length || 3;
+  const featured = hotShowing[carouselIndex] || hotShowing[0] || hot[0]?.movie;
+  const ranking = hot;
+  const goDetail = (movie: MovieVO) => history.push(`/movies/${movie.movieId}`);
 
   const goBuy = async (movie: MovieVO) => {
     try {
@@ -79,11 +73,44 @@ const HomePage: React.FC = () => {
     history.push(`/booking/cinemas?movieId=${movie.movieId}`);
   };
 
+  const renderMovieCard = (m: MovieVO, i: number) => (
+    <article
+      key={m.movieId}
+      className={`${styles.movieCard} miaoyu-fade-up`}
+      style={{ animationDelay: `${i * 50}ms` }}
+      onClick={() => goDetail(m)}
+    >
+      <div className={styles.miniPoster}>
+        <img src={m.posterUrl} alt="" />
+        <span>{String(i + 1).padStart(2, '0')}</span>
+        {m.rating != null ? <i>{m.rating.toFixed(1)}</i> : null}
+      </div>
+      <div className={styles.movieInfo}>
+        <h3>{m.title}</h3>
+        <p>
+          {m.genres.slice(0, 2).join(' · ') || '影片'} · {m.durationMin}分钟
+        </p>
+        {m.status === 'hot_showing' ? (
+          <button
+            type="button"
+            className={styles.ticketLink}
+            onClick={(e) => {
+              e.stopPropagation();
+              goBuy(m);
+            }}
+          >
+            购票
+          </button>
+        ) : null}
+      </div>
+    </article>
+  );
+
   return (
     <div className={styles.page}>
       <div className={styles.heroShell}>
         <article className={styles.heroFeature}>
-          {movies.length > 0 ? (
+          {hotShowing.length > 0 ? (
             <Carousel
               ref={carouselRef}
               autoplay
@@ -93,8 +120,8 @@ const HomePage: React.FC = () => {
               className={styles.heroCarousel}
               beforeChange={(_from, to) => setCarouselIndex(to)}
             >
-              {movies.map((m) => (
-                <div key={m.movieId} className={styles.heroSlide}>
+              {hotShowing.map((m) => (
+                <div key={m.movieId} className={styles.heroSlide} onClick={() => goDetail(m)}>
                   <div className={styles.heroCopy}>
                     <span className="miaoyu-eyebrow">本周首映 · 精选场次</span>
                     <h1>
@@ -114,18 +141,7 @@ const HomePage: React.FC = () => {
                       <span>{m.genres.slice(0, 2).join(' / ') || '影片'}</span>
                       <span>{m.durationMin} 分钟</span>
                     </div>
-                    <div className={styles.heroActions}>
-                      <button type="button" className={styles.primary} onClick={() => goBuy(m)}>
-                        选场购票
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.textBtn}
-                        onClick={() => openDrawer({ message: `帮我订《${m.title}》` })}
-                      >
-                        让 Agent 帮我订 ↗
-                      </button>
-                    </div>
+                    <span className={styles.detailHint}>查看详情 →</span>
                   </div>
                   {m.posterUrl ? (
                     <div className={styles.posterStage}>
@@ -140,7 +156,7 @@ const HomePage: React.FC = () => {
               ))}
             </Carousel>
           ) : featured ? (
-            <div className={styles.heroSlide}>
+            <div className={styles.heroSlide} onClick={() => goDetail(featured)}>
               <div className={styles.heroCopy}>
                 <span className="miaoyu-eyebrow">本周首映 · 精选场次</span>
                 <h1>{featured.title}</h1>
@@ -150,11 +166,7 @@ const HomePage: React.FC = () => {
                   <span>{featured.genres.slice(0, 2).join(' / ') || '影片'}</span>
                   <span>{featured.durationMin} 分钟</span>
                 </div>
-                <div className={styles.heroActions}>
-                  <button type="button" className={styles.primary} onClick={() => goBuy(featured)}>
-                    选场购票
-                  </button>
-                </div>
+                <span className={styles.detailHint}>查看详情 →</span>
               </div>
               {featured.posterUrl ? (
                 <div className={styles.posterStage}>
@@ -174,10 +186,10 @@ const HomePage: React.FC = () => {
             </div>
           )}
           <div className={styles.beam} aria-hidden />
-          {movies.length > 1 ? (
+          {hotShowing.length > 1 ? (
             <>
               <div className={styles.carouselDots} role="tablist" aria-label="轮播影片">
-                {movies.map((m, i) => (
+                {hotShowing.map((m, i) => (
                   <button
                     key={m.movieId}
                     type="button"
@@ -254,65 +266,28 @@ const HomePage: React.FC = () => {
             <span className="miaoyu-eyebrow">NOW SHOWING</span>
             <h2>正在热映</h2>
           </div>
-          <div className={styles.segmented}>
-            <button
-              type="button"
-              className={tab === 'hot_showing' ? styles.segActive : ''}
-              onClick={() => setTab('hot_showing')}
-            >
-              热映
-            </button>
-            <button
-              type="button"
-              className={tab === 'coming_soon' ? styles.segActive : ''}
-              onClick={() => setTab('coming_soon')}
-            >
-              待映
-            </button>
-          </div>
         </div>
 
+        <div className={styles.rowHead}>
+          <h3>热映</h3>
+        </div>
         {loading ? (
           <BlankPlaceholder variant="card" count={4} className={styles.movieStrip} />
-        ) : strip.length === 0 ? (
-          <BlankPlaceholder variant="card" count={4} className={styles.movieStrip} />
+        ) : hotShowing.length === 0 ? (
+          <div className={styles.rowEmpty}>暂无热映影片</div>
         ) : (
-          <div className={styles.movieStrip}>
-            {strip.map((m, i) => (
-              <article
-                key={m.movieId}
-                className={`${styles.movieCard} miaoyu-fade-up`}
-                style={{ animationDelay: `${i * 50}ms` }}
-                onClick={() => history.push(`/movies/${m.movieId}`)}
-              >
-                <div className={styles.miniPoster}>
-                  <img src={m.posterUrl} alt="" />
-                  <span>{String(i + 1).padStart(2, '0')}</span>
-                  {m.rating != null ? <i>{m.rating.toFixed(1)}</i> : null}
-                </div>
-                <div className={styles.movieInfo}>
-                  <h3>{m.title}</h3>
-                  <p>
-                    {m.genres.slice(0, 2).join(' · ') || '影片'} · {m.durationMin}分钟
-                  </p>
-                  <button
-                    type="button"
-                    className={styles.ticketLink}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (m.status === 'coming_soon') {
-                        history.push(`/movies/${m.movieId}`);
-                      } else {
-                        goBuy(m);
-                      }
-                    }}
-                  >
-                    {m.status === 'coming_soon' ? '预约提醒' : '购票'}
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
+          <div className={styles.movieStrip}>{hotShowing.slice(0, 4).map(renderMovieCard)}</div>
+        )}
+
+        <div className={styles.rowHead}>
+          <h3>待映</h3>
+        </div>
+        {loading ? (
+          <BlankPlaceholder variant="card" count={4} className={styles.movieStrip} />
+        ) : comingSoon.length === 0 ? (
+          <div className={styles.rowEmpty}>暂无待映影片</div>
+        ) : (
+          <div className={styles.movieStrip}>{comingSoon.slice(0, 4).map(renderMovieCard)}</div>
         )}
       </section>
 
@@ -321,9 +296,9 @@ const HomePage: React.FC = () => {
           <div className={`${styles.sectionHead} ${styles.compact}`}>
             <div>
               <span className="miaoyu-eyebrow">WEEKLY HOT</span>
-              <h2>城市热榜</h2>
+              <h2>每周热榜</h2>
             </div>
-            <button type="button" className={styles.textBtnDark} onClick={() => history.push('/movies')}>
+            <button type="button" className={styles.textBtnDark} onClick={() => history.push('/ranking')}>
               完整榜单 ↗
             </button>
           </div>
@@ -334,10 +309,7 @@ const HomePage: React.FC = () => {
               </li>
             ) : (
               ranking.map((item) => (
-                <li
-                  key={item.movie.movieId}
-                  onClick={() => history.push(`/movies/${item.movie.movieId}`)}
-                >
+                <li key={item.movie.movieId} onClick={() => goDetail(item.movie)}>
                   <b>{String(item.rank).padStart(2, '0')}</b>
                   <span>
                     {item.movie.title}
@@ -350,21 +322,29 @@ const HomePage: React.FC = () => {
           </ol>
         </article>
 
-        <article className={styles.recommendNote}>
-          <span className="miaoyu-eyebrow teal">FOR YOU</span>
-          <blockquote>“{recoReason}”</blockquote>
-          <p>
-            {personal.length
-              ? `根据你的观影偏好，为你挑出 ${recoCount} 部。`
-              : '登录后根据观影记录，为你挑出更合适的电影。'}
-          </p>
-          <button
-            type="button"
-            className={styles.secondary}
-            onClick={() => openDrawer({ message: '为什么推荐这些电影？' })}
-          >
-            看看 Agent 的理由
-          </button>
+        <article className={styles.forYou}>
+          <div className={styles.sectionHead}>
+            <div>
+              <span className="miaoyu-eyebrow">FOR YOU</span>
+              <h2>为你推荐</h2>
+            </div>
+          </div>
+          {loading ? (
+            <BlankPlaceholder variant="poster" count={3} className={styles.forYouGrid} />
+          ) : personal.length === 0 ? (
+            <div className={styles.rowEmpty}>登录后根据观影记录，为你推荐更合适的电影</div>
+          ) : (
+            <div className={styles.forYouGrid}>
+              {personal.map((item) => (
+                <MoviePosterCard
+                  key={item.movie.movieId}
+                  movie={item.movie}
+                  reason={item.reason}
+                  showBuy={item.movie.status !== 'coming_soon'}
+                />
+              ))}
+            </div>
+          )}
         </article>
       </section>
     </div>

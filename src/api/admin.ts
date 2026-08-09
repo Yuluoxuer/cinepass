@@ -23,6 +23,16 @@ export function updateMovie(movieId: string, body: Partial<MovieVO>) {
   return put<MovieVO>(`/admin/movies/${movieId}`, body);
 }
 
+/** 下架：校验该影片未来无在售场次 */
+export function takeDownMovie(movieId: string) {
+  return post<MovieVO>(`/admin/movies/${movieId}/take-down`);
+}
+
+/** 上架：按上映日期自动推导为热映或待映 */
+export function relistMovie(movieId: string) {
+  return post<MovieVO>(`/admin/movies/${movieId}/relist`);
+}
+
 export interface CinemaCreateBody {
   cinemaId?: string;
   cityId?: string;

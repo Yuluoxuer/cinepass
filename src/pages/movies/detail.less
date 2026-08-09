@@ -105,6 +105,8 @@
 .features i { padding: 3px 7px; border-radius: 3px; background: rgba(55, 183, 165, 0.12); color: #178c7e; font-size: 11px; font-style: normal; }
 .purchaseCard :global(.miaoyu-btn-primary) { width: 100%; height: 40px; }
 .agentButton { width: 100%; height: 38px; margin-top: 10px; border: 1px solid var(--color-brand); border-radius: var(--radius-sm); background: transparent; color: var(--color-brand); cursor: pointer; font-weight: 600; }
+.barWant { min-width: 200px; height: 40px; border: 1px solid var(--color-brand); border-radius: var(--radius-sm); background: transparent; color: var(--color-brand); cursor: pointer; font-weight: 650; font-size: 14px; transition: 0.15s; }
+.barWant:hover { background: rgba(55, 183, 165, 0.1); }
 
 .bar { position: fixed; z-index: 50; right: 0; bottom: 0; left: 0; height: var(--booking-bar-height); background: rgba(246, 247, 249, 0.92); border-top: 1px solid var(--color-border); box-shadow: 0 -4px 24px rgba(12, 16, 24, 0.06); backdrop-filter: blur(12px); }
 .barInner { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: var(--content-max); height: 100%; margin: 0 auto; padding: 0 var(--spacing-page-x); }
@@ -125,5 +127,5 @@
   .infoCard { padding: 20px; }
   .barInner { padding: 0 16px; }
   .barInfo { display: none; }
-  .bar :global(.miaoyu-btn-primary) { width: 100%; }
+  .bar :global(.miaoyu-btn-primary), .barWant { width: 100%; }
 }
