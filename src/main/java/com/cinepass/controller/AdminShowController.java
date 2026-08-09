@@ -1,6 +1,7 @@
 package com.cinepass.controller;
 
 import com.cinepass.common.Result;
+import com.cinepass.dto.ShowBatchCreateDTO;
 import com.cinepass.dto.ShowCreateDTO;
 import com.cinepass.dto.ShowUpdateDTO;
 import com.cinepass.security.Staff;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 import javax.validation.Valid;
@@ -63,6 +65,12 @@ public class AdminShowController {
     @PostMapping
     public Result<ShowVO> create(@Valid @RequestBody ShowCreateDTO body) {
         return Result.success(adminShowService.create(body));
+    }
+
+    /** 批量新建场次；返回成功创建的列表和跳过信息 */
+    @PostMapping("/batch")
+    public Result<List<ShowVO>> batchCreate(@Valid @RequestBody ShowBatchCreateDTO body) {
+        return Result.success(adminShowService.batchCreate(body));
     }
 
     /** 改开场/散场或分区价；有在途锁座/订单时拒绝改时 */
