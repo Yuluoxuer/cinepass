@@ -392,6 +392,7 @@ export type AgentCardType =
   | 'movie_list'
   | 'cinema_list'
   | 'show_list'
+  | 'date_show_list'
   | 'seat_plans'
   | 'order_confirm'
   | 'pay_mock'
@@ -426,6 +427,8 @@ export interface AgentTurnRequest {
   debug?: boolean;
   latitude?: number;
   longitude?: number;
+  /** 前端手动页面/中台草稿快照，同步给 Agent 避免不知道手动选片 */
+  clientDraft?: Partial<BookingDraft>;
 }
 
 export interface AgentTurnResponse {

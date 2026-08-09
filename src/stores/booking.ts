@@ -236,6 +236,22 @@ export const useBookingStore = create<BookingStateStore>((set, get) => ({
   },
 
   applyAgentDraft: (draft) => {
+    const local = get().draft;
+    // 服务端回退检测（乐观锁 §5.3）：Agent 返回的 version 比本地小（服务端被回退/其他端覆盖）时，
+    // 一律以服务端草稿为准并刷新进度，避免本地旧乐观态残留覆盖 Agent 成果。
+    if (
+      draft &&
+      local &&
+      typeof draft.version === 'number' &&
+      typeof local.version === 'number' &&
+      draft.version < local.version
+    ) {
+      localStorage.setItem(SESSION_KEY, draft.sessionId);
+      set({ draft });
+      syncAgentProgress(draft);
+      return;
+    }
+    // 正常路径：以服务端返回的草稿为准（version 取服务端新值）
     localStorage.setItem(SESSION_KEY, draft.sessionId);
     set({ draft });
     syncAgentProgress(draft);

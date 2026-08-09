@@ -64,6 +64,42 @@
   background: var(--color-agent-hover);
 }
 
+/* movie_list 卡片本地分页：上一页/下一页 + 页码 */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #eee;
+}
+
+.pager span {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.pager button {
+  border: 1px solid #ddd;
+  background: #fff;
+  color: var(--color-agent);
+  border-radius: var(--radius-sm);
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pager button:hover:not(:disabled) {
+  background: var(--color-agent);
+  color: #fff;
+}
+
+.pager button:disabled {
+  color: #bbb;
+  cursor: not-allowed;
+}
+
 .warn {
   color: var(--color-warning);
   font-size: 12px;
@@ -98,4 +134,47 @@
 .chips button:hover {
   border-color: var(--color-agent);
   color: #167b6d;
+}
+
+.dateTabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.dateTab {
+  flex: 1;
+  border: 1px solid #bbb6ae;
+  background: transparent;
+  border-radius: 8px;
+  padding: 6px 4px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  color: #5f6671;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.dateTab small {
+  font-size: 10px;
+  font-weight: 400;
+  color: #999;
+}
+
+.dateTab:hover {
+  border-color: var(--color-agent);
+  color: #167b6d;
+}
+
+.dateTabActive {
+  border-color: var(--color-agent);
+  background: var(--color-agent);
+  color: #fff;
+}
+
+.dateTabActive small {
+  color: rgba(255, 255, 255, 0.85);
 }
