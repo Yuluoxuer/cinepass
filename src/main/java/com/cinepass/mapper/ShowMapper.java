@@ -74,4 +74,19 @@ public interface ShowMapper {
 
     /** 统计某日 on_sale 场次数；cinemaId 为空时全量 */
     long countOnSaleByDate(@Param("date") String date, @Param("cinemaId") String cinemaId);
+
+    /**
+     * 按时间段查询有 on_sale 场次的电影 ID 及最早开场时间。
+     * cinemaId 为空时不限制影院。按最早开场时间升序，分页。
+     */
+    List<ShowSchedule> listMoviesByTimeRange(@Param("startTime") OffsetDateTime startTime,
+                                             @Param("endTime") OffsetDateTime endTime,
+                                             @Param("cinemaId") String cinemaId,
+                                             @Param("offset") int offset,
+                                             @Param("limit") int limit);
+
+    /** 时间段内有 on_sale 场次的电影数量；cinemaId 为空时不限制影院 */
+    long countMoviesByTimeRange(@Param("startTime") OffsetDateTime startTime,
+                                @Param("endTime") OffsetDateTime endTime,
+                                @Param("cinemaId") String cinemaId);
 }

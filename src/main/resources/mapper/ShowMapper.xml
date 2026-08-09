@@ -199,4 +199,34 @@
               AND cinema_id = #{cinemaId}
           </if>
     </select>
+
+    <!-- 按时间段查有场次的电影（distinct movieId + 最早开场时间），分页 -->
+    <select id="listMoviesByTimeRange" resultType="com.cinepass.model.ShowSchedule">
+        <![CDATA[
+        SELECT s.movie_id AS movieId, MIN(s.start_time) AS startTime
+        FROM show_schedule s
+        WHERE s.start_time >= #{startTime}
+          AND s.start_time < #{endTime}
+          AND s.status = 'on_sale'
+        ]]>
+        <if test="cinemaId != null and cinemaId != ''">
+            AND s.cinema_id = #{cinemaId}
+        </if>
+        GROUP BY s.movie_id
+        ORDER BY MIN(s.start_time) ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countMoviesByTimeRange" resultType="long">
+        <![CDATA[
+        SELECT COUNT(DISTINCT s.movie_id)
+        FROM show_schedule s
+        WHERE s.start_time >= #{startTime}
+          AND s.start_time < #{endTime}
+          AND s.status = 'on_sale'
+        ]]>
+        <if test="cinemaId != null and cinemaId != ''">
+            AND s.cinema_id = #{cinemaId}
+        </if>
+    </select>
 </mapper>
