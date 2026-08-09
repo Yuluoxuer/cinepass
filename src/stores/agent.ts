@@ -329,6 +329,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         id: mid(),
         role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
         text: m.content,
+        cards: (m as unknown as { cards?: AgentCardVO[] }).cards || undefined,
       }));
       set({
         messages:
@@ -371,6 +372,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         id: mid(),
         role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
         text: m.content,
+        cards: (m as unknown as { cards?: AgentCardVO[] }).cards || undefined,
       }));
       set((s) => ({
         messages: [...olderMessages, ...s.messages],

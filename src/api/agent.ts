@@ -1,5 +1,5 @@
 import { get, post } from './client';
-import type { AgentTurnRequest, AgentTurnResponse } from '@/types';
+import type { AgentCardVO, AgentTurnRequest, AgentTurnResponse } from '@/types';
 
 /**
  * Agent 对话与会话管理：当前接入 agent4（意图识别 → 提取草稿 → 追问补齐 → 确认 → 锁座支付）。
@@ -23,6 +23,8 @@ export interface SessionMeta {
 export interface HistoryMessage {
   role: string;
   content: string;
+  /** assistant 消息附带的历史动态卡片（恢复会话时重新渲染） */
+  cards?: AgentCardVO[];
 }
 
 export function getSessions() {
