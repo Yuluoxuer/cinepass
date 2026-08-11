@@ -193,12 +193,12 @@ def store(chunks: list[Chunk], vectors: list[list[float]], collection: str | Non
 # ---------------------------------------------------------------------------
 # ⑤ 知识库管理：删除单文件 / 列出已有文档
 # ---------------------------------------------------------------------------
-def delete_file(file_name: str, collection: str | None = None) -> None:
-    """删除知识库中指定来源文档的全部块（不影响其他文档）。"""
+def delete_file(file_name: str, collection: str | None = None) -> int:
+    """删除知识库中指定来源文档的全部块（不影响其他文档）。返回实际删除的块数。"""
     collection = collection or COLLECTION_NAME
     if not CHROMA_DIR.exists():
         print(f"向量库不存在（{CHROMA_DIR}），无需删除。")
-        return
+        return 0
     coll = _get_client().get_or_create_collection(collection)
     stale = coll.get(where={"source": file_name})
     ids = (stale or {}).get("ids") or []
@@ -207,6 +207,7 @@ def delete_file(file_name: str, collection: str | None = None) -> None:
         print(f"已从知识库删除「{file_name}」的 {len(ids)} 个分块。")
     else:
         print(f"知识库中没有「{file_name}」的分块。")
+    return len(ids)
 
 
 def list_sources_data(collection: str | None = None) -> list[dict[str, object]]:
@@ -225,6 +226,44 @@ def list_sources_data(collection: str | None = None) -> list[dict[str, object]]:
         for src, n in sorted(counts.items())
         if src != "?"
     ]
+
+
+# ---------------------------------------------------------------------------
+# ⑥ 查询单个文件的全部切块（供管理 API 展示切块明细）
+# ---------------------------------------------------------------------------
+def get_chunks_for_file(
+    filename: str,
+    collection: str | None = None,
+) -> list[dict[str, object]]:
+    """返回指定源文档的全部切块（章节、内容、字数等），供管理后台预览。
+
+    不召回 embedding 向量（只取 documents + metadatas），单次请求即可覆盖
+    中等规模文档（通常 5–20 块）。若文档不存在则返回空列表。
+    """
+    if not CHROMA_DIR.exists():
+        return []
+    coll = _get_client().get_or_create_collection(collection or COLLECTION_NAME)
+    result = coll.get(
+        where={"source": filename},
+        include=["documents", "metadatas"],
+    )
+    ids = result.get("ids") or []
+    docs = result.get("documents") or []
+    metas = result.get("metadatas") or []
+    chunks: list[dict[str, object]] = []
+    for i, chunk_id in enumerate(ids):
+        doc = docs[i] if i < len(docs) else ""
+        meta = metas[i] if i < len(metas) else {}
+        section = meta.get("section") or ""
+        text = str(doc or "")
+        chunks.append({
+            "id": chunk_id,
+            "chunkIndex": int(meta.get("chunk_index", i)),
+            "section": section,
+            "text": text,
+            "charCount": len(text),
+        })
+    return chunks
 
 
 def list_sources(collection: str | None = None) -> None:

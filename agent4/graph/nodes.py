@@ -435,8 +435,8 @@ async def chat_node(state: Agent4State) -> dict[str, Any]:
         SystemMessage(
             content=(
                 "你是电影购票助手，负责闲聊与普通问答。回答尽量简洁友好。"
-                "当用户询问退票政策、改签规则、退款到账、使用方法、操作指南、常见问题，"
-                "或某影院的位置、活动等运营信息时，请先调用 search_knowledge_base 检索知识库，"
+                "当用户询问影院政策、退票、改签、使用方法、常见问题，或某个影院的位置"
+                "或活动、座位图，营业时间，服务设施等运营信息时应调用 search_knowledge_base 工具检索知识库，"
                 "再依据检索结果回答；知识库没有相关内容时如实说明，不要编造。"
             )
         )
@@ -513,10 +513,12 @@ async def extract_node(state: Agent4State) -> dict[str, Any]:
     if _QUERY_RE.search(msg):
         for k in ("movieId", "filmTitle", "cinemaId", "cinemaName", "showId", "seatIds"):
             draft.pop(k, None)
-    # 消息不含购票信号词（如"软件测试基础包括哪些"被 LLM 误提取）→ 清空旧草稿购票字段，
+    # 消息不含购票信号词（如"退票政策是什么"在选片流程中被问到）→ 清空旧草稿购票字段，
     # 避免上一轮残留的 startDate/endDate/genre/movieId 等污染本轮（答非所问）。
+    # 同时标记 intent=chat，让 route_extract 路由到 chat_node（可调用 RAG 检索知识库）。
     # 点卡操作消息（"（点卡操作…"）属于购票流程推进，不触发清空。
     raw_msg = state.get("message") or ""
+    is_non_booking = False
     if not _BOOKING_SIGNAL_RE.search(raw_msg) and not raw_msg.startswith("（点卡操作"):
         for k in (
             "movieId", "filmTitle", "cinemaId", "cinemaName", "showId",
@@ -524,11 +526,15 @@ async def extract_node(state: Agent4State) -> dict[str, Any]:
             "seatIds", "preferRow", "preferSide", "together",
         ):
             draft.pop(k, None)
+        is_non_booking = True
     # 名称→ID 解析（跳步）：用户口述影片名/影院名时，调工具解析出 ID，
     # 一句话含多个购票信息即可跳过对应选择阶段
     draft = await _resolve_names_to_ids(draft)
     missing = _missing_fields(draft)
-    return {"bookingdraft": draft, "missing": missing, "stage": "collect" if missing else "confirm"}
+    result: dict[str, Any] = {"bookingdraft": draft, "missing": missing, "stage": "collect" if missing else "confirm"}
+    if is_non_booking:
+        result["intent"] = "chat"
+    return result
 
 
 async def collect_node(state: Agent4State) -> dict[str, Any]:

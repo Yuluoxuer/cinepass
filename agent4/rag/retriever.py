@@ -61,21 +61,74 @@ def _collection_count(name: str) -> int:
         return 0
 
 
+# 未绑定影院时回退检索的影院库数量上限（防止影院极多时一次查询扇出过大）
+MAX_FALLBACK_CINEMA_COLLECTIONS = 20
+
+
+def _all_cinema_targets() -> list[tuple[str, str]]:
+    """所有有数据的影院知识库 → [(collection 名, 影院ID)]。
+
+    知识库面向 C 端全员开放：对话未关联影院时（匿名 / 未选影院），
+    回退检索全部影院知识库，而不是只查系统库。
+    """
+    prefix = f"{COLLECTION_NAME}_cinema_"
+    out: list[tuple[str, str]] = []
+    try:
+        for col in _get_client().list_collections():
+            name = getattr(col, "name", None) or str(col)
+            if not name.startswith(prefix):
+                continue
+            if _collection_count(name) > 0:
+                out.append((name, name[len(prefix):]))
+    except Exception as exc:
+        logger.warning("RAG 枚举影院知识库失败：%s", exc)
+    if len(out) > MAX_FALLBACK_CINEMA_COLLECTIONS:
+        logger.warning(
+            "RAG 影院知识库 %d 个超过上限 %d，未绑定影院时只检索前 %d 个",
+            len(out), MAX_FALLBACK_CINEMA_COLLECTIONS, MAX_FALLBACK_CINEMA_COLLECTIONS,
+        )
+        out = out[:MAX_FALLBACK_CINEMA_COLLECTIONS]
+    return out
+
+
+@lru_cache(maxsize=128)
+def _resolve_cinema_name(cinema_id: str) -> str | None:
+    """按 cinemaId 调中台解析影院名称（带缓存）；失败返回 None，调用方回退显示 ID。"""
+    try:
+        import httpx
+
+        from agent4.config import get_settings
+
+        base = get_settings().backend_base_url.rstrip("/")
+        resp = httpx.get(f"{base}/cinemas/{cinema_id}", timeout=1.0)
+        resp.raise_for_status()
+        data = resp.json().get("data") or {}
+        name = str(data.get("name") or "").strip()
+        return name or None
+    except Exception as exc:
+        logger.info("RAG 解析影院名称失败 cinema_id=%r：%s", cinema_id, exc)
+        return None
+
+
 def retrieve(query: str, top_k: int = TOP_K, cinema_id: str | None = None) -> str:
     """检索知识库，返回拼装好的文本；异常/空库时返回可读提示而非抛出。
 
-    默认只检索系统知识库；传入 ``cinema_id`` 时额外检索该影院的独立知识库，
-    来源标注 ``[系统]``/``[影院]`` 前缀，避免同名文档混淆。
+    系统知识库始终检索；传入 ``cinema_id`` 时额外检索该影院的独立知识库；
+    未传 ``cinema_id``（匿名 / 未选影院）时回退检索所有影院知识库（C 端全员开放）。
+    来源标注 ``[系统]`` / ``[影院:名称或ID]`` 前缀，便于区分不同影院来源。
     """
     if not query or not query.strip():
         return "检索内容为空，请提供要查询的问题。"
 
-    targets: list[tuple[str, str]] = [(COLLECTION_NAME, SCOPE_SYSTEM)]
+    # (collection 名, scope, 影院ID | None)
+    targets: list[tuple[str, str, str | None]] = [(COLLECTION_NAME, SCOPE_SYSTEM, None)]
     if cinema_id:
         try:
-            targets.append((collection_name("cinema", cinema_id), SCOPE_CINEMA))
+            targets.append((collection_name("cinema", cinema_id), SCOPE_CINEMA, cinema_id))
         except ValueError:
             pass  # 非法 cinemaId 忽略，仅检索系统库
+    else:
+        targets.extend((n, SCOPE_CINEMA, cid) for n, cid in _all_cinema_targets())
 
     # 只查询存在分块的 collection（避免对空库无效调用）
     existing = [t for t in targets if _collection_count(t[0]) > 0]
@@ -94,7 +147,7 @@ def retrieve(query: str, top_k: int = TOP_K, cinema_id: str | None = None) -> st
         vector = list(_get_embedder().embed([query]))[0].tolist()
         parts = ["【知识库检索结果】"]
         seq = 1
-        for coll_name, scope in existing:
+        for coll_name, scope, cid in existing:
             result = _get_collection(coll_name).query(
                 query_embeddings=[vector], n_results=top_k
             )
@@ -108,7 +161,10 @@ def retrieve(query: str, top_k: int = TOP_K, cinema_id: str | None = None) -> st
             for doc, meta in zip(docs, metas):
                 source = meta.get("source") or "未知来源"
                 section = meta.get("section") or ""
-                scope_tag = "系统" if scope == SCOPE_SYSTEM else "影院"
+                if scope == SCOPE_SYSTEM:
+                    scope_tag = "系统"
+                else:
+                    scope_tag = f"影院:{_resolve_cinema_name(cid) or cid}"
                 origin = f"{source} / {section}" if section else source
                 parts.append(
                     f"\n[{seq}] 来源: [{scope_tag}] {origin}\n{doc.strip()}"

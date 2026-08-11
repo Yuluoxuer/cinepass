@@ -11,7 +11,7 @@ agent4 的 RAG 模块（复制自 `agent/rag` 并适配），让购票助手能�
 | `system` | 购票流程、退改政策、平台规则 | admin（系统管理员） | `cinema_knowledge` | `knowledge/system/` |
 | `cinema` | 某影院的位置、活动、服务 | 该影院的 staff（员工） | `cinema_knowledge_cinema_{cinemaId}` | `knowledge/cinema_{cinemaId}/` |
 
-检索时：系统知识库**始终**被检索；若当前对话关联了影院（staff 的 JWT cinemaId，或 C 端用户会话中已选影院），该影院的独立知识库也会被一并检索，来源标注 `[系统]` / `[影院]` 前缀。
+检索时：系统知识库**始终**被检索；若当前对话关联了影院（staff 的 JWT cinemaId，或 C 端用户会话中已选影院），该影院的独立知识库也会被一并检索；未关联影院（匿名 / 未选影院）时**回退检索所有影院知识库**（知识库面向 C 端全员开放）。来源标注 `[系统]` / `[影院:名称或ID]` 前缀（影院名称检索时按 cinemaId 调中台解析，带缓存，失败回退显示 ID），便于区分不同影院来源。
 
 ## 目录结构
 

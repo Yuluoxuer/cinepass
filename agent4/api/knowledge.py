@@ -1,8 +1,10 @@
 """知识库管理 API：上传 / 删除 / 列表（作用域 + 角色权限）。
 
 权限模型（staff / admin）：
-- ``admin``：只管理系统知识库（scope=system，如购票流程、平台规则）
-- ``staff``：只管理自己影院的知识库（scope=cinema，cinemaId 取自 JWT）
+- ``admin``：读取 / 删除覆盖全部知识库（默认系统库，``?cinemaId=`` 指定任意影院库）；
+  上传**只能**写入系统知识库（影院级知识由对应影院 staff 上传）
+- ``staff``：只管理自己影院的知识库（scope=cinema，cinemaId 取自 JWT，
+  指定其他影院一律 403）
 - 其它角色 / 匿名 / 验签失败：一律 403 / 401
 
 错误统一返回信封 ``{code, message, data}``：前端 client.ts 只认信封，
@@ -15,10 +17,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import JSONResponse
 
 from agent4.api.contract import (
+    KnowledgeChunkListEnvelope,
+    KnowledgeChunkVO,
     KnowledgeDeleteEnvelope,
     KnowledgeFileListEnvelope,
     KnowledgeFileVO,
@@ -35,7 +39,7 @@ from agent4.rag.config import (
     knowledge_dir,
 )
 from agent4.rag.ingest import delete_file as _delete_chroma_file
-from agent4.rag.ingest import ingest_content, list_sources_data
+from agent4.rag.ingest import get_chunks_for_file, ingest_content, list_sources_data
 
 router = APIRouter(prefix="/agent4/knowledge", tags=["agent4-knowledge"])
 
@@ -51,22 +55,36 @@ def _envelope(status: int, message: str, data: Any = None) -> JSONResponse:
     )
 
 
-def _resolve_scope(claims: dict) -> tuple[str, str | None] | None:
+def _resolve_scope(
+    claims: dict, cinema_id_param: str | None = None
+) -> tuple[str, str | None] | None:
     """按角色解析 ``(scope, cinema_id)``；无权时返回 None（调用方转 403）。
 
-    - admin → 系统知识库
-    - staff → 自己影院知识库（JWT 必须带 cinemaId）
+    - admin → 默认系统知识库；指定 ``cinema_id_param`` 时管理该影院知识库
+    - staff → 只能自己影院知识库（JWT 必须带 cinemaId，指定其他影院视为无权）
     - 其它 → None
     """
     role = claims.get("role") or (claims.get("roles") or [None])[0]
     if role == "admin":
+        if cinema_id_param:
+            return SCOPE_CINEMA, cinema_id_param
         return SCOPE_SYSTEM, None
     if role == "staff":
         cid = claims.get("cinemaId")
         if not cid:
             return None  # staff 未绑定影院，无法定位知识库
+        if cinema_id_param and cinema_id_param != str(cid):
+            return None  # staff 不得跨影院操作
         return SCOPE_CINEMA, str(cid)
     return None
+
+
+def _collection_or_400(scope: str, cinema_id: str | None):
+    """解析 collection 名；cinemaId 非法时返回 400 信封而非 500。"""
+    try:
+        return collection_name(scope, cinema_id), None
+    except ValueError as exc:
+        return None, _envelope(400, str(exc))
 
 
 def _mtime_iso(path: Path) -> str | None:
@@ -92,13 +110,20 @@ def _to_vo(scope: str, cinema_id: str | None, src: dict) -> KnowledgeFileVO:
 @router.post("/files", response_model=KnowledgeUploadEnvelope)
 async def upload_knowledge_file(
     file: UploadFile = File(...),
+    cinemaId: str | None = Query(None),
     authorization: str | None = Depends(get_authorization),
 ) -> KnowledgeUploadEnvelope | JSONResponse:
-    """上传一个 Markdown 文档到当前账号所属作用域的知识库。"""
+    """上传一个 Markdown 文档到当前账号所属作用域的知识库。
+
+    admin 只能上传系统级知识（不接受 ``cinemaId``）；影院级知识由对应影院 staff 上传。
+    """
     claims = decode_jwt_claims(authorization)
     if not claims:
         return _envelope(401, "登录已失效，请重新登录。")
-    scope_res = _resolve_scope(claims)
+    role = claims.get("role") or (claims.get("roles") or [None])[0]
+    if role == "admin" and cinemaId:
+        return _envelope(403, "管理员只能上传系统级知识；影院级知识请由对应影院 staff 上传。")
+    scope_res = _resolve_scope(claims, cinemaId)
     if scope_res is None:
         return _envelope(403, "当前账号无知识库管理权限。")
     scope, cinema_id = scope_res
@@ -120,7 +145,9 @@ async def upload_knowledge_file(
     if not content.strip():
         return _envelope(400, "文档内容为空，无法写入知识库。")
 
-    coll = collection_name(scope, cinema_id)
+    coll, err = _collection_or_400(scope, cinema_id)
+    if err:
+        return err
     target_dir = knowledge_dir(scope, cinema_id)
     target_path = target_dir / filename
 
@@ -156,18 +183,24 @@ async def upload_knowledge_file(
 
 @router.get("/files", response_model=KnowledgeFileListEnvelope)
 async def list_knowledge_files(
+    cinemaId: str | None = Query(None),
     authorization: str | None = Depends(get_authorization),
 ) -> KnowledgeFileListEnvelope | JSONResponse:
-    """列出当前账号作用域知识库中的文档（source）与分块数。"""
+    """列出当前账号作用域知识库中的文档（source）与分块数。
+
+    admin 可通过 ``?cinemaId=`` 查看任意影院的知识库（默认系统库）。
+    """
     claims = decode_jwt_claims(authorization)
     if not claims:
         return _envelope(401, "登录已失效，请重新登录。")
-    scope_res = _resolve_scope(claims)
+    scope_res = _resolve_scope(claims, cinemaId)
     if scope_res is None:
         return _envelope(403, "当前账号无知识库管理权限。")
     scope, cinema_id = scope_res
 
-    coll = collection_name(scope, cinema_id)
+    coll, err = _collection_or_400(scope, cinema_id)
+    if err:
+        return err
     items = await asyncio.to_thread(list_sources_data, coll)
     return KnowledgeFileListEnvelope(
         data=[_to_vo(scope, cinema_id, it) for it in items]
@@ -177,13 +210,17 @@ async def list_knowledge_files(
 @router.delete("/files/{filename}", response_model=KnowledgeDeleteEnvelope)
 async def delete_knowledge_file(
     filename: str,
+    cinemaId: str | None = Query(None),
     authorization: str | None = Depends(get_authorization),
 ) -> KnowledgeDeleteEnvelope | JSONResponse:
-    """删除当前账号作用域知识库中的指定文档（向量块 + 磁盘原文）。"""
+    """删除当前账号作用域知识库中的指定文档（向量块 + 磁盘原文）。
+
+    admin 可通过 ``?cinemaId=`` 删除任意影院知识库中的文档（默认系统库）。
+    """
     claims = decode_jwt_claims(authorization)
     if not claims:
         return _envelope(401, "登录已失效，请重新登录。")
-    scope_res = _resolve_scope(claims)
+    scope_res = _resolve_scope(claims, cinemaId)
     if scope_res is None:
         return _envelope(403, "当前账号无知识库管理权限。")
     scope, cinema_id = scope_res
@@ -192,16 +229,71 @@ async def delete_knowledge_file(
     if not is_valid_knowledge_filename(filename):
         return _envelope(400, "文件名不合法。")
 
-    coll = collection_name(scope, cinema_id)
+    coll, err = _collection_or_400(scope, cinema_id)
+    if err:
+        return err
     target_path = knowledge_dir(scope, cinema_id) / filename
+    file_existed = target_path.exists()
     try:
         async with _WRITE_LOCK:
-            await asyncio.to_thread(_delete_chroma_file, filename, coll)
+            deleted = await asyncio.to_thread(_delete_chroma_file, filename, coll)
         target_path.unlink(missing_ok=True)
     except Exception as exc:
         return _envelope(500, f"删除失败：{exc}")
 
-    return KnowledgeDeleteEnvelope(data={"filename": filename})
+    # 向量块与磁盘原文都不存在 = 空删，明确告知，杜绝「假成功」
+    if deleted == 0 and not file_existed:
+        return _envelope(404, f"当前知识库中没有「{filename}」。")
+    return KnowledgeDeleteEnvelope(
+        data={"filename": filename, "deletedChunks": deleted},
+    )
+
+
+@router.get("/files/{filename}/chunks", response_model=KnowledgeChunkListEnvelope)
+async def list_file_chunks(
+    filename: str,
+    cinemaId: str | None = Query(None),
+    authorization: str | None = Depends(get_authorization),
+) -> KnowledgeChunkListEnvelope | JSONResponse:
+    """查看指定文档的全部切块明细（章节、内容、字数），供管理后台预览切分效果。
+
+    admin 可通过 ``?cinemaId=`` 查看任意影院知识库中的文档切块（默认系统库）。
+    """
+    claims = decode_jwt_claims(authorization)
+    if not claims:
+        return _envelope(401, "登录已失效，请重新登录。")
+    scope_res = _resolve_scope(claims, cinemaId)
+    if scope_res is None:
+        return _envelope(403, "当前账号无知识库管理权限。")
+    scope, cinema_id = scope_res
+
+    if not is_valid_knowledge_filename(filename):
+        return _envelope(400, "文件名不合法。")
+
+    coll, err = _collection_or_400(scope, cinema_id)
+    if err:
+        return err
+
+    try:
+        raw = await asyncio.to_thread(get_chunks_for_file, filename, coll)
+    except Exception as exc:
+        return _envelope(500, f"查询切块失败：{exc}")
+
+    if not raw:
+        return _envelope(404, f"当前知识库中没有「{filename}」的切块。")
+
+    return KnowledgeChunkListEnvelope(
+        data=[
+            KnowledgeChunkVO(
+                id=str(c.get("id", "")),
+                chunkIndex=int(c.get("chunkIndex", 0)),
+                section=str(c.get("section", "")),
+                text=str(c.get("text", "")),
+                charCount=int(c.get("charCount", 0)),
+            )
+            for c in raw
+        ]
+    )
 
 
 def _rollback_file(path: Path) -> None:

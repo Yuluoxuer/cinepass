@@ -349,3 +349,22 @@ class KnowledgeDeleteEnvelope(BaseModel):
     code: int = 200
     message: str = "ok"
     data: dict[str, Any] | None = None
+
+
+# ---------- 切块明细模型 ----------
+
+
+class KnowledgeChunkVO(BaseModel):
+    """知识库文档的一个切块（供管理后台预览切分效果）。"""
+
+    id: str
+    chunkIndex: int = 0
+    section: str = ""
+    text: str = ""
+    charCount: int = 0
+
+
+class KnowledgeChunkListEnvelope(BaseModel):
+    code: int = 200
+    message: str = "ok"
+    data: list[KnowledgeChunkVO]

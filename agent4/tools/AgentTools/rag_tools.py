@@ -58,8 +58,8 @@ async def _resolve_cinema_id() -> str | None:
 async def search_knowledge_base(query: str) -> str:
     """搜索业务知识库，获取退票政策、改签规则、使用方法、操作指南、影院位置/活动等信息。
 
-    当用户询问影院政策、退票规则、改签次数、使用方法、常见问题，或某个影院的位置、
-    活动等运营信息时应调用此工具。
+    当用户询问影院政策、退票、改签、使用方法、常见问题，或某个影院的位置、
+    活动、座位图，营业时间，服务设施等运营信息时应调用此工具。
     """
     cinema_id = await _resolve_cinema_id()
     logger.info(

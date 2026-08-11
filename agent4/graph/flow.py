@@ -46,7 +46,10 @@ def route_intent(state: Agent4State) -> str:
 
 
 def route_extract(state: Agent4State) -> str:
-    """草稿完整度路由：缺字段 → collect（追问）；完整 → confirm（确认）。"""
+    """草稿完整度路由：缺字段 → collect（追问）；完整 → confirm（确认）。
+    若 extract_node 判定为闲聊（intent=chat），路由到 chat_node 检索知识库作答。"""
+    if state.get("intent") == "chat":
+        return "chat"
     return "collect" if (state.get("missing") or []) else "confirm"
 
 
@@ -80,7 +83,7 @@ def build_booking_graph(max_steps: int = 10) -> StateGraph:
     g.add_conditional_edges("intent", route_intent, {"chat": "chat", "extract": "extract"})
     g.add_edge("chat", END)
     # 提取 → 追问 / 确认
-    g.add_conditional_edges("extract", route_extract, {"collect": "collect", "confirm": "confirm"})
+    g.add_conditional_edges("extract", route_extract, {"collect": "collect", "confirm": "confirm", "chat": "chat"})
     g.add_edge("collect", END)
     # 确认 → 支付 / 等待
     g.add_conditional_edges("confirm", route_confirm, {"pay": "pay", "finish": END})
