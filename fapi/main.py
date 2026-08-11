@@ -2,7 +2,11 @@
 
 HTTP 包名必须是 ``fapi``，不能叫 ``fastapi``（会遮蔽 PyPI）。
 """
+import logging
 from contextlib import asynccontextmanager
+
+# 让 agent4.rag.* 的 INFO 日志输出到控制台，便于定位 RAG 检索问题
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

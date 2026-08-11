@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1786255894830,
+  "lastScanned": 1786412344109,
   "projectRoot": "/media/rei/Data/Code/movie/cinepass_leijieming_aiagent",
   "techStack": {
     "languages": [
@@ -18,8 +18,8 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "cd /home/rei/Code/movie/cinepass_leijieming_frontend && npx tsc --noEmit --skipLibCheck > /tmp/tsc3.txt 2>&1; echo \"tsc exit: $?\"; echo \"CardRenderer 相关错误:\"; grep -E \"CardRenderer\" /tmp/tsc3.txt | head; echo \"全项目错误数:\"; grep -cE \"error TS\" /tmp/tsc3.txt",
-    "testCommand": "/home/rei/miniconda3/envs/langchain/bin/python -m pytest tests/test_cli.py tests/test_knowledge.py -q 2>&1 | tail -8",
+    "buildCommand": null,
+    "testCommand": null,
     "lintCommand": null,
     "devCommand": null,
     "scripts": {}
@@ -35,390 +35,117 @@
     "workspaces": [],
     "mainDirectories": [
       "docs",
+      "scripts",
       "tests"
     ],
     "gitBranches": null
   },
   "customNotes": [],
   "directoryMap": {
-    "agent": {
-      "path": "agent",
+    "__pycache__": {
+      "path": "__pycache__",
       "purpose": null,
-      "fileCount": 6,
-      "lastAccessed": 1786255894824,
+      "fileCount": 1,
+      "lastAccessed": 1786412344089,
       "keyFiles": [
-        "AGENTS.md",
-        "__init__.py",
-        "http.py",
-        "llm.py",
-        "request_context.py"
+        "cli.cpython-312.pyc"
       ]
     },
-    "agent2": {
-      "path": "agent2",
+    "agent4": {
+      "path": "agent4",
       "purpose": null,
-      "fileCount": 19,
-      "lastAccessed": 1786255894825,
+      "fileCount": 5,
+      "lastAccessed": 1786412344092,
       "keyFiles": [
-        "README.md",
-        "TESTING.md",
+        "MainAgent.py",
         "__init__.py",
-        "agent.py",
-        "agent.py.backup"
+        "config.py",
+        "llm.py",
+        "state.py"
       ]
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
-      "fileCount": 0,
-      "lastAccessed": 1786255894825,
-      "keyFiles": []
+      "fileCount": 1,
+      "lastAccessed": 1786412344093,
+      "keyFiles": [
+        "agent-draft-optimistic-lock.md"
+      ]
     },
     "fapi": {
       "path": "fapi",
       "purpose": null,
-      "fileCount": 5,
-      "lastAccessed": 1786255894826,
+      "fileCount": 4,
+      "lastAccessed": 1786412344095,
       "keyFiles": [
         "AGENTS.md",
         "__init__.py",
         "config.py",
-        "deps.py",
         "main.py"
+      ]
+    },
+    "knowledge": {
+      "path": "knowledge",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1786412344096,
+      "keyFiles": [
+        "refund_policy.md"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1786412344099,
+      "keyFiles": [
+        "test_embedding.py"
       ]
     },
     "tests": {
       "path": "tests",
       "purpose": "Test files",
       "fileCount": 2,
-      "lastAccessed": 1786255894826,
+      "lastAccessed": 1786412344103,
       "keyFiles": [
-        "test_cinema.py",
-        "test_cli.py"
+        "test_cli.py",
+        "test_knowledge.py"
+      ]
+    },
+    "agent4/api": {
+      "path": "agent4/api",
+      "purpose": "API routes",
+      "fileCount": 7,
+      "lastAccessed": 1786412344105,
+      "keyFiles": [
+        "__init__.py",
+        "cards.py",
+        "contract.py"
       ]
     },
     "fapi/api": {
       "path": "fapi/api",
       "purpose": "API routes",
-      "fileCount": 5,
-      "lastAccessed": 1786255894827,
+      "fileCount": 2,
+      "lastAccessed": 1786412344106,
       "keyFiles": [
         "AGENTS.md",
-        "__init__.py",
-        "agent.py"
-      ]
-    },
-    "fapi/models": {
-      "path": "fapi/models",
-      "purpose": "Data models",
-      "fileCount": 4,
-      "lastAccessed": 1786255894827,
-      "keyFiles": [
-        "AGENTS.md",
-        "__init__.py",
-        "booking.py"
+        "__init__.py"
       ]
     }
   },
   "hotPaths": [
     {
-      "path": "agent3/api.py",
-      "accessCount": 28,
-      "lastAccessed": 1786263114325,
-      "type": "file"
-    },
-    {
-      "path": "agent3/graph.py",
-      "accessCount": 24,
-      "lastAccessed": 1786265369558,
-      "type": "file"
-    },
-    {
-      "path": "fapi/api/agent.py",
-      "accessCount": 13,
-      "lastAccessed": 1786260896570,
-      "type": "file"
-    },
-    {
-      "path": "fapi/main.py",
-      "accessCount": 13,
-      "lastAccessed": 1786305738761,
-      "type": "file"
-    },
-    {
-      "path": "agent3/config.py",
-      "accessCount": 11,
-      "lastAccessed": 1786276624170,
-      "type": "file"
-    },
-    {
-      "path": "fapi/api/__init__.py",
-      "accessCount": 11,
-      "lastAccessed": 1786305744276,
-      "type": "file"
-    },
-    {
-      "path": "agent3/tools/movie_tools.py",
-      "accessCount": 10,
-      "lastAccessed": 1786264750314,
-      "type": "file"
-    },
-    {
-      "path": "fapi/api/booking.py",
-      "accessCount": 8,
-      "lastAccessed": 1786261573422,
-      "type": "file"
-    },
-    {
-      "path": "agent3/tools/seat_tools.py",
-      "accessCount": 8,
-      "lastAccessed": 1786264759862,
-      "type": "file"
-    },
-    {
-      "path": "agent3/cards.py",
-      "accessCount": 8,
-      "lastAccessed": 1786265329314,
-      "type": "file"
-    },
-    {
-      "path": "agent3/llm.py",
-      "accessCount": 8,
-      "lastAccessed": 1786276631889,
-      "type": "file"
-    },
-    {
-      "path": "agent3/tools/cinema_tools.py",
-      "accessCount": 7,
-      "lastAccessed": 1786264751327,
-      "type": "file"
-    },
-    {
-      "path": "agent3/tools/order_tools.py",
-      "accessCount": 7,
-      "lastAccessed": 1786264754115,
-      "type": "file"
-    },
-    {
-      "path": "agent3/draft_tools.py",
-      "accessCount": 7,
-      "lastAccessed": 1786264762066,
-      "type": "file"
-    },
-    {
-      "path": "agent3/tools/show_tools.py",
-      "accessCount": 6,
-      "lastAccessed": 1786264752484,
-      "type": "file"
-    },
-    {
-      "path": "agent3/booking_draft.py",
-      "accessCount": 6,
-      "lastAccessed": 1786264763710,
-      "type": "file"
-    },
-    {
-      "path": "agent/langgraph/booking_graph.py",
-      "accessCount": 5,
-      "lastAccessed": 1786259977831,
-      "type": "file"
-    },
-    {
-      "path": "agent3/tools/backend_tools.py",
-      "accessCount": 5,
-      "lastAccessed": 1786264760379,
-      "type": "file"
-    },
-    {
-      "path": "fapi/models/booking.py",
-      "accessCount": 4,
-      "lastAccessed": 1786260839091,
-      "type": "file"
-    },
-    {
-      "path": "requirements.txt",
-      "accessCount": 4,
-      "lastAccessed": 1786302622453,
-      "type": "file"
-    },
-    {
-      "path": "fapi/api/agent3.py",
-      "accessCount": 3,
-      "lastAccessed": 1786257964367,
-      "type": "file"
-    },
-    {
-      "path": "agent3/__init__.py",
-      "accessCount": 3,
-      "lastAccessed": 1786260625054,
-      "type": "file"
-    },
-    {
-      "path": "agent2/tools/booking_draft.py",
-      "accessCount": 3,
-      "lastAccessed": 1786260641586,
-      "type": "file"
-    },
-    {
-      "path": "fapi/api/_draft_merge.py",
-      "accessCount": 3,
-      "lastAccessed": 1786261066302,
-      "type": "file"
-    },
-    {
-      "path": "agent3/state.py",
-      "accessCount": 3,
-      "lastAccessed": 1786262744501,
-      "type": "file"
-    },
-    {
-      "path": "agent2/config.py",
-      "accessCount": 3,
-      "lastAccessed": 1786263689401,
-      "type": "file"
-    },
-    {
-      "path": "agent/tools/movie_tools.py",
+      "path": "agent4/api/knowledge.py",
       "accessCount": 2,
-      "lastAccessed": 1786256878836,
+      "lastAccessed": 1786412515372,
       "type": "file"
     },
     {
-      "path": "agent2/http.py",
-      "accessCount": 2,
-      "lastAccessed": 1786260638652,
-      "type": "file"
-    },
-    {
-      "path": "agent3/http.py",
-      "accessCount": 2,
-      "lastAccessed": 1786260776660,
-      "type": "file"
-    },
-    {
-      "path": "agent2/llm.py",
-      "accessCount": 2,
-      "lastAccessed": 1786263689470,
-      "type": "file"
-    },
-    {
-      "path": "tests/test_cinema.py",
-      "accessCount": 2,
-      "lastAccessed": 1786299348767,
-      "type": "file"
-    },
-    {
-      "path": "agent/langgraph/state.py",
+      "path": "agent4/api/contract.py",
       "accessCount": 1,
-      "lastAccessed": 1786256580601,
-      "type": "file"
-    },
-    {
-      "path": "agent/subagent/__init__.py",
-      "accessCount": 1,
-      "lastAccessed": 1786257401409,
-      "type": "file"
-    },
-    {
-      "path": "agent/subagent/base.py",
-      "accessCount": 1,
-      "lastAccessed": 1786257401750,
-      "type": "file"
-    },
-    {
-      "path": "agent/subagent/lc_runtime.py",
-      "accessCount": 1,
-      "lastAccessed": 1786257402095,
-      "type": "file"
-    },
-    {
-      "path": "docs/agent-draft-optimistic-lock.md",
-      "accessCount": 1,
-      "lastAccessed": 1786259755825,
-      "type": "file"
-    },
-    {
-      "path": "agent2/request_context.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260638548,
-      "type": "file"
-    },
-    {
-      "path": "agent2/tools/__init__.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260641386,
-      "type": "file"
-    },
-    {
-      "path": "fapi/deps.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260641766,
-      "type": "file"
-    },
-    {
-      "path": "agent2/tools/backend_tools.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260647598,
-      "type": "file"
-    },
-    {
-      "path": "agent2/tools/cinema_tools.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260647747,
-      "type": "file"
-    },
-    {
-      "path": "agent2/tools/movie_tools.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260648340,
-      "type": "file"
-    },
-    {
-      "path": "agent2/tools/order_tools.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260648440,
-      "type": "file"
-    },
-    {
-      "path": "agent2/tools/seat_tools.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260648475,
-      "type": "file"
-    },
-    {
-      "path": "agent2/tools/show_tools.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260648790,
-      "type": "file"
-    },
-    {
-      "path": "agent2/settings.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260651962,
-      "type": "file"
-    },
-    {
-      "path": "fapi/config.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260652076,
-      "type": "file"
-    },
-    {
-      "path": "agent3/tools/__init__.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260797688,
-      "type": "file"
-    },
-    {
-      "path": "agent3/contract.py",
-      "accessCount": 1,
-      "lastAccessed": 1786260841821,
-      "type": "file"
-    },
-    {
-      "path": "agent3/draft_merge.py",
-      "accessCount": 1,
-      "lastAccessed": 1786261081866,
+      "lastAccessed": 1786412928069,
       "type": "file"
     }
   ],

@@ -14,10 +14,13 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
+
+logger = logging.getLogger(__name__)
 
 # Windows 控制台默认 GBK，强制 UTF-8 以正确输出中文与符号
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
@@ -171,6 +174,10 @@ def store(chunks: list[Chunk], vectors: list[list[float]], collection: str | Non
     coll = _get_client().get_or_create_collection(collection)
 
     source = chunks[0].source if chunks else ""
+    logger.info(
+        "RAG 灌入 collection=%s source=%s 块数=%d",
+        collection, source, len(chunks),
+    )
     stale = coll.get(where={"source": source}) if source else {}
     if stale and stale.get("ids"):
         coll.delete(ids=stale["ids"])

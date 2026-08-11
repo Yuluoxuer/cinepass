@@ -143,7 +143,8 @@ async def _run_agent4(body: AgentTurnRequest, authorization: str | None, sid: st
         # ① 页面草稿同步：乐观锁合并 clientDraft + clientDraftVersion
         try:
             existing = await _load_middle(sid) or {}
-            merged, _new_v = resolve_draft_merge(existing, body.clientDraft, body.clientDraftVersion)
+            merged, new_version = resolve_draft_merge(existing, body.clientDraft, body.clientDraftVersion)
+            merged["version"] = new_version  # 乐观锁 version 写回，保证后续 clientDraftVersion 校验正确
             # ② 点卡操作：明确选择优先（覆盖）
             patch = body.cardAction.draftPatch if body.cardAction else None
             if patch:

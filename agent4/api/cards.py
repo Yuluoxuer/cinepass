@@ -64,7 +64,7 @@ def build_cards(tool_calls: list[dict[str, Any]], draft: dict[str, Any]) -> list
                     "payload": {"shows": items},
                     "actions": [
                         {"actionId": "select", "label": "选这场", "itemId": s.get("showId", ""),
-                         "draftPatch": {"showId": s.get("showId")}}
+                         "draftPatch": {"showId": s.get("showId"), "date": draft.get("date")}}
                         for s in items if isinstance(s, dict) and s.get("showId")
                     ],
                 })

@@ -17,11 +17,6 @@ def _replace(left, right):
     return right if right is not None else left
 
 
-def _merge_draft(left: dict[str, Any] | None, right: dict[str, Any] | None) -> dict[str, Any]:
-    """bookingdraft 合并更新（保留已有字段，叠加新提取字段）。"""
-    return {**(left or {}), **(right or {})}
-
-
 class Agent4State(TypedDict, total=False):
     # ---- 输入 ----
     message: str                       # 用户本轮消息
@@ -38,7 +33,7 @@ class Agent4State(TypedDict, total=False):
     confirmed: bool                    # 用户是否已确认下单
 
     # ---- 数据 ----
-    bookingdraft: Annotated[dict[str, Any], _merge_draft]  # 购票草稿（跨轮）
+    bookingdraft: Annotated[dict[str, Any], _replace]  # 购票草稿（每节点覆盖：extract 输出完整草稿，含清空）
     history: Annotated[list[dict[str, str]], _replace]      # 对话历史
     reply_parts: Annotated[list[str], _replace]             # 本轮回复片段
     cards: Annotated[list[dict[str, Any]], _replace]        # 动态卡片

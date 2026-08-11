@@ -86,6 +86,9 @@ def decode_jwt_claims(authorization: str | None) -> dict | None:
     通过 PyJWT 校验 HS256 签名（secret 与中台 jwt.secret 一致）后才信任 payload，
     防止伪造/篡改 JWT 冒充他人身份。供角色 / 影院归属校验（知识库管理、检索作用域）使用。
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     if not authorization:
         return None
     token = authorization.removeprefix("Bearer ").strip()
@@ -96,10 +99,19 @@ def decode_jwt_claims(authorization: str | None) -> dict | None:
         from agent4.config import get_settings
         secret = get_settings().jwt_secret
         if not secret:
+            logger.warning(
+                "JWT 验签失败：agent4 未配置 jwt_secret（.env 的 JWT_SECRET 为空），"
+                "请与中台 application.yml 的 jwt.secret 保持一致"
+            )
             return None  # 未配置签名密钥时不可信
         import jwt as pyjwt
         return pyjwt.decode(token, secret, algorithms=["HS256"])
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "JWT 验签失败：%s —— 请确认 agent4 的 JWT_SECRET 与中台 jwt.secret 完全一致"
+            "（部署时若用环境变量覆盖，两边必须用同一个值）",
+            exc,
+        )
         return None
 
 

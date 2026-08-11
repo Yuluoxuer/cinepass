@@ -10,10 +10,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from langchain.tools import tool
 
 from agent4.rag.retriever import retrieve
+
+logger = logging.getLogger(__name__)
 
 
 def _cinema_id_from_jwt() -> str | None:
@@ -59,6 +62,10 @@ async def search_knowledge_base(query: str) -> str:
     活动等运营信息时应调用此工具。
     """
     cinema_id = await _resolve_cinema_id()
+    logger.info(
+        "RAG 工具 search_knowledge_base query=%r 解析cinema_id=%r（JWT优先，其次会话草稿）",
+        query[:60], cinema_id,
+    )
     # retrieve 为同步重活（embedding + Chroma 查询），丢线程池避免阻塞事件循环
     return await asyncio.to_thread(retrieve, query, cinema_id=cinema_id)
 

@@ -6,10 +6,13 @@ embedding 模型与 chroma client 用 lru_cache 做单例懒加载，避免每�
 """
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 
 import chromadb
 from fastembed import TextEmbedding
+
+logger = logging.getLogger(__name__)
 
 from agent4.rag.config import (
     CHROMA_DIR,
@@ -76,6 +79,11 @@ def retrieve(query: str, top_k: int = TOP_K, cinema_id: str | None = None) -> st
 
     # 只查询存在分块的 collection（避免对空库无效调用）
     existing = [t for t in targets if _collection_count(t[0]) > 0]
+    logger.info(
+        "RAG 检索 query=%r cinema_id=%r 目标集合=%s 有数据集合=%s",
+        query[:60], cinema_id,
+        [t[0] for t in targets], [t[0] for t in existing],
+    )
     if not existing:
         return (
             "知识库当前为空（尚未灌入文档）。"
@@ -92,6 +100,11 @@ def retrieve(query: str, top_k: int = TOP_K, cinema_id: str | None = None) -> st
             )
             docs = (result.get("documents") or [[]])[0]
             metas = (result.get("metadatas") or [[]])[0]
+            logger.info(
+                "RAG 检索 collection=%s 返回 %d 块；来源: %s",
+                coll_name, len(docs),
+                [m.get("source") for m in metas if isinstance(m, dict)][:5],
+            )
             for doc, meta in zip(docs, metas):
                 source = meta.get("source") or "未知来源"
                 section = meta.get("section") or ""

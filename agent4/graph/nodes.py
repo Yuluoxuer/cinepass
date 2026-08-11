@@ -35,9 +35,6 @@ from agent4.tools.AgentTools import (
 from agent4.tools.Http2BackendTools.auth import get_authorization
 from agent4.tools.Http2BackendTools.http import backend_url, get, post
 
-# 购票必需字段（按询问顺序）
-REQUIRED_ORDER = ("movieId", "cinemaId", "date", "showId", "count", "seatIds")
-
 _CONFIRM_RE = re.compile(r"确认|确定|下单|支付|付款|可以|好的|没问题|就按|就这样")
 
 # timeWindow → (开始小时, 结束小时)；后端 /shows/movies 用具体时间戳，由 agent 侧翻译
@@ -124,12 +121,24 @@ class BookingDraftInfo(BaseModel):
 
 
 def _missing_fields(draft: dict[str, Any]) -> list[str]:
-    """返回购票草稿缺失的字段（按必需顺序）。"""
+    """返回购票草稿缺失的字段（按必需顺序）。
+
+    date 不是必需字段：只要 showId 已确定，日期可从场次信息获得；
+    避免前端 draftPatch 缺 date 时反复进入日期选择分支（死循环）。
+    """
     miss = []
-    for k in REQUIRED_ORDER:
-        v = draft.get(k)
-        if v in (None, "", [], {}):
-            miss.append(k)
+    if not draft.get("movieId"):
+        miss.append("movieId")
+    if not draft.get("cinemaId"):
+        miss.append("cinemaId")
+    if not draft.get("showId"):
+        if not draft.get("date"):
+            miss.append("date")
+        miss.append("showId")
+    if not draft.get("count"):
+        miss.append("count")
+    if not draft.get("seatIds"):
+        miss.append("seatIds")
     return miss
 
 
@@ -199,6 +208,91 @@ def _safe_parse(raw: Any) -> Any:
             continue
         return None
     return None
+
+
+_DATE_WORDS = {"今天": 0, "明天": 1, "后天": 2}
+_TW_WORDS = {"上午": "morning", "下午": "afternoon", "晚上": "evening", "傍晚": "evening"}
+
+
+def _normalize_date(value: str) -> str:
+    """把 今天/明天/后天 或 YYYY-MM-DD 规范成 ISO 日期。"""
+    if not value:
+        return value
+    v = str(value).strip()
+    if v in _DATE_WORDS:
+        from datetime import date as _date, timedelta
+        return (_date.today() + timedelta(days=_DATE_WORDS[v])).isoformat()
+    return v
+
+
+def _normalize_time_window(value: str) -> str:
+    """把 上午/下午/晚上 规范成 morning/afternoon/evening（后端契约值域）。"""
+    v = str(value or "").strip()
+    return _TW_WORDS.get(v, v)
+
+
+def _match_id(raw: str, name: str, field: str) -> str:
+    """从工具返回的原始 JSON 中按名称字段（title/name）匹配实体 ID。"""
+    try:
+        data = ast.literal_eval(raw)
+    except Exception:
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    inner = data.get("data") if isinstance(data.get("data"), dict) else data
+    for item in inner.get("items") or []:
+        if isinstance(item, dict) and name in str(item.get(field) or ""):
+            return str(item.get("movieId") or item.get("cinemaId") or "")
+    return ""
+
+
+async def _resolve_names_to_ids(draft: dict[str, Any]) -> dict[str, Any]:
+    """把用户口述的影片名/影院名解析成 ID（跳步关键：一句话含多个信息直接跳阶段）。
+
+    用户消息里只有名称（如"封神第二部"）没有 ID，LLM 提取的 movieId/cinemaId 为空；
+    这里用名称调搜索工具，匹配出 ID 填入草稿，使 _missing_fields 不再要求先选片/选影院。
+    """
+    if not draft.get("movieId") and draft.get("filmTitle"):
+        try:
+            # search_movies 内部会过滤 nextShowDate 为空的影片（可能漏掉目标片）；
+            # 直接查 /movies 全量列表按标题匹配，绕过过滤
+            from agent4.tools.Http2BackendTools.http import backend_url, get as http_get
+            payload = await http_get(
+                backend_url("/movies"),
+                params={"status": "hot_showing", "size": 100},
+                timeout=3.0,
+            )
+            data = str(payload) if payload is not None else '{"code":0,"data":{"items":[]}}'
+            mid = _match_id(data, draft["filmTitle"], "title")
+            if not mid:
+                # 热映里没有 → 试即将上映
+                payload = await http_get(
+                    backend_url("/movies"),
+                    params={"status": "coming_soon", "size": 100},
+                    timeout=3.0,
+                )
+                data = str(payload) if payload is not None else '{"code":0,"data":{"items":[]}}'
+                mid = _match_id(data, draft["filmTitle"], "title")
+            if mid:
+                draft["movieId"] = mid
+        except Exception:
+            pass
+    if not draft.get("cinemaId") and draft.get("cinemaName"):
+        try:
+            # search_cinemas 需要 lat/lng；无位置时直接查中台 /cinemas（movieId 过滤全国影院）
+            from agent4.tools.Http2BackendTools.http import backend_url, get as http_get
+            payload = await http_get(
+                backend_url("/cinemas"),
+                params={"movieId": draft.get("movieId") or "", "page": 1, "size": 20},
+                timeout=3.0,
+            )
+            data = str(payload) if payload is not None else '{"code":0,"data":{"items":[]}}'
+            cid = _match_id(data, draft["cinemaName"], "name")
+            if cid:
+                draft["cinemaId"] = cid
+        except Exception:
+            pass
+    return draft
 
 
 def _filter_by_next_show_date(raw: str, start: str, end: str) -> str:
@@ -402,6 +496,11 @@ async def extract_node(state: Agent4State) -> dict[str, Any]:
             draft[k] = v
     if data.get("seatIds"):
         draft["seatIds"] = _norm_seat_ids(data["seatIds"])
+    # 日期/时段标准化：LLM 可能提取"明天/下午"等自然语言，规范成契约值（YYYY-MM-DD / morning/afternoon/evening）
+    if draft.get("date"):
+        draft["date"] = _normalize_date(draft["date"])
+    if draft.get("timeWindow"):
+        draft["timeWindow"] = _normalize_time_window(draft["timeWindow"])
     # 确定性解析区间时间词（这周/下周/周末等），优先于 LLM 提取的单日 date。
     # 必须用「原始消息」而非 optimize 改写后的消息：LLM 改写可能把"这周"误改写成
     # "明天"等单日词，导致区间匹配失败、误走单日分支（回复"明天暂时没有电影"）。
@@ -415,14 +514,19 @@ async def extract_node(state: Agent4State) -> dict[str, Any]:
         for k in ("movieId", "filmTitle", "cinemaId", "cinemaName", "showId", "seatIds"):
             draft.pop(k, None)
     # 消息不含购票信号词（如"软件测试基础包括哪些"被 LLM 误提取）→ 清空旧草稿购票字段，
-    # 避免上一轮残留的 startDate/endDate/genre/movieId 等污染本轮（答非所问）
-    if not _BOOKING_SIGNAL_RE.search(state.get("message") or ""):
+    # 避免上一轮残留的 startDate/endDate/genre/movieId 等污染本轮（答非所问）。
+    # 点卡操作消息（"（点卡操作…"）属于购票流程推进，不触发清空。
+    raw_msg = state.get("message") or ""
+    if not _BOOKING_SIGNAL_RE.search(raw_msg) and not raw_msg.startswith("（点卡操作"):
         for k in (
             "movieId", "filmTitle", "cinemaId", "cinemaName", "showId",
             "date", "startDate", "endDate", "timeWindow", "genre", "count",
             "seatIds", "preferRow", "preferSide", "together",
         ):
             draft.pop(k, None)
+    # 名称→ID 解析（跳步）：用户口述影片名/影院名时，调工具解析出 ID，
+    # 一句话含多个购票信息即可跳过对应选择阶段
+    draft = await _resolve_names_to_ids(draft)
     missing = _missing_fields(draft)
     return {"bookingdraft": draft, "missing": missing, "stage": "collect" if missing else "confirm"}
 
