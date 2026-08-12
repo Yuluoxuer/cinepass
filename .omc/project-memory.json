@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1786221142271,
+  "lastScanned": 1786415576970,
   "projectRoot": "/media/rei/Data/Code/movie/cinepass_leijieming_frontend",
   "techStack": {
     "languages": [
@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "cd /home/rei/Code/movie/cinepass_leijieming_frontend && npx tsc --noEmit --skipLibCheck 2>&1 | grep -E \"api/agent|stores/agent\" | head",
+    "buildCommand": "cd /media/rei/Data/Code/movie/cinepass_leijieming_frontend; echo \"=== 全部时间截取残留检查 ===\"; grep -rn \"\\.slice(11\\|toISOString().slice\\|replace('T'\" src/ --include=\"*.tsx\" --include=\"*.ts\" | grep -v \".umi\" || echo \"✅ 已全部清除\"; echo \"=== tsc ===\"; npx tsc --noEmit -p tsconfig.json 2>&1 | grep -v \"node_modules\" | grep -E \"booking/shows|booking/cinemas|format.ts\" || echo \"✅ 无类型错误\"",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "pnpm dev",
@@ -66,21 +66,21 @@
     "dist": {
       "path": "dist",
       "purpose": "Distribution/build output",
-      "fileCount": 93,
-      "lastAccessed": 1786221142182,
+      "fileCount": 101,
+      "lastAccessed": 1786415576913,
       "keyFiles": [
-        "1078.async.js",
-        "1289.async.js",
         "1583.async.js",
-        "1656.async.js",
-        "2333.async.js"
+        "1828.async.js",
+        "2333.async.js",
+        "2596.async.js",
+        "2858.async.js"
       ]
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 1,
-      "lastAccessed": 1786221142195,
+      "lastAccessed": 1786415576917,
       "keyFiles": [
         "search-api.md"
       ]
@@ -89,7 +89,7 @@
       "path": "public",
       "purpose": "Public files",
       "fileCount": 3,
-      "lastAccessed": 1786221142204,
+      "lastAccessed": 1786415576928,
       "keyFiles": [
         "AGENTS.md",
         "app-icon.png"
@@ -99,7 +99,7 @@
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 8,
-      "lastAccessed": 1786221142210,
+      "lastAccessed": 1786415576930,
       "keyFiles": [
         "_conflict_dump.txt",
         "_dump_conflicts.py",
@@ -112,7 +112,7 @@
       "path": "src",
       "purpose": "Source code",
       "fileCount": 5,
-      "lastAccessed": 1786221142220,
+      "lastAccessed": 1786415576933,
       "keyFiles": [
         "AGENTS.md",
         "access.ts",
@@ -123,8 +123,8 @@
     "src/api": {
       "path": "src/api",
       "purpose": "API routes",
-      "fileCount": 8,
-      "lastAccessed": 1786221142242,
+      "fileCount": 9,
+      "lastAccessed": 1786415576945,
       "keyFiles": [
         "admin.ts",
         "agent.ts",
@@ -135,7 +135,7 @@
       "path": "src/components",
       "purpose": "UI components",
       "fileCount": 2,
-      "lastAccessed": 1786221142251,
+      "lastAccessed": 1786415576947,
       "keyFiles": [
         "AGENTS.md"
       ]
@@ -143,93 +143,81 @@
   },
   "hotPaths": [
     {
-      "path": "src/pages/search/index.tsx",
-      "accessCount": 10,
-      "lastAccessed": 1786094532810,
+      "path": "src/pages/booking/shows.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1786437408778,
       "type": "file"
     },
     {
-      "path": "src/stores/location.ts",
-      "accessCount": 8,
-      "lastAccessed": 1786159383408,
-      "type": "file"
-    },
-    {
-      "path": ".umirc.ts",
-      "accessCount": 4,
-      "lastAccessed": 1786158689976,
-      "type": "file"
-    },
-    {
-      "path": "src/components/SiteHeader/index.tsx",
+      "path": "src/pages/admin/shows.tsx",
       "accessCount": 3,
-      "lastAccessed": 1786158457477,
+      "lastAccessed": 1786437043708,
       "type": "file"
     },
     {
-      "path": "src/stores/auth.ts",
+      "path": "src/pages/mobile/pay.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1786437091257,
+      "type": "file"
+    },
+    {
+      "path": "src/agent/CardRenderer.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1786437116010,
+      "type": "file"
+    },
+    {
+      "path": "src/utils/format.ts",
       "accessCount": 2,
-      "lastAccessed": 1786158389736,
+      "lastAccessed": 1786437030788,
       "type": "file"
     },
     {
-      "path": "src/layouts/ClientLayout.tsx",
+      "path": "src/pages/booking/pay.tsx",
       "accessCount": 2,
-      "lastAccessed": 1786158402849,
+      "lastAccessed": 1786437052269,
       "type": "file"
     },
     {
-      "path": "src/components/AmapLocationPicker/index.tsx",
+      "path": "src/pages/booking/ticket.tsx",
       "accessCount": 2,
-      "lastAccessed": 1786158917254,
+      "lastAccessed": 1786437061829,
       "type": "file"
     },
     {
-      "path": "src/api/admin.ts",
-      "accessCount": 1,
-      "lastAccessed": 1786096709025,
+      "path": "src/pages/booking/confirm.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786437070928,
       "type": "file"
     },
     {
-      "path": "src/agent/AgentDrawer.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1786158403933,
+      "path": "src/pages/me/orderDetail.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786437079073,
       "type": "file"
     },
     {
-      "path": "src/stores/agent.ts",
-      "accessCount": 1,
-      "lastAccessed": 1786158407919,
+      "path": "src/pages/mobile/redeem.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786437100816,
       "type": "file"
     },
     {
-      "path": "src/constants/index.ts",
-      "accessCount": 1,
-      "lastAccessed": 1786158831305,
+      "path": "src/pages/booking/cinemas.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786437375947,
       "type": "file"
     },
     {
-      "path": "package.json",
+      "path": "src/api/auth.ts",
       "accessCount": 1,
-      "lastAccessed": 1786193214054,
+      "lastAccessed": 1786436755126,
       "type": "file"
     },
     {
-      "path": "README.md",
+      "path": "src/types/index.ts",
       "accessCount": 1,
-      "lastAccessed": 1786193228590,
-      "type": "file"
-    },
-    {
-      "path": "src/api/client.ts",
-      "accessCount": 1,
-      "lastAccessed": 1786193232156,
-      "type": "file"
-    },
-    {
-      "path": "src/utils/lanIp.ts",
-      "accessCount": 1,
-      "lastAccessed": 1786193247305,
+      "lastAccessed": 1786436755470,
       "type": "file"
     }
   ],

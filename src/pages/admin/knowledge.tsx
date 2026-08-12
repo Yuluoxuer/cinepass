@@ -6,6 +6,7 @@ import * as adminApi from '@/api/admin';
 import type { KnowledgeFileVO } from '@/api/admin';
 import * as catalogApi from '@/api/catalog';
 import { getCinemaIdFromAccessToken, useAuthStore } from '@/stores/auth';
+import { formatDateTime } from '@/utils/format';
 
 const { Dragger } = Upload;
 
@@ -93,7 +94,7 @@ const KnowledgePage: React.FC = () => {
       dataIndex: 'updatedAt',
       key: 'updatedAt',
       width: 220,
-      render: (v?: string) => (v ? new Date(v).toLocaleString() : '-'),
+      render: (v?: string) => formatDateTime(v, true) || '-',
     },
     {
       title: '操作',

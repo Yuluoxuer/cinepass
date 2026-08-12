@@ -1,4 +1,37 @@
+import dayjs from 'dayjs';
 import { reachableHost } from '@/utils/lanIp';
+
+/**
+ * 后端瞬时时间统一为 ISO-8601 带偏移（通常 +08:00，如 2026-08-11T19:30:00+08:00）。
+ * 以下展示函数解析后按浏览器本地时区格式化；禁止 replace('T',' ').slice() 直接截取。
+ * 写入后端请用 toApiDateTime；日历日用 YYYY-MM-DD。
+ */
+
+/** ISO（带偏移）→ 本地 "YYYY-MM-DD HH:mm"（withSeconds 时到秒）；空值返回 ''，非法值原样返回 */
+export function formatDateTime(iso?: string | null, withSeconds = false): string {
+  if (!iso) return '';
+  const d = dayjs(iso);
+  return d.isValid() ? d.format(withSeconds ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD HH:mm') : iso;
+}
+
+/** ISO（带偏移）→ 本地日期 "YYYY-MM-DD"；空值返回 '' */
+export function formatDate(iso?: string | null): string {
+  if (!iso) return '';
+  const d = dayjs(iso);
+  return d.isValid() ? d.format('YYYY-MM-DD') : iso;
+}
+
+/** ISO（带偏移）→ 本地时刻 "HH:mm"；空值返回 '' */
+export function formatTime(iso?: string | null): string {
+  if (!iso) return '';
+  const d = dayjs(iso);
+  return d.isValid() ? d.format('HH:mm') : iso;
+}
+
+/** 管理端/写接口：dayjs 墙钟 → 东八区 ISO（与后端 DateTimeFormats 一致） */
+export function toApiDateTime(d: dayjs.Dayjs): string {
+  return d.format('YYYY-MM-DDTHH:mm:ss+08:00');
+}
 
 /** 兼容旧引用的轻量 format 工具 */
 export function formatMoney(n: number) {

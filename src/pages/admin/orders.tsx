@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button, Drawer, Form, Input, Select, Space, Table, Tag, Empty } from 'antd';
 import * as adminApi from '@/api/admin';
 import type { OrderVO } from '@/types';
-import { formatOrderSeatLabels } from '@/utils/format';
+import { formatOrderSeatLabels, formatDateTime } from '@/utils/format';
 import { getCinemaIdFromAccessToken, useAuthStore } from '@/stores/auth';
 
 const AdminOrdersPage: React.FC = () => {
@@ -112,7 +112,7 @@ const AdminOrdersPage: React.FC = () => {
             <div>
               {current.cinemaName} · {current.hallName}
             </div>
-            <div>{current.startTime}</div>
+            <div>{formatDateTime(current.startTime)}</div>
             <div>座位：{formatOrderSeatLabels(current)}</div>
             <div>金额：¥{current.amount}</div>
             <div>状态：{current.status}</div>

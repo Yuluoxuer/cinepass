@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { QRCode } from 'antd';
 import type { AgentCardVO, CardAction, MovieVO, CinemaVO, ShowVO, SeatPlanVO, SeatVO, OrderVO } from '@/types';
 import * as orderApi from '@/api/order';
-import { mobileUrl } from '@/utils/format';
+import { formatDate, formatDateTime, formatTime, mobileUrl } from '@/utils/format';
 import SeatMap from '@/features/seatmap/SeatMap';
 import { zoneLabel } from '@/utils/zone';
 import styles from './CardRenderer.less';
@@ -118,12 +118,15 @@ const CardRenderer: React.FC<Props> = ({ card, onAction }) => {
         {shows.map((s) => (
           <div key={s.showId} className={styles.row}>
             <div className={styles.info}>
-              <strong>{s.startTime.slice(11, 16)} {s.hallName}</strong>
+              <strong>{formatTime(s.startTime)} {s.hallName}</strong>
               <span>¥{s.price} · {s.seatRemainLevel}</span>
             </div>
             <button
               type="button"
-              onClick={() => invokeAction(s.showId, 'select', { showId: s.showId })}
+              onClick={() => invokeAction(s.showId, 'select', {
+                showId: s.showId,
+                date: formatDate(s.startTime),
+              })}
             >
               选这场
             </button>
@@ -268,7 +271,7 @@ function DateShowListCard({
           shows.map((s) => (
             <div key={s.showId} className={styles.row}>
               <div className={styles.info}>
-                <strong>{s.startTime.slice(11, 16)} {s.hallName}</strong>
+                <strong>{formatTime(s.startTime)} {s.hallName}</strong>
                 <span>¥{s.price} · {s.seatRemainLevel}</span>
               </div>
               <button

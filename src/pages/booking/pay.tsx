@@ -7,7 +7,7 @@ import BookingProgress from '@/components/BookingProgress';
 import BlankPlaceholder from '@/components/BlankPlaceholder';
 import { useLockCountdown } from '@/features/seatmap/useLockCountdown';
 import { getSessionId } from '@/stores/booking';
-import { mobileUrl } from '@/utils/format';
+import { formatDateTime, mobileUrl } from '@/utils/format';
 import styles from './booking.less';
 
 const PayPage: React.FC = () => {
@@ -89,7 +89,7 @@ const PayPage: React.FC = () => {
                 <p>
                   {order.cinemaName} · {order.hallName}
                 </p>
-                <p>{order.startTime.replace('T', ' ').slice(0, 16)}</p>
+                <p>{formatDateTime(order.startTime)}</p>
                 <div className={styles.amount}>¥{order.amount}</div>
               </>
             ) : (

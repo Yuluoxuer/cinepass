@@ -6,6 +6,7 @@ import { qrFlowErrorMessage } from '@/api/error';
 import type { OrderVO, PaySessionVO } from '@/types';
 import { ApiError } from '@/types';
 import { useLockCountdown } from '@/features/seatmap/useLockCountdown';
+import { formatDateTime } from '@/utils/format';
 import '@/styles/tokens.css';
 import styles from './pay.less';
 
@@ -90,7 +91,7 @@ const MobilePayPage: React.FC = () => {
               复制
             </button>
           </p>
-          {order.payAt ? <p>支付时间 {order.payAt.replace('T', ' ').slice(0, 19)}</p> : null}
+          {order.payAt ? <p>支付时间 {formatDateTime(order.payAt, true)}</p> : null}
         </div>
       </div>
     );
@@ -120,7 +121,7 @@ const MobilePayPage: React.FC = () => {
           {session.cinemaName} · {session.hallName}
         </p>
         <p>
-          {session.startTime.replace('T', ' ').slice(0, 16)} · 座位：{seatText || '—'}
+          {formatDateTime(session.startTime)} · 座位：{seatText || '—'}
         </p>
         {session.ticketCode ? <p>取票码 {session.ticketCode}</p> : null}
         <hr />

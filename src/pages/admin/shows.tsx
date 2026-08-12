@@ -6,9 +6,28 @@ import * as adminApi from '@/api/admin';
 import type { CinemaVO, MovieVO, HallVO, ShowVO, ZonePrice } from '@/types';
 import { distinctZones, zoneLabel } from '@/utils/zone';
 import { getCinemaIdFromAccessToken, useAuthStore } from '@/stores/auth';
+import { formatDateTime, toApiDateTime } from '@/utils/format';
 
-/** 场次筛选：全部 / 未开始 / 已开始 / 已取消 */
-type ShowFilter = 'all' | 'upcoming' | 'started' | 'cancelled';
+/** 场次筛选：全部 / 未开始 / 进行中 / 已结束 / 已取消 */
+type ShowFilter = 'all' | 'not_started' | 'in_progress' | 'ended' | 'cancelled';
+
+/** 筛选标签配置 */
+const FILTER_TABS: { value: ShowFilter; labelPrefix: string }[] = [
+  { value: 'all', labelPrefix: '全部' },
+  { value: 'not_started', labelPrefix: '未开始' },
+  { value: 'in_progress', labelPrefix: '进行中' },
+  { value: 'ended', labelPrefix: '已结束' },
+  { value: 'cancelled', labelPrefix: '已取消' },
+];
+
+/** 获取场次运行时状态，优先后端 runtimeState，无则 fallback 前端计算 */
+function getRuntimeState(s: ShowVO): Exclude<ShowFilter, 'all' | 'cancelled'> {
+  if (s.runtimeState) return s.runtimeState;
+  const now = dayjs();
+  if (dayjs(s.endTime).isBefore(now)) return 'ended';
+  if (dayjs(s.startTime).isAfter(now)) return 'not_started';
+  return 'in_progress';
+}
 
 function formatZonePrices(zonePrices?: ZonePrice[], fallback?: number) {
   if (zonePrices && zonePrices.length > 0) {
@@ -56,45 +75,42 @@ const AdminShowsPage: React.FC = () => {
   }, [movies]);
 
   const displayedShows = useMemo(() => {
-    const now = dayjs();
     if (showFilter === 'all') return shows;
-    if (showFilter === 'cancelled') {
-      return shows.filter((s) => s.status === 'cancelled');
-    }
-    if (showFilter === 'upcoming') {
-      return shows.filter((s) => s.status !== 'cancelled' && dayjs(s.startTime).isAfter(now));
-    }
-    // 已开始：开场时间已到且未取消
-    return shows.filter((s) => s.status !== 'cancelled' && !dayjs(s.startTime).isAfter(now));
+    if (showFilter === 'cancelled') return shows.filter((s) => s.status === 'cancelled');
+    return shows.filter((s) => s.status !== 'cancelled' && getRuntimeState(s) === showFilter);
   }, [shows, showFilter]);
 
   const filterCounts = useMemo(() => {
-    const now = dayjs();
-    let upcoming = 0;
-    let started = 0;
-    let cancelled = 0;
-    for (const s of shows) {
-      if (s.status === 'cancelled') {
-        cancelled += 1;
-        continue;
-      }
-      if (dayjs(s.startTime).isAfter(now)) upcoming += 1;
-      else started += 1;
-    }
-    return {
-      all: shows.length,
-      upcoming,
-      started,
-      cancelled,
+    const counts: Record<Exclude<ShowFilter, 'all'>, number> = {
+      not_started: 0, in_progress: 0, ended: 0, cancelled: 0,
     };
+    for (const s of shows) {
+      if (s.status === 'cancelled') { counts.cancelled++; continue; }
+      counts[getRuntimeState(s)]++;
+    }
+    return { all: shows.length, ...counts };
   }, [shows]);
 
   const startTimeValid = (value: dayjs.Dayjs) => value.isAfter(dayjs());
-  const localScheduleConflict = (hallId: string, start: dayjs.Dayjs, end: dayjs.Dayjs, excludeShowId?: string) =>
-    shows.some((show) => {
+
+  /** 同厅时段冲突（含 20 分钟清场缓冲）；items 须为该院当日全部影片排片，不能只按当前筛选影片 */
+  const hallTimesConflict = (
+    items: ShowVO[],
+    hallId: string,
+    start: dayjs.Dayjs,
+    end: dayjs.Dayjs,
+    excludeShowId?: string,
+  ) =>
+    items.some((show) => {
       if (show.showId === excludeShowId || show.hallId !== hallId || show.status === 'cancelled') return false;
       return start.isBefore(dayjs(show.endTime).add(20, 'minute')) && end.add(20, 'minute').isAfter(dayjs(show.startTime));
     });
+
+  /** 拉取影院某日全部排片（不按影片过滤），供冲突预检 */
+  const fetchDaySchedule = async (cid: string, day: string) => {
+    const res = await adminApi.adminListShows({ cinemaId: cid, date: day });
+    return res.items || [];
+  };
 
   useEffect(() => {
     void catalogApi
@@ -109,7 +125,7 @@ const AdminShowsPage: React.FC = () => {
       })
       .catch(() => setCinemas([]));
     void catalogApi
-      .listMovies({ page: 1, size: 50 })
+      .listMovies({ page: 1, size: 500 })
       .then((r) => setMovies(r.items))
       .catch(() => setMovies([]));
   }, [staffCinemaId]);
@@ -320,12 +336,10 @@ const AdminShowsPage: React.FC = () => {
         <Segmented
           value={showFilter}
           onChange={(v) => setShowFilter(v as ShowFilter)}
-          options={[
-            { value: 'all', label: `全部 (${filterCounts.all})` },
-            { value: 'upcoming', label: `未开始 (${filterCounts.upcoming})` },
-            { value: 'started', label: `已开始 (${filterCounts.started})` },
-            { value: 'cancelled', label: `已取消 (${filterCounts.cancelled})` },
-          ]}
+          options={FILTER_TABS.map((t) => ({
+            value: t.value,
+            label: `${t.labelPrefix} (${filterCounts[t.value]})`,
+          }))}
         />
       </div>
       <Table
@@ -337,12 +351,12 @@ const AdminShowsPage: React.FC = () => {
           {
             title: '开场',
             dataIndex: 'startTime',
-            render: (t: string) => t.replace('T', ' ').slice(0, 16),
+            render: (t: string) => formatDateTime(t),
           },
           {
             title: '影片',
             dataIndex: 'movieId',
-            render: (id: string) => movieTitleById.get(id) || id,
+            render: (_id: string, r: ShowVO) => r.movieTitle || _id,
           },
           { title: '影厅', dataIndex: 'hallName' },
           {
@@ -471,12 +485,17 @@ const AdminShowsPage: React.FC = () => {
               message.error('开场时间必须晚于当前时间');
               return;
             }
-            if (localScheduleConflict(v.hallId, startMoment, endMoment)) {
-              message.error('与当前列表中的同影厅场次冲突，前后需预留 20 分钟缓冲');
-              return;
+            try {
+              const dayShows = await fetchDaySchedule(v.cinemaId, startMoment.format('YYYY-MM-DD'));
+              if (hallTimesConflict(dayShows, v.hallId, startMoment, endMoment)) {
+                message.error('与同影厅已有场次冲突，前后需预留 20 分钟缓冲');
+                return;
+              }
+            } catch {
+              // 预检失败时仍交由后端冲突校验
             }
-            const start = startMoment.format('YYYY-MM-DDTHH:mm:ss+08:00');
-            const end = endMoment.format('YYYY-MM-DDTHH:mm:ss+08:00');
+            const start = toApiDateTime(startMoment);
+            const end = toApiDateTime(endMoment);
             try {
               await adminApi.createShow({
                 movieId: v.movieId,
@@ -553,14 +572,19 @@ const AdminShowsPage: React.FC = () => {
               message.error('开场时间必须晚于当前时间');
               return;
             }
-            if (localScheduleConflict(editShow.hallId, startMoment, endMoment, editShow.showId)) {
-              message.error('与当前列表中的同影厅场次冲突，前后需预留 20 分钟缓冲');
-              return;
+            try {
+              const dayShows = await fetchDaySchedule(editShow.cinemaId, startMoment.format('YYYY-MM-DD'));
+              if (hallTimesConflict(dayShows, editShow.hallId, startMoment, endMoment, editShow.showId)) {
+                message.error('与同影厅已有场次冲突，前后需预留 20 分钟缓冲');
+                return;
+              }
+            } catch {
+              // 预检失败时仍交由后端冲突校验
             }
             try {
               await adminApi.updateShow(editShow.showId, {
-                startTime: startMoment.format('YYYY-MM-DDTHH:mm:ss+08:00'),
-                endTime: endMoment.format('YYYY-MM-DDTHH:mm:ss+08:00'),
+                startTime: toApiDateTime(startMoment),
+                endTime: toApiDateTime(endMoment),
                 zonePrices,
               });
               message.success('已更新');
