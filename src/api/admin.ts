@@ -151,10 +151,11 @@ export function createBatchShows(body: BatchCreateShowBody) {
   return post<ShowVO[]>('/admin/shows/batch', body);
 }
 
-export function adminListShows(params: { cinemaId: string; movieId?: string; date?: string }) {
+export function adminListShows(params: { cinemaId: string; movieId?: string; date?: string; after?: string }) {
   const query: Record<string, string> = { cinemaId: params.cinemaId };
   if (params.movieId) query.movieId = params.movieId;
   if (params.date) query.date = params.date;
+  if (params.after) query.after = params.after;
   return get<ShowListResult>('/admin/shows', query);
 }
 

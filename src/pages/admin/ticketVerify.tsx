@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Input, Result, Descriptions } from 'antd';
 import * as adminApi from '@/api/admin';
 import type { TicketVerifyVO } from '@/types';
+import { formatDateTime } from '@/utils/format';
 
 const TicketVerifyPage: React.FC = () => {
   const [payload, setPayload] = useState('');
@@ -39,7 +40,7 @@ const TicketVerifyPage: React.FC = () => {
             <Descriptions.Item label="影片">{result.movieTitle}</Descriptions.Item>
             <Descriptions.Item label="影院">{result.cinemaName}</Descriptions.Item>
             <Descriptions.Item label="影厅">{result.hallName}</Descriptions.Item>
-            <Descriptions.Item label="场次">{result.startTime}</Descriptions.Item>
+            <Descriptions.Item label="场次">{formatDateTime(result.startTime)}</Descriptions.Item>
             <Descriptions.Item label="座位">{result.seatIds?.join('、')}</Descriptions.Item>
           </Descriptions>
         ) : (

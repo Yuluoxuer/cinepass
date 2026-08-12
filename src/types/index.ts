@@ -186,6 +186,10 @@ export interface ShowVO {
   seatRemain: number;
   seatRemainLevel: SeatRemainLevel;
   status?: 'on_sale' | 'off_sale' | 'cancelled';
+  /** 影片名称（后端 JOIN 返回），影片被删除时可能为 null */
+  movieTitle?: string | null;
+  /** 运行时状态：not_started / in_progress / ended */
+  runtimeState?: 'not_started' | 'in_progress' | 'ended';
 }
 
 export interface SeatVO {

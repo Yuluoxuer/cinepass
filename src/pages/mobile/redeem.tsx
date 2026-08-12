@@ -5,6 +5,7 @@ import * as orderApi from '@/api/order';
 import { qrFlowErrorMessage } from '@/api/error';
 import type { OrderVO, PaySessionVO } from '@/types';
 import { ApiError } from '@/types';
+import { formatDateTime } from '@/utils/format';
 import '@/styles/tokens.css';
 import styles from './pay.less';
 
@@ -96,7 +97,7 @@ const MobileRedeemPage: React.FC = () => {
           </p>
         ) : null}
         <p>订单号 {session?.orderId || order?.orderId}</p>
-        {startTime ? <p>{startTime.replace('T', ' ').slice(0, 16)}</p> : null}
+        {startTime ? <p>{formatDateTime(startTime)}</p> : null}
         {session?.seatNames ? <p>座位：{seatText}</p> : null}
         {ticketCode ? (
           <p>

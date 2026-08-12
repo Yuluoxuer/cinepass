@@ -5,7 +5,7 @@ import * as orderApi from '@/api/order';
 import type { OrderVO, RedeemQrVO } from '@/types';
 import BlankPlaceholder from '@/components/BlankPlaceholder';
 import { useBookingStore } from '@/stores/booking';
-import { formatOrderSeatLabels, mobileUrl } from '@/utils/format';
+import { formatDateTime, formatOrderSeatLabels, mobileUrl } from '@/utils/format';
 import styles from './booking.less';
 
 const TicketPage: React.FC = () => {
@@ -97,7 +97,7 @@ const TicketPage: React.FC = () => {
         </p>
         <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '24px 0' }} />
         <p>
-          {order.movieTitle} · {order.hallName} · {order.startTime.replace('T', ' ').slice(0, 16)}
+          {order.movieTitle} · {order.hallName} · {formatDateTime(order.startTime)}
         </p>
         <p>
           {seats} · ¥{order.amount}

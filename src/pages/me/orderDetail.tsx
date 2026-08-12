@@ -6,7 +6,7 @@ import LoadingView from '@/components/LoadingView';
 import StateView from '@/components/StateView';
 import OrderQrModal from '@/components/OrderQrModal';
 import { useBookingStore } from '@/stores/booking';
-import { formatOrderSeatLabels } from '@/utils/format';
+import { formatDateTime, formatOrderSeatLabels } from '@/utils/format';
 
 const STATUS_LABEL: Record<string, string> = {
   pending_pay: '待支付',
@@ -85,7 +85,7 @@ const OrderDetailPage: React.FC = () => {
         <p>
           {order.cinemaName} · {order.hallName}
         </p>
-        <p>{order.startTime.replace('T', ' ').slice(0, 16)}</p>
+        <p>{formatDateTime(order.startTime)}</p>
         <p>座位：{formatOrderSeatLabels(order, seatNameById)}</p>
         <p style={{ color: '#e54847', fontSize: 20, fontWeight: 700 }}>¥{order.amount}</p>
         {order.ticketCode ? <p>取票码：{order.ticketCode}</p> : null}

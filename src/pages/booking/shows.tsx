@@ -8,7 +8,7 @@ import LoadingView from '@/components/LoadingView';
 import StateView from '@/components/StateView';
 import { useBookingStore } from '@/stores/booking';
 import { useAgentStore } from '@/stores/agent';
-import { addLocalDays, localDateISO } from '@/utils/format';
+import { addLocalDays, formatTime, localDateISO } from '@/utils/format';
 import styles from './booking.less';
 
 const LEVEL_TEXT: Record<string, string> = {
@@ -107,7 +107,7 @@ const BookingShowsPage: React.FC = () => {
     }
   };
 
-  const fmt = (iso: string) => iso.slice(11, 16);
+  const fmt = (iso: string) => formatTime(iso);
 
   return (
     <div className={styles.showWorkspace}>

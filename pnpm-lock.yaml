@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@antv/g-math': 0.1.9
+
 importers:
 
   .:
@@ -55,7 +58,7 @@ importers:
         version: 5.0.14(@types/react@18.3.31)(react@18.3.1)(use-sync-external-store@1.6.0(react@18.3.1))
     devDependencies:
       '@antv/g-math':
-        specifier: ^0.1.9
+        specifier: 0.1.9
         version: 0.1.9
       '@types/lodash':
         specifier: 4.17.24

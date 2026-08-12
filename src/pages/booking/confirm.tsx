@@ -7,7 +7,7 @@ import BookingProgress from '@/components/BookingProgress';
 import BlankPlaceholder from '@/components/BlankPlaceholder';
 import { useLockCountdown } from '@/features/seatmap/useLockCountdown';
 import { useBookingStore } from '@/stores/booking';
-import { formatOrderSeatLabels } from '@/utils/format';
+import { formatDateTime, formatOrderSeatLabels } from '@/utils/format';
 import styles from './booking.less';
 
 const ConfirmPage: React.FC = () => {
@@ -90,7 +90,7 @@ const ConfirmPage: React.FC = () => {
             <p>影片：{order.movieTitle}</p>
             <p>影院：{order.cinemaName}</p>
             <p>影厅：{order.hallName}</p>
-            <p>场次：{order.startTime.replace('T', ' ').slice(0, 16)}</p>
+            <p>场次：{formatDateTime(order.startTime)}</p>
             <p style={{ color: '#faad14', marginTop: 16 }}>⚠ 快照已锁定，改座需取消重选</p>
           </div>
           <div className={styles.card}>

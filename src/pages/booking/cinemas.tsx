@@ -8,6 +8,7 @@ import LoadingView from '@/components/LoadingView';
 import StateView from '@/components/StateView';
 import { useBookingStore } from '@/stores/booking';
 import { useLocationStore } from '@/stores/location';
+import { localDateISO } from '@/utils/format';
 import styles from './booking.less';
 
 function formatDistance(m: number | null) {
@@ -88,7 +89,7 @@ const BookingCinemasPage: React.FC = () => {
   };
 
   const onSelect = async (c: CinemaVO) => {
-    const date = new Date().toISOString().slice(0, 10);
+    const date = localDateISO();
     try {
       await patchLocal({ cinemaId: c.cinemaId, movieId, state: 'SelectShow' }, { debounce: false });
       history.push(`/booking/shows?movieId=${movieId}&cinemaId=${c.cinemaId}&date=${date}`);

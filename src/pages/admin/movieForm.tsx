@@ -51,7 +51,7 @@ const MovieFormPage: React.FC = () => {
 
   const uploadProps: UploadProps = {
     beforeUpload,
-    accept: 'image/jpeg,image/png,image/webp,image/gif',
+    accept: 'image/jpeg,image/png,image/gif',
     maxCount: 1,
     showUploadList: false,
     disabled: uploading,
@@ -146,7 +146,7 @@ const MovieFormPage: React.FC = () => {
               <InboxOutlined />
             </p>
             <p className="ant-upload-text">{uploading ? '上传中…' : '点击或拖拽图片到此处上传'}</p>
-            <p className="ant-upload-hint">支持 JPEG / PNG / WebP / GIF，单文件不超过 5MB</p>
+            <p className="ant-upload-hint">支持 JPEG / PNG / GIF，单文件不超过 5MB（服务端将重编码为 PNG）</p>
           </Upload.Dragger>
         </Form.Item>
         <Form.Item
