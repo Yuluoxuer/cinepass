@@ -9,6 +9,7 @@ import com.cinepass.model.Cinema;
 import com.cinepass.model.Movie;
 import com.cinepass.model.ShowSchedule;
 import com.cinepass.service.EsIndexService;
+import com.cinepass.util.DateTimeFormats;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
@@ -299,7 +300,7 @@ public class EsIndexServiceImpl implements EsIndexService {
         List<String> tags = parseStringList(cinema.getTagsJson());
         List<String> movieIds = new ArrayList<>();
         List<ShowSchedule> upcoming = showMapper.listEarliestUpcomingByCinema(
-                cinema.getCinemaId(), OffsetDateTime.now());
+                cinema.getCinemaId(), DateTimeFormats.now());
         if (upcoming != null) {
             for (ShowSchedule show : upcoming) {
                 if (show.getMovieId() != null) movieIds.add(show.getMovieId());

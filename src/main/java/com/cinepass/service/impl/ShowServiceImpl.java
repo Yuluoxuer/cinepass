@@ -7,15 +7,18 @@ import com.cinepass.mapper.CinemaMapper;
 import com.cinepass.mapper.MovieMapper;
 import com.cinepass.mapper.SeatStatusMapper;
 import com.cinepass.mapper.ShowMapper;
+import com.cinepass.mapper.ShowZonePriceMapper;
 import com.cinepass.model.Cinema;
 import com.cinepass.model.Movie;
 import com.cinepass.model.ShowSchedule;
+import com.cinepass.model.ShowZonePrice;
 import com.cinepass.service.ShowService;
 import com.cinepass.vo.MovieVO;
 import com.cinepass.vo.PageResult;
 import com.cinepass.vo.ShowDetailVO;
 import com.cinepass.vo.ShowListResult;
 import com.cinepass.vo.ShowVO;
+import com.cinepass.util.DateTimeFormats;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -33,49 +36,36 @@ import java.util.List;
 @Service
 public class ShowServiceImpl implements ShowService {
 
-    private static final DateTimeFormatter FMT = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-    /** 院→片 nextShowDate 展示时区（与产品本地日历日一致） */
-    private static final ZoneId DISPLAY_ZONE = ZoneId.of("Asia/Shanghai");
-
     private final ShowMapper showMapper;
     private final SeatStatusMapper seatStatusMapper;
     private final MovieMapper movieMapper;
     private final CinemaMapper cinemaMapper;
+    private final ShowZonePriceMapper showZonePriceMapper;
 
     public ShowServiceImpl(ShowMapper showMapper,
                            SeatStatusMapper seatStatusMapper,
                            MovieMapper movieMapper,
-                           CinemaMapper cinemaMapper) {
+                           CinemaMapper cinemaMapper,
+                           ShowZonePriceMapper showZonePriceMapper) {
         this.showMapper = showMapper;
         this.seatStatusMapper = seatStatusMapper;
         this.movieMapper = movieMapper;
         this.cinemaMapper = cinemaMapper;
+        this.showZonePriceMapper = showZonePriceMapper;
     }
 
     // 按影院+影片+日期查询场次列表，将实体转为VO后封装日期+列表结果返回
     @Override
     public ShowListResult list(String cinemaId, String movieId, String date) {
         List<ShowSchedule> rows = showMapper.listByMovieCinemaDate(cinemaId, movieId, date);
-        List<ShowVO> items = new ArrayList<>();
-        if (rows != null) {
-            for (ShowSchedule s : rows) {
-                items.add(buildShowVO(s));
-            }
-        }
-        return ShowListResult.builder().date(date).items(items).build();
+        return ShowListResult.builder().date(date).items(buildShowVosWithZonePrices(rows)).build();
     }
 
     // 查询某影院某影片的不区分日期的全部场次
     @Override
-    public ShowListResult listAll(String cinemaId, String movieId) {
-        List<ShowSchedule> rows = showMapper.listByMovieCinema(cinemaId, movieId);
-        List<ShowVO> items = new ArrayList<>();
-        if (rows != null) {
-            for (ShowSchedule s : rows) {
-                items.add(buildShowVO(s));
-            }
-        }
-        return ShowListResult.builder().date(null).items(items).build();
+    public ShowListResult listAll(String cinemaId, String movieId, OffsetDateTime after) {
+        List<ShowSchedule> rows = showMapper.listByMovieCinema(cinemaId, movieId, after);
+        return ShowListResult.builder().date(null).items(buildShowVosWithZonePrices(rows)).build();
     }
 
     // 查某影院当前在售影片列表：校验影院存在→查询每个影片的最早未来场次→组装VO并附带最近排片日
@@ -84,7 +74,7 @@ public class ShowServiceImpl implements ShowService {
         if (cinemaMapper.selectById(cinemaId) == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
         }
-        OffsetDateTime after = OffsetDateTime.now();
+        OffsetDateTime after = DateTimeFormats.now();
         List<ShowSchedule> earliest = showMapper.listEarliestUpcomingByCinema(cinemaId, after);
         if (earliest == null || earliest.isEmpty()) {
             return new PageResult<>(Collections.<MovieVO>emptyList(), 1, 0, 0);
@@ -99,7 +89,7 @@ public class ShowServiceImpl implements ShowService {
                 continue;
             }
             if (row.getStartTime() != null) {
-                vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DISPLAY_ZONE).toLocalDate().toString());
+                vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DateTimeFormats.ZONE).toLocalDate().toString());
             }
             items.add(vo);
         }
@@ -128,7 +118,7 @@ public class ShowServiceImpl implements ShowService {
 
     @Override
     public ShowVO buildShowVO(ShowSchedule s) {
-        return buildShowVO(s, null);
+        return buildShowVO(s, loadZonePriceVos(s.getShowId()));
     }
 
     // 场次实体→VO：统计余座、计算余座等级、格式化时间、组装分区价格
@@ -137,16 +127,88 @@ public class ShowServiceImpl implements ShowService {
         int total = seatStatusMapper.countTotal(s.getShowId());
         int available = seatStatusMapper.countAvailable(s.getShowId());
         String level = calcSeatRemainLevel(total, available);
+        List<ShowVO.ZonePriceVO> resolvedZonePrices = zonePrices != null
+                ? zonePrices : loadZonePriceVos(s.getShowId());
         return ShowVO.builder()
-                .showId(s.getShowId()).movieId(s.getMovieId())
+                .showId(s.getShowId()).movieId(s.getMovieId()).movieTitle(s.getMovieTitle())
                 .cinemaId(s.getCinemaId()).hallId(s.getHallId())
                 .hallName(s.getHallName())
-                .startTime(s.getStartTime() != null ? FMT.format(s.getStartTime()) : null)
-                .endTime(s.getEndTime() != null ? FMT.format(s.getEndTime()) : null)
+                .startTime(s.getStartTime() != null ? DateTimeFormats.format(s.getStartTime()) : null)
+                .endTime(s.getEndTime() != null ? DateTimeFormats.format(s.getEndTime()) : null)
                 .price(s.getPrice())
-                .zonePrices(zonePrices)
+                .zonePrices(resolvedZonePrices)
                 .seatRemain(available).seatRemainLevel(level)
-                .status(s.getStatus()).build();
+                .status(s.getStatus())
+                .runtimeState(calcRuntimeState(s))
+                .build();
+    }
+
+    /** 列表批量装配分区价，避免 N+1 */
+    private List<ShowVO> buildShowVosWithZonePrices(List<ShowSchedule> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<String> showIds = new ArrayList<>();
+        for (ShowSchedule s : rows) {
+            if (s != null && s.getShowId() != null) {
+                showIds.add(s.getShowId());
+            }
+        }
+        Map<String, List<ShowVO.ZonePriceVO>> zoneByShow = loadZonePriceVosByShowIds(showIds);
+        List<ShowVO> items = new ArrayList<>();
+        for (ShowSchedule s : rows) {
+            if (s == null) {
+                continue;
+            }
+            items.add(buildShowVO(s, zoneByShow.getOrDefault(s.getShowId(), Collections.emptyList())));
+        }
+        return items;
+    }
+
+    private List<ShowVO.ZonePriceVO> loadZonePriceVos(String showId) {
+        if (showId == null) {
+            return Collections.emptyList();
+        }
+        return toZonePriceVos(showZonePriceMapper.selectByShowId(showId));
+    }
+
+    private Map<String, List<ShowVO.ZonePriceVO>> loadZonePriceVosByShowIds(List<String> showIds) {
+        Map<String, List<ShowVO.ZonePriceVO>> map = new HashMap<>();
+        if (showIds == null || showIds.isEmpty()) {
+            return map;
+        }
+        List<ShowZonePrice> rows = showZonePriceMapper.selectByShowIds(showIds);
+        if (rows == null) {
+            return map;
+        }
+        for (ShowZonePrice row : rows) {
+            if (row == null || row.getShowId() == null) {
+                continue;
+            }
+            map.computeIfAbsent(row.getShowId(), k -> new ArrayList<>())
+                    .add(ShowVO.ZonePriceVO.builder()
+                            .zone(row.getZone())
+                            .price(row.getPrice())
+                            .build());
+        }
+        return map;
+    }
+
+    private List<ShowVO.ZonePriceVO> toZonePriceVos(List<ShowZonePrice> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<ShowVO.ZonePriceVO> vos = new ArrayList<>();
+        for (ShowZonePrice row : rows) {
+            if (row == null || row.getZone() == null || row.getPrice() == null) {
+                continue;
+            }
+            vos.add(ShowVO.ZonePriceVO.builder()
+                    .zone(row.getZone())
+                    .price(row.getPrice())
+                    .build());
+        }
+        return vos;
     }
 
     // 根据影片ID构建MovieVO：解析genres JSON、评分四舍五入保留1位小数
@@ -182,10 +244,37 @@ public class ShowServiceImpl implements ShowService {
         return "almost_full";
     }
 
+<<<<<<< HEAD
     // 按时间范围+影院分页查询有排片的影片：归一化分页参数→查总数→分页查场次→组装VO并附最近排片日
     @Override
     public PageResult<MovieVO> listMoviesByTimeRange(OffsetDateTime startTime, OffsetDateTime endTime,
                                                      String cinemaId, int page, int size) {
+=======
+    /**
+     * 根据当前时间计算场次运行时状态。
+     * not_started — 未开始（开场时间在未来）；
+     * in_progress — 进行中（当前在开场~散场之间）；
+     * ended — 已结束（散场时间已过）。
+     */
+    static String calcRuntimeState(ShowSchedule s) {
+        if (s == null || s.getStartTime() == null || s.getEndTime() == null) {
+            return null;
+        }
+        OffsetDateTime now = DateTimeFormats.now();
+        if (now.isBefore(s.getStartTime())) {
+            return "not_started";
+        }
+        if (now.isBefore(s.getEndTime())) {
+            return "in_progress";
+        }
+        return "ended";
+    }
+
+    @Override
+    public PageResult<MovieVO> listMoviesByTimeRange(OffsetDateTime startTime, OffsetDateTime endTime,
+                                                     String cinemaId, int page, int size) {
+        // 归一化分页
+>>>>>>> 80f55f05cfe9242c3e481c73dd6c48b304091ef7
         if (page < 1) page = 1;
         if (size < 1 || size > 50) size = 10;
         int offset = (page - 1) * size;
@@ -206,8 +295,14 @@ public class ShowServiceImpl implements ShowService {
                 if (vo == null) {
                     continue;
                 }
+<<<<<<< HEAD
                 if (row.getStartTime() != null) {
                     vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DISPLAY_ZONE).toLocalDate().toString());
+=======
+                // nextShowDate 使用该时间段内最早开场日期
+                if (row.getStartTime() != null) {
+                    vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DateTimeFormats.ZONE).toLocalDate().toString());
+>>>>>>> 80f55f05cfe9242c3e481c73dd6c48b304091ef7
                 }
                 items.add(vo);
             }

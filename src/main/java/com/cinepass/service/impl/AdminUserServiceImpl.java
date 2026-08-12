@@ -12,6 +12,7 @@ import com.cinepass.security.Roles;
 import com.cinepass.security.SecurityContext;
 import com.cinepass.service.AdminUserService;
 import com.cinepass.util.PhoneMask;
+import com.cinepass.util.DateTimeFormats;
 import com.cinepass.util.UserIds;
 import com.cinepass.vo.AdminUserVO;
 import com.cinepass.vo.PageResult;
@@ -31,8 +32,6 @@ import java.util.List;
  */
 @Service
 public class AdminUserServiceImpl implements AdminUserService {
-
-    private static final DateTimeFormatter FMT = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     private final UserAccountMapper userAccountMapper;
     private final UserProfileMapper userProfileMapper;
@@ -76,7 +75,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw new BusinessException(ResultCode.CONFLICT, "手机号已存在");
         }
         String cinemaId = resolveCinemaIdForRole(dto.getRole(), dto.getCinemaId());
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = DateTimeFormats.now();
         UserAccount user = new UserAccount();
         user.setUserId(UserIds.next());
         user.setNickname(dto.getNickname().trim());
@@ -173,7 +172,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             user.setUpdateCinemaId(Boolean.TRUE);
         }
 
-        user.setUpdatedAt(OffsetDateTime.now());
+        user.setUpdatedAt(DateTimeFormats.now());
         userAccountMapper.update(user);
         return toVo(userAccountMapper.findById(userId));
     }
@@ -203,7 +202,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                 .role(u.getRole())
                 .cinemaId(u.getCinemaId())
                 .status(u.getStatus() == null ? 0 : u.getStatus())
-                .createdAt(u.getCreatedAt() != null ? FMT.format(u.getCreatedAt()) : null)
+                .createdAt(u.getCreatedAt() != null ? DateTimeFormats.format(u.getCreatedAt()) : null)
                 .build();
     }
 }

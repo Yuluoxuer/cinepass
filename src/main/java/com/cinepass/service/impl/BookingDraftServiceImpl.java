@@ -12,6 +12,7 @@ import com.cinepass.mapper.AgentSessionMapper;
 import com.cinepass.model.AgentSession;
 import com.cinepass.service.BookingDraftService;
 import com.cinepass.util.SessionIds;
+import com.cinepass.util.DateTimeFormats;
 import com.cinepass.vo.BookingDraftVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,9 +35,6 @@ import java.util.Set;
  */
 @Service
 public class BookingDraftServiceImpl implements BookingDraftService {
-
-    private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-    private static final ZoneOffset TZ = ZoneOffset.ofHours(8);
 
     private static final Set<String> PATCH_ALLOWED;
     static {
@@ -79,7 +77,7 @@ public class BookingDraftServiceImpl implements BookingDraftService {
         String movieId = dto != null && StringUtils.hasText(dto.getMovieId())
                 ? dto.getMovieId().trim() : null;
 
-        OffsetDateTime now = OffsetDateTime.now(TZ);
+        OffsetDateTime now = DateTimeFormats.now();
         String sessionId = SessionIds.next();
 
         BookingDraftVO draft = emptyDraft(sessionId, source, currentUserId, now);
@@ -97,7 +95,7 @@ public class BookingDraftServiceImpl implements BookingDraftService {
         requireSessionId(sessionId);
         AgentSession row = agentSessionMapper.findById(sessionId);
         if (row == null) {
-            OffsetDateTime now = OffsetDateTime.now(TZ);
+            OffsetDateTime now = DateTimeFormats.now();
             BookingDraftVO draft = emptyDraft(sessionId, "manual", currentUserId, now);
             persistNew(draft, now);
             return draft;
@@ -137,8 +135,8 @@ public class BookingDraftServiceImpl implements BookingDraftService {
         draft.setExpireAt(expireAt);
         draft.setState(BookingStates.CONFIRM_ORDER);
         draft.setVersion(draft.getVersion() == null ? 1L : draft.getVersion() + 1);
-        OffsetDateTime now = OffsetDateTime.now(TZ);
-        draft.setUpdatedAt(ISO.format(now));
+        OffsetDateTime now = DateTimeFormats.now();
+        draft.setUpdatedAt(DateTimeFormats.format(now));
         AgentSession upd = toRow(draft, row.getCreatedAt(), now);
         agentSessionMapper.updateCas(upd);
     }
@@ -164,8 +162,8 @@ public class BookingDraftServiceImpl implements BookingDraftService {
             draft.setState(BookingStates.SELECT_SEAT);
         }
         draft.setVersion(draft.getVersion() == null ? 1L : draft.getVersion() + 1);
-        OffsetDateTime now = OffsetDateTime.now(TZ);
-        draft.setUpdatedAt(ISO.format(now));
+        OffsetDateTime now = DateTimeFormats.now();
+        draft.setUpdatedAt(DateTimeFormats.format(now));
         AgentSession upd = toRow(draft, row.getCreatedAt(), now);
         agentSessionMapper.updateCas(upd);
     }
@@ -198,8 +196,8 @@ public class BookingDraftServiceImpl implements BookingDraftService {
 
         BookingDraftVO next = applyPatch(current, dto.getPatch(), currentUserId);
         next.setVersion(current.getVersion() + 1);
-        OffsetDateTime now = OffsetDateTime.now(TZ);
-        next.setUpdatedAt(ISO.format(now));
+        OffsetDateTime now = DateTimeFormats.now();
+        next.setUpdatedAt(DateTimeFormats.format(now));
 
         AgentSession upd = toRow(next, row.getCreatedAt(), now);
         int n = agentSessionMapper.updateCas(upd);
@@ -209,6 +207,126 @@ public class BookingDraftServiceImpl implements BookingDraftService {
             payload.put("errorCode", "DRAFT_CONFLICT");
             payload.put("serverDraft", latest);
             throw new BusinessException(ResultCode.DRAFT_CONFLICT, "draft version mismatch", payload);
+        }
+        return next;
+    }
+
+    @Override
+    @Transactional
+    public BookingDraftVO merge(String sessionId, Map<String, Object> incoming, String currentUserId) {
+        requireSessionId(sessionId);
+        if (incoming == null || incoming.isEmpty()) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "draft 不能为空");
+        }
+        AgentSession row = agentSessionMapper.findByIdForUpdate(sessionId);
+        if (row == null) {
+            get(sessionId, currentUserId);
+            row = agentSessionMapper.findByIdForUpdate(sessionId);
+        }
+        if (row == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Draft 不存在");
+        }
+        BookingDraftVO current = fromRow(row);
+        assertCanWrite(current, currentUserId);
+
+        long serverVersion = current.getVersion() == null ? 0L : current.getVersion();
+        Long incomingVersion = asLong(incoming.get("version"));
+        long inVer = incomingVersion == null ? serverVersion : incomingVersion;
+        boolean serverNewer = inVer < serverVersion;
+
+        BookingDraftVO next = copy(current);
+
+        // ① 决策字段：incoming 优先；服务端较新且已有值时不覆盖（防 Agent 旧快照回退页面新选择）
+        for (String key : PATCH_ALLOWED) {
+            if (!incoming.containsKey(key) || incoming.get(key) == null) {
+                continue;
+            }
+            if (serverNewer && hasServerValue(next, key)) {
+                continue;
+            }
+            applyField(next, key, incoming.get(key));
+        }
+
+        // ② 级联清理：改影片/影院/场次/座位 → 清空依赖与锁/单
+        // 用「合并后实际结果 next」与「服务端基线 current」比较，避免 serverNewer 跳过 incoming
+        // 时，被 Agent 旧快照误判为决策变更而级联清空服务端的新选择。
+        boolean movieChanged = !eq(current.getMovieId(), next.getMovieId());
+        boolean cinemaChanged = !eq(current.getCinemaId(), next.getCinemaId());
+        boolean showChanged = !eq(current.getShowId(), next.getShowId());
+        boolean seatChanged = !listEq(current.getSeatIds(), next.getSeatIds());
+
+        if (movieChanged) {
+            next.setCinemaId(null);
+            next.setShowId(null);
+            next.setSeatIds(new ArrayList<String>());
+            next.setLockId(null);
+            next.setOrderId(null);
+            next.setExpireAt(null);
+        } else if (cinemaChanged) {
+            next.setShowId(null);
+            next.setSeatIds(new ArrayList<String>());
+            next.setLockId(null);
+            next.setOrderId(null);
+            next.setExpireAt(null);
+        } else if (showChanged) {
+            next.setSeatIds(new ArrayList<String>());
+            next.setLockId(null);
+            next.setOrderId(null);
+            next.setExpireAt(null);
+        }
+
+        boolean progressInvalidated = movieChanged || cinemaChanged || showChanged || seatChanged;
+
+        // ③ 锁座/下单成果保护：决策未变时服务端非空优先、其次 incoming；决策已变则仅保留 incoming 明确成果
+        if (!progressInvalidated) {
+            if (StringUtils.hasText(current.getLockId())) {
+                next.setLockId(current.getLockId());
+            } else {
+                next.setLockId(emptyToNull(asString(incoming.get("lockId"))));
+            }
+            if (StringUtils.hasText(current.getOrderId())) {
+                next.setOrderId(current.getOrderId());
+            } else {
+                next.setOrderId(emptyToNull(asString(incoming.get("orderId"))));
+            }
+            if (StringUtils.hasText(current.getExpireAt())) {
+                next.setExpireAt(current.getExpireAt());
+            } else {
+                next.setExpireAt(emptyToNull(asString(incoming.get("expireAt"))));
+            }
+        } else {
+            next.setLockId(emptyToNull(asString(incoming.get("lockId"))));
+            next.setOrderId(emptyToNull(asString(incoming.get("orderId"))));
+            next.setExpireAt(emptyToNull(asString(incoming.get("expireAt"))));
+        }
+
+        // ④ source/state 收敛
+        if ("agent".equals(incoming.get("source"))) {
+            next.setSource("agent");
+        } else if (!StringUtils.hasText(next.getSource())) {
+            next.setSource("agent");
+        }
+        if (next.getCount() == null || next.getCount() < 1) {
+            next.setCount(1);
+        }
+        if (next.getCount() > 4) {
+            next.setCount(4);
+        }
+        if (next.getSeatIds() == null) {
+            next.setSeatIds(new ArrayList<String>());
+        }
+        next.setState(resolveState(next, null));
+
+        // ⑤ version = max + 1
+        next.setVersion(Math.max(serverVersion, inVer) + 1);
+        OffsetDateTime now = DateTimeFormats.now();
+        next.setUpdatedAt(DateTimeFormats.format(now));
+
+        AgentSession upd = toRow(next, row.getCreatedAt(), now);
+        int n = agentSessionMapper.updateCas(upd);
+        if (n == 0) {
+            // 并发写竞争：重读最新返回，调用方以返回值为准
+            return fromRow(agentSessionMapper.findById(sessionId));
         }
         return next;
     }
@@ -409,7 +527,7 @@ public class BookingDraftServiceImpl implements BookingDraftService {
         draft.setState(row.getState());
         draft.setVersion(row.getVersion());
         if (row.getUpdatedAt() != null) {
-            draft.setUpdatedAt(ISO.format(row.getUpdatedAt()));
+            draft.setUpdatedAt(DateTimeFormats.format(row.getUpdatedAt()));
         }
         if (draft.getCount() == null) {
             draft.setCount(1);
@@ -429,7 +547,7 @@ public class BookingDraftServiceImpl implements BookingDraftService {
                 .count(1)
                 .seatIds(new ArrayList<String>())
                 .version(0L)
-                .updatedAt(ISO.format(now))
+                .updatedAt(DateTimeFormats.format(now))
                 .build();
     }
 
@@ -505,6 +623,64 @@ public class BookingDraftServiceImpl implements BookingDraftService {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    private static Long asLong(Object v) {
+        if (v == null) {
+            return null;
+        }
+        if (v instanceof Number) {
+            return ((Number) v).longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(v));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static boolean listEq(List<String> a, List<String> b) {
+        if (a == b) {
+            return true;
+        }
+        if (a == null || b == null) {
+            return false;
+        }
+        if (a.size() != b.size()) {
+            return false;
+        }
+        return new LinkedHashSet<String>(a).equals(new LinkedHashSet<String>(b));
+    }
+
+    /** 服务端草稿某决策字段是否已有非空值（用于 serverNewer 时不覆盖）。 */
+    private boolean hasServerValue(BookingDraftVO d, String key) {
+        Object v = null;
+        if ("source".equals(key)) v = d.getSource();
+        else if ("state".equals(key)) v = d.getState();
+        else if ("intent".equals(key)) v = d.getIntent();
+        else if ("movieId".equals(key)) v = d.getMovieId();
+        else if ("filmTitle".equals(key)) v = d.getFilmTitle();
+        else if ("genre".equals(key)) v = d.getGenre();
+        else if ("date".equals(key)) v = d.getDate();
+        else if ("timeWindow".equals(key)) v = d.getTimeWindow();
+        else if ("lat".equals(key)) v = d.getLat();
+        else if ("lng".equals(key)) v = d.getLng();
+        else if ("cinemaId".equals(key)) v = d.getCinemaId();
+        else if ("showId".equals(key)) v = d.getShowId();
+        else if ("count".equals(key)) v = d.getCount();
+        else if ("seatIds".equals(key)) v = d.getSeatIds();
+        else if ("preferRow".equals(key)) v = d.getPreferRow();
+        else if ("preferSide".equals(key)) v = d.getPreferSide();
+        else if ("together".equals(key)) v = d.getTogether();
+        else if ("budgetMax".equals(key)) v = d.getBudgetMax();
+        else if ("listContext".equals(key)) v = d.getListContext();
+        if (v instanceof List) {
+            return !((List<?>) v).isEmpty();
+        }
+        if (v instanceof Map) {
+            return !((Map<?, ?>) v).isEmpty();
+        }
+        return StringUtils.hasText(asString(v));
     }
 
     private static BigDecimal asDecimal(Object v) {

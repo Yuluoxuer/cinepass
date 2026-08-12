@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.dto.ProfileUpdateDTO;
 import com.cinepass.security.LoginUser;
@@ -39,6 +40,7 @@ public class MeController {
     }
 
     /** 更新当前用户观影偏好 */
+    @RateLimit(key = "profile-update", permits = 20, windowSeconds = 60)
     @PutMapping("/profile")
     @LoginUser
     public Result<ProfileVO> updateProfile(@RequestBody ProfileUpdateDTO body) {

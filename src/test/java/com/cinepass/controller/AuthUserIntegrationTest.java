@@ -256,15 +256,18 @@ class AuthUserIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"account\":\"演示用户甲\",\"password\":\"wrong-password\"}"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value(401));
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("用户名或密码错误"));
     }
 
     @Test
-    void login_unknownAccount_shouldClientError() throws Exception {
+    void login_unknownAccount_shouldUnauthorizedWithUnifiedMessage() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"account\":\"no_such_user_xyz\",\"password\":\"password1\"}"))
-                .andExpect(status().is4xxClientError());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("用户名或密码错误"));
     }
 
     @Test

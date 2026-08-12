@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.dto.CreateLockDTO;
 import com.cinepass.security.LoginUser;
@@ -40,6 +41,7 @@ public class LockController {
     /**
      * 锁座；Header Idempotency-Key 可选——传入时同 key 重复请求返回首次结果（Redis 缓存 900s）
      */
+    @RateLimit(key = "lock", permits = 15, windowSeconds = 60)
     @PostMapping
     public Result<LockVO> create(
             @Valid @RequestBody CreateLockDTO dto,
@@ -55,6 +57,7 @@ public class LockController {
     }
 
     /** 释放锁座；幂等；可选 sessionId 清 Draft */
+    @RateLimit(key = "lock", permits = 15, windowSeconds = 60)
     @DeleteMapping("/{lockId}")
     @LoginUser
     public Result<UnlockResultVO> unlock(@PathVariable String lockId,

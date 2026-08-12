@@ -14,6 +14,7 @@ import com.cinepass.security.Roles;
 import com.cinepass.service.AuthService;
 import com.cinepass.service.AuthSessionService;
 import com.cinepass.util.PhoneMask;
+import com.cinepass.util.DateTimeFormats;
 import com.cinepass.util.UserIds;
 import com.cinepass.vo.AuthMeVO;
 import com.cinepass.vo.LoginVO;
@@ -55,14 +56,12 @@ public class AuthServiceImpl implements AuthService {
     public LoginVO login(LoginDTO dto) {
         String account = dto.getAccount().trim();
         UserAccount user = findByAccount(account);
-        if (user == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "账号不存在");
+        // 账号不存在与密码错误统一提示，避免据此枚举账号是否存在
+        if (user == null || !passwordEncoder.matches(dto.getPassword(), user.getPasswordHash())) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "用户名或密码错误");
         }
         if (user.getStatus() == null || user.getStatus() != 1) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "账号已禁用");
-        }
-        if (!passwordEncoder.matches(dto.getPassword(), user.getPasswordHash())) {
-            throw new BusinessException(ResultCode.UNAUTHORIZED, "密码错误");
         }
         return issueLogin(user);
     }
@@ -77,7 +76,7 @@ public class AuthServiceImpl implements AuthService {
         if (userAccountMapper.findByPhone(dto.getPhone()) != null) {
             throw new BusinessException(ResultCode.CONFLICT, "手机号已注册");
         }
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = DateTimeFormats.now();
         UserAccount user = new UserAccount();
         user.setUserId(UserIds.next());
         user.setNickname(dto.getNickname().trim());
@@ -110,13 +109,13 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(ResultCode.NOT_FOUND, "账号不存在");
         }
         if (!passwordEncoder.matches(dto.getOldPassword(), user.getPasswordHash())) {
-            throw new BusinessException(ResultCode.UNAUTHORIZED, "旧密码不正确");
+            throw new BusinessException(ResultCode.PASSWORD_WRONG);
         }
         if (dto.getOldPassword().equals(dto.getNewPassword())) {
-            throw new BusinessException(ResultCode.PARAM_ERROR, "新密码不能与旧密码相同");
+            throw new BusinessException(ResultCode.PASSWORD_SAME_AS_OLD);
         }
         user.setPasswordHash(passwordEncoder.encode(dto.getNewPassword()));
-        user.setUpdatedAt(OffsetDateTime.now());
+        user.setUpdatedAt(DateTimeFormats.now());
         userAccountMapper.update(user);
     }
 

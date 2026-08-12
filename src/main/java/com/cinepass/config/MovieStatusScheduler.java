@@ -48,19 +48,18 @@ public class MovieStatusScheduler {
 
     /** 单次扫描：翻转到期影片并逐个同步 ES（便于测试与手动触发） */
     public int runOnce(LocalDate today) {
-        // 查询所有到期待上架的影片ID
         List<String> dueIds = movieMapper.selectReleasedButComingSoon(today);
         if (dueIds == null || dueIds.isEmpty()) {
             return 0;
         }
-        // 批量翻转为热映状态
         int flipped = movieMapper.flipComingSoonToShowing(today);
-        // 逐个同步ES，记录失败数（由全量对账兜底）
         int esFailed = 0;
         for (String movieId : dueIds) {
             try {
                 esIndexService.syncMovie(movieId);
             } catch (Exception e) {
+                // 防御性兜底：生产实现 syncMovie 内部已吞异常并记 warn，此处仅防未来实现变化；
+                // 个别失败由 ElasticsearchIndexInitializer 周期全量对账收敛
                 esFailed++;
                 log.error("影片 {} 上架后同步 ES 失败: {}", movieId, e.getMessage(), e);
             }
@@ -68,8 +67,8 @@ public class MovieStatusScheduler {
         if (esFailed > 0) {
             log.warn("本次上架 {} 部影片，其中 {} 部 ES 同步失败（由周期全量对账收敛）", flipped, esFailed);
         }
-        // 状态变更影响推荐候选/新鲜度，失效共享底座缓存
         if (flipped > 0) {
+            // 状态变化会影响推荐候选/新鲜度，失效共享底座缓存
             eventPublisher.publishEvent(new MovieChangedEvent(dueIds.get(0)));
         }
         return flipped;

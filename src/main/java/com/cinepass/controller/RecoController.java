@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.dto.RecommendSeatsDTO;
 import com.cinepass.security.Public;
@@ -27,7 +28,7 @@ import javax.validation.Valid;
  * </pre>
  */
 @RestController
-@RequestMapping("/api/v1/reco")
+    @RequestMapping("/api/v1/reco")
 public class RecoController {
 
     private final SeatRecoService seatRecoService;
@@ -55,6 +56,7 @@ public class RecoController {
     }
 
     /** 智能选座；不锁座 */
+    @RateLimit(key = "reco-seats", permits = 15, windowSeconds = 60)
     @PostMapping("/seats")
     @Public
     public Result<SeatRecoResultVO> recommendSeats(@Valid @RequestBody RecommendSeatsDTO dto) {

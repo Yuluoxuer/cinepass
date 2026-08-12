@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.security.LoginUser;
 import com.cinepass.security.SecurityContext;
@@ -29,6 +30,7 @@ public class WantSeeController {
     }
 
     /** 将影片加入当前用户想看列表 */
+    @RateLimit(key = "wantsee", permits = 10, windowSeconds = 60)
     @PostMapping("/{movieId}/want-see")
     @LoginUser
     public Result<WantSeeVO> add(@PathVariable String movieId) {
@@ -36,6 +38,7 @@ public class WantSeeController {
     }
 
     /** 取消当前用户对该影片的想看 */
+    @RateLimit(key = "wantsee", permits = 10, windowSeconds = 60)
     @DeleteMapping("/{movieId}/want-see")
     @LoginUser
     public Result<WantSeeVO> remove(@PathVariable String movieId) {

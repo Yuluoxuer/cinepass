@@ -24,10 +24,18 @@ public enum ResultCode {
     UNAUTHORIZED_TOKEN(40101, "未认证或令牌无效"),
     FORBIDDEN_PERMISSION(40301, "权限不足"),
 
+    /** 旧密码校验失败（不用 401，避免被前端按「登录已过期」统一翻译掩盖真实原因） */
+    PASSWORD_WRONG(4201, "旧密码不正确"),
+    /** 新密码与旧密码相同 */
+    PASSWORD_SAME_AS_OLD(4202, "新密码不能与旧密码相同"),
+
     LOCK_EXPIRED(4101, "锁座已失效或不可用"),
     ORDER_NOT_CANCELLABLE(4102, "订单不可取消"),
     ORDER_NOT_PAYABLE(4103, "订单不可支付"),
     ORDER_NOT_REDEEMABLE(4104, "订单不可核销"),
+
+    /** 场次已开场（开场时间已过），禁止锁座/下单/支付（系分 errorCode=SHOW_STARTED） */
+    SHOW_STARTED(4108, "场次已开场，无法购票"),
 
     /** 支付二维码 payToken 验签失败或与订单不匹配（系分 errorCode=PAY_TOKEN_INVALID） */
     PAY_TOKEN_INVALID(4105, "支付令牌无效"),
@@ -49,6 +57,9 @@ public enum ResultCode {
 
     /** 情侣座须成对选择（系分 errorCode=COUPLE_RULE） */
     COUPLE_RULE(-1, "couple seats must be selected together"),
+
+    /** 请求频率超限 */
+    TOO_MANY_REQUESTS(429, "请求过于频繁，请稍后再试"),
 
     /** 座位不属于该场次座位图（系分 errorCode=SEAT_INVALID） */
     SEAT_INVALID(-1, "seat does not belong to show"),

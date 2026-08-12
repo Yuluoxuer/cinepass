@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.dto.AdminUserCreateDTO;
 import com.cinepass.dto.AdminUserUpdateDTO;
@@ -48,12 +49,14 @@ public class AdminUserController {
     }
 
     /** 创建用户（含角色）。 */
+    @RateLimit(key = "admin-user", permits = 10, windowSeconds = 60)
     @PostMapping
     public Result<AdminUserVO> create(@Valid @RequestBody AdminUserCreateDTO body) {
         return Result.success(adminUserService.create(body));
     }
 
     /** 更新用户资料 / 角色 / 状态 / 密码（字段可选）。 */
+    @RateLimit(key = "admin-user", permits = 10, windowSeconds = 60)
     @PutMapping("/{userId}")
     public Result<AdminUserVO> update(@PathVariable String userId,
                                       @RequestBody AdminUserUpdateDTO body) {

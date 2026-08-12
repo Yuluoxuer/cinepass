@@ -4,6 +4,7 @@ import com.cinepass.dto.MovieCreateDTO;
 import com.cinepass.mapper.MovieMapper;
 import com.cinepass.mapper.RecoClickMapper;
 import com.cinepass.mapper.ShowMapper;
+import com.cinepass.mapper.TagMapper;
 import com.cinepass.model.Movie;
 import com.cinepass.service.EsIndexService;
 import com.cinepass.service.EsSearchService;
@@ -31,6 +32,7 @@ class MovieServiceImplTest {
         EsSearchService esSearchService = mock(EsSearchService.class);
         EsIndexService esIndexService = mock(EsIndexService.class);
         RecoClickMapper recoClickMapper = mock(RecoClickMapper.class);
+        TagMapper tagMapper = mock(TagMapper.class);
         when(movieMapper.selectById(anyString())).thenAnswer(invocation -> {
             Movie movie = new Movie();
             movie.setMovieId(invocation.getArgument(0));
@@ -45,7 +47,7 @@ class MovieServiceImplTest {
         });
 
         MovieServiceImpl service = new MovieServiceImpl(
-                movieMapper, showMapper, esSearchService, esIndexService, recoClickMapper);
+                movieMapper, showMapper, esSearchService, esIndexService, recoClickMapper, tagMapper);
         MovieCreateDTO dto = new MovieCreateDTO();
         dto.setTitle("测试影片");
         dto.setPosterUrl("https://example.com/poster.jpg");

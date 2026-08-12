@@ -110,6 +110,14 @@ public class GlobalExceptionHandler {
                 .body(Result.fail(ResultCode.NOT_FOUND));
     }
 
+    @ExceptionHandler(RateLimitException.class)
+    public ResponseEntity<Result<Void>> handleRateLimit(RateLimitException e) {
+        log.warn("Rate limit exceeded: {}", e.getMessage());
+        return ResponseEntity
+                .status(ResultCode.TOO_MANY_REQUESTS.getCode())
+                .body(Result.fail(ResultCode.TOO_MANY_REQUESTS.getCode(), e.getMessage()));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Result<Void>> handleAccessDenied(AccessDeniedException e) {
         log.warn("Access denied: {}", e.getMessage());

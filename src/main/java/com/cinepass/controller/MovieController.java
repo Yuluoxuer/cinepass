@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.service.MovieService;
 import com.cinepass.vo.MovieVO;
@@ -38,6 +39,7 @@ public class MovieController {
      * 可按 status（hot_showing/coming_soon/off）和 genre 筛选。
      */
     @ApiOperation("搜索/筛选影片（q 走 ES 全文检索，可选 status/genre 过滤）")
+    @RateLimit(key = "movies-list", permits = 120, windowSeconds = 60)
     @GetMapping
     @Public
     public Result<PageResult<MovieVO>> page(

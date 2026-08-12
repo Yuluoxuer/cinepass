@@ -15,6 +15,17 @@ CREATE TABLE IF NOT EXISTS user_account (
   CONSTRAINT uk_user_phone UNIQUE (phone)
 );
 
+CREATE TABLE IF NOT EXISTS auth_refresh_session (
+  sid          VARCHAR(64)    NOT NULL,
+  user_id      VARCHAR(40)    NOT NULL,
+  role         VARCHAR(16)    NOT NULL,
+  refresh_jti  VARCHAR(64)    NOT NULL,
+  expire_at    TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at   TIMESTAMP WITH TIME ZONE NOT NULL,
+  updated_at   TIMESTAMP WITH TIME ZONE NOT NULL,
+  PRIMARY KEY (sid)
+);
+
 CREATE TABLE IF NOT EXISTS user_profile (
   user_id             VARCHAR(40)    NOT NULL,
   prefer_genres_json  VARCHAR(2048)  NOT NULL,
@@ -22,6 +33,14 @@ CREATE TABLE IF NOT EXISTS user_profile (
   prefer_side         VARCHAR(16)    NULL,
   updated_at          TIMESTAMP WITH TIME ZONE NOT NULL,
   PRIMARY KEY (user_id)
+);
+
+CREATE TABLE IF NOT EXISTS tag (
+  tag_id       VARCHAR(32)    NOT NULL,
+  name         VARCHAR(32)    NOT NULL,
+  created_at   TIMESTAMP WITH TIME ZONE NOT NULL,
+  PRIMARY KEY (tag_id),
+  CONSTRAINT uk_tag_name UNIQUE (name)
 );
 
 CREATE TABLE IF NOT EXISTS movie (

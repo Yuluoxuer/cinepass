@@ -29,9 +29,10 @@
                s.hall_id AS hallId, s.seat_map_id AS seatMapId,
                s.start_time AS startTime, s.end_time AS endTime,
                s.price, s.status, s.created_at AS createdAt, s.updated_at AS updatedAt,
-               h.name AS hallName
+               h.name AS hallName, m.title AS movieTitle
         FROM show_schedule s
         LEFT JOIN hall h ON h.hall_id = s.hall_id
+        LEFT JOIN movie m ON m.movie_id = s.movie_id
         WHERE s.cinema_id = #{cinemaId}
           AND s.movie_id = #{movieId}
           AND s.start_time::date = TO_DATE(#{date}, 'YYYY-MM-DD')
@@ -43,9 +44,10 @@
                s.hall_id AS hallId, s.seat_map_id AS seatMapId,
                s.start_time AS startTime, s.end_time AS endTime,
                s.price, s.status, s.created_at AS createdAt, s.updated_at AS updatedAt,
-               h.name AS hallName
+               h.name AS hallName, m.title AS movieTitle
         FROM show_schedule s
         LEFT JOIN hall h ON h.hall_id = s.hall_id
+        LEFT JOIN movie m ON m.movie_id = s.movie_id
         WHERE s.cinema_id = #{cinemaId}
           AND s.movie_id = #{movieId}
           AND CAST(s.start_time AS DATE) = CAST(#{date} AS DATE)
@@ -58,13 +60,17 @@
                s.hall_id AS hallId, s.seat_map_id AS seatMapId,
                s.start_time AS startTime, s.end_time AS endTime,
                s.price, s.status, s.created_at AS createdAt, s.updated_at AS updatedAt,
-               h.name AS hallName
+               h.name AS hallName, m.title AS movieTitle
         FROM show_schedule s
         LEFT JOIN hall h ON h.hall_id = s.hall_id
+        LEFT JOIN movie m ON m.movie_id = s.movie_id
         WHERE s.cinema_id = #{cinemaId}
           AND s.status IN ('on_sale', 'cancelled')
           <if test="movieId != null and movieId != ''">
               AND s.movie_id = #{movieId}
+          </if>
+          <if test="after != null">
+              AND s.start_time >= #{after}
           </if>
         ORDER BY s.start_time ASC
     </select>
@@ -73,13 +79,17 @@
                s.hall_id AS hallId, s.seat_map_id AS seatMapId,
                s.start_time AS startTime, s.end_time AS endTime,
                s.price, s.status, s.created_at AS createdAt, s.updated_at AS updatedAt,
-               h.name AS hallName
+               h.name AS hallName, m.title AS movieTitle
         FROM show_schedule s
         LEFT JOIN hall h ON h.hall_id = s.hall_id
+        LEFT JOIN movie m ON m.movie_id = s.movie_id
         WHERE s.cinema_id = #{cinemaId}
           AND s.status IN ('on_sale', 'cancelled')
           <if test="movieId != null and movieId != ''">
               AND s.movie_id = #{movieId}
+          </if>
+          <if test="after != null">
+              AND s.start_time >= #{after}
           </if>
         ORDER BY s.start_time ASC
     </select>
@@ -108,29 +118,33 @@
         GROUP BY s.movie_id
     </select>
 
+    <!--
+      同厅冲突：两场区间各外扩 20 分钟清场缓冲后仍相交则冲突。
+      改期时用 excludeShowId 排除自身；新建时不传或传 null。
+    -->
     <select id="findOverlapping" databaseId="postgresql" resultType="com.cinepass.model.ShowSchedule">
-        <![CDATA[
         SELECT show_id AS showId, hall_id AS hallId,
                start_time AS startTime, end_time AS endTime, status
         FROM show_schedule
         WHERE hall_id = #{hallId}
-          AND status <> 'cancelled'
-          AND show_id <> COALESCE(NULLIF(#{excludeShowId}, ''), '')
-          AND start_time < (#{endTime} + INTERVAL '20 minutes')
-          AND (end_time + INTERVAL '20 minutes') > #{startTime}
-        ]]>
+          AND status &lt;&gt; 'cancelled'
+          <if test="excludeShowId != null and excludeShowId != ''">
+              AND show_id &lt;&gt; #{excludeShowId}
+          </if>
+          AND start_time &lt; (#{endTime} + INTERVAL '20 minutes')
+          AND (end_time + INTERVAL '20 minutes') &gt; #{startTime}
     </select>
     <select id="findOverlapping" resultType="com.cinepass.model.ShowSchedule">
-        <![CDATA[
         SELECT show_id AS showId, hall_id AS hallId,
                start_time AS startTime, end_time AS endTime, status
         FROM show_schedule
         WHERE hall_id = #{hallId}
-          AND status <> 'cancelled'
-          AND show_id <> COALESCE(NULLIF(#{excludeShowId}, ''), '')
-          AND start_time < DATEADD('MINUTE', 20, #{endTime})
-          AND DATEADD('MINUTE', 20, end_time) > #{startTime}
-        ]]>
+          AND status &lt;&gt; 'cancelled'
+          <if test="excludeShowId != null and excludeShowId != ''">
+              AND show_id &lt;&gt; #{excludeShowId}
+          </if>
+          AND start_time &lt; DATEADD('MINUTE', 20, #{endTime})
+          AND DATEADD('MINUTE', 20, end_time) &gt; #{startTime}
     </select>
 
     <insert id="insert" databaseId="postgresql" parameterType="com.cinepass.model.ShowSchedule">
@@ -198,5 +212,42 @@
           <if test="cinemaId != null and cinemaId != ''">
               AND cinema_id = #{cinemaId}
           </if>
+    </select>
+
+    <!-- 下架前置校验：该影片未来仍在售的场次数 -->
+    <select id="countOnSaleByMovie" resultType="long">
+        SELECT COUNT(1) FROM show_schedule
+        WHERE movie_id = #{movieId}
+          AND status = 'on_sale'
+          AND start_time &gt; #{now}
+    </select>
+    <!-- 按时间段查有场次的电影（distinct movieId + 最早开场时间），分页 -->
+    <select id="listMoviesByTimeRange" resultType="com.cinepass.model.ShowSchedule">
+        <![CDATA[
+        SELECT s.movie_id AS movieId, MIN(s.start_time) AS startTime
+        FROM show_schedule s
+        WHERE s.start_time >= #{startTime}
+          AND s.start_time < #{endTime}
+          AND s.status = 'on_sale'
+        ]]>
+        <if test="cinemaId != null and cinemaId != ''">
+            AND s.cinema_id = #{cinemaId}
+        </if>
+        GROUP BY s.movie_id
+        ORDER BY MIN(s.start_time) ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countMoviesByTimeRange" resultType="long">
+        <![CDATA[
+        SELECT COUNT(DISTINCT s.movie_id)
+        FROM show_schedule s
+        WHERE s.start_time >= #{startTime}
+          AND s.start_time < #{endTime}
+          AND s.status = 'on_sale'
+        ]]>
+        <if test="cinemaId != null and cinemaId != ''">
+            AND s.cinema_id = #{cinemaId}
+        </if>
     </select>
 </mapper>

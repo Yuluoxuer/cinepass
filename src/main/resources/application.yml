@@ -9,8 +9,10 @@ spring:
       max-request-size: 10MB
 
   jackson:
-    date-format: yyyy-MM-dd HH:mm:ss
-    time-zone: GMT+8
+    # 瞬时走 ISO-8601（见 JacksonConfig / DateTimeFormats）；勿用无偏移的 yyyy-MM-dd HH:mm:ss
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: Asia/Shanghai
     default-property-inclusion: non_null
 
   redis:
@@ -54,6 +56,12 @@ ticket:
   # 待支付订单超时清扫：默认开启，每 30s 扫一次（DB expire_at 为权威截止）
   expire-scan-enabled: ${TICKET_EXPIRE_SCAN_ENABLED:true}
   expire-scan-interval-ms: ${TICKET_EXPIRE_SCAN_INTERVAL_MS:30000}
+  # 到上映日自动上架：默认开启，每 30 分钟扫一次（release_date<=今天 的 coming_soon → hot_showing，条件相对日期、幂等可补扫）
+  movie-status-scan-enabled: ${TICKET_MOVIE_STATUS_SCAN_ENABLED:true}
+  movie-status-scan-interval-ms: ${TICKET_MOVIE_STATUS_SCAN_INTERVAL_MS:1800000}
+  # 推荐共享底座缓存：物理 TTL（默认 10 分钟）；未命中用 Redisson RLock 单飞重载，输家短等后重读
+  reco-cache-enabled: ${TICKET_RECO_CACHE_ENABLED:true}
+  reco-cache-ttl-seconds: ${TICKET_RECO_CACHE_TTL_SECONDS:600}
 
 # ============ Knife4j 配置 ============
 knife4j:

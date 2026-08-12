@@ -27,6 +27,7 @@ import com.cinepass.service.CinemaService;
 import com.cinepass.service.EsIndexService;
 import com.cinepass.service.EsSearchService;
 import com.cinepass.util.CinemaIds;
+import com.cinepass.util.DateTimeFormats;
 import com.cinepass.vo.CinemaVO;
 import com.cinepass.vo.HallVO;
 import com.cinepass.vo.PageResult;
@@ -229,13 +230,17 @@ public class CinemaServiceImpl implements CinemaService {
         cinema.setCityId(StringUtils.hasText(dto.getCityId()) ? dto.getCityId().trim() : "city_sh");
         cinema.setCityName(dto.getCityName().trim());
         cinema.setName(dto.getName().trim());
+        if (cinemaMapper.countActiveByName(cinema.getName(), null) > 0) {
+            throw new BusinessException(ResultCode.CONFLICT,
+                    "已存在同名影院《" + cinema.getName() + "》，请检查是否重复添加");
+        }
         cinema.setAddress(dto.getAddress().trim());
         cinema.setLat(dto.getLat());
         cinema.setLng(dto.getLng());
         cinema.setTrafficNote(trimToNull(dto.getTrafficNote()));
         cinema.setTagsJson(toTagsJson(dto.getTags()));
-        cinema.setCreatedAt(OffsetDateTime.now());
-        cinema.setUpdatedAt(OffsetDateTime.now());
+        cinema.setCreatedAt(DateTimeFormats.now());
+        cinema.setUpdatedAt(DateTimeFormats.now());
         cinemaMapper.insert(cinema);
         esIndexService.syncCinema(cinema.getCinemaId());
         return toCinemaVO(cinema, true);
@@ -248,13 +253,20 @@ public class CinemaServiceImpl implements CinemaService {
         Cinema cinema = requireCinema(cinemaId);
         if (dto.getCityId() != null) cinema.setCityId(dto.getCityId().trim());
         if (dto.getCityName() != null) cinema.setCityName(dto.getCityName().trim());
-        if (dto.getName() != null) cinema.setName(dto.getName().trim());
+        if (dto.getName() != null) {
+            String newName = dto.getName().trim();
+            if (cinemaMapper.countActiveByName(newName, cinemaId) > 0) {
+                throw new BusinessException(ResultCode.CONFLICT,
+                        "已存在同名影院《" + newName + "》，请检查是否重复添加");
+            }
+            cinema.setName(newName);
+        }
         if (dto.getAddress() != null) cinema.setAddress(dto.getAddress().trim());
         if (dto.getLat() != null) cinema.setLat(dto.getLat());
         if (dto.getLng() != null) cinema.setLng(dto.getLng());
         if (dto.getTrafficNote() != null) cinema.setTrafficNote(trimToNull(dto.getTrafficNote()));
         if (dto.getTags() != null) cinema.setTagsJson(toTagsJson(dto.getTags()));
-        cinema.setUpdatedAt(OffsetDateTime.now());
+        cinema.setUpdatedAt(DateTimeFormats.now());
         cinemaMapper.update(cinema);
         esIndexService.syncCinema(cinemaId);
         return toCinemaVO(cinema, true);

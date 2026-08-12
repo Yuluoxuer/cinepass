@@ -21,9 +21,10 @@ public interface ShowMapper {
                                               @Param("movieId") String movieId,
                                               @Param("date") String date);
 
-    /** 影院+影片全部场次 */
+    /** 影院+影片全部场次；after 不为空时只返回开场时间 >= after 的场次 */
     List<ShowSchedule> listByMovieCinema(@Param("cinemaId") String cinemaId,
-                                          @Param("movieId") String movieId);
+                                          @Param("movieId") String movieId,
+                                          @Param("after") OffsetDateTime after);
 
     /**
      * 影院在 {@code after} 之后仍有 on_sale 场次的影片：每片取最早一场。
@@ -74,4 +75,21 @@ public interface ShowMapper {
 
     /** 统计某日 on_sale 场次数；cinemaId 为空时全量 */
     long countOnSaleByDate(@Param("date") String date, @Param("cinemaId") String cinemaId);
+
+    /** 该影片 {@code now} 之后仍在售（on_sale）的场次数，下架前置校验用 */
+    long countOnSaleByMovie(@Param("movieId") String movieId, @Param("now") OffsetDateTime now);
+    /**
+     * 按时间段查询有 on_sale 场次的电影 ID 及最早开场时间。
+     * cinemaId 为空时不限制影院。按最早开场时间升序，分页。
+     */
+    List<ShowSchedule> listMoviesByTimeRange(@Param("startTime") OffsetDateTime startTime,
+                                             @Param("endTime") OffsetDateTime endTime,
+                                             @Param("cinemaId") String cinemaId,
+                                             @Param("offset") int offset,
+                                             @Param("limit") int limit);
+
+    /** 时间段内有 on_sale 场次的电影数量；cinemaId 为空时不限制影院 */
+    long countMoviesByTimeRange(@Param("startTime") OffsetDateTime startTime,
+                                @Param("endTime") OffsetDateTime endTime,
+                                @Param("cinemaId") String cinemaId);
 }

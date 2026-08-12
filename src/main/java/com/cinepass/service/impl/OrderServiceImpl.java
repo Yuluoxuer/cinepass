@@ -23,6 +23,7 @@ import com.cinepass.security.Roles;
 import com.cinepass.security.SecurityContext;
 import com.cinepass.service.OrderService;
 import com.cinepass.util.OrderIds;
+import com.cinepass.util.DateTimeFormats;
 import com.cinepass.vo.OrderVO;
 import com.cinepass.vo.PageResult;
 import com.cinepass.vo.SeatPriceSnapshotVO;
@@ -51,8 +52,6 @@ import java.util.Set;
  */
 @Service
 public class OrderServiceImpl implements OrderService {
-
-    private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     private final OrderTicketMapper orderTicketMapper;
     private final SeatLockMapper seatLockMapper;
@@ -87,7 +86,7 @@ public class OrderServiceImpl implements OrderService {
         if (!userId.equals(lock.getUserId())) {
             throw new BusinessException(ResultCode.FORBIDDEN_PERMISSION, "锁座不属于当前用户");
         }
-        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.ofHours(8));
+        OffsetDateTime now = DateTimeFormats.now();
         if (!LockStatus.ACTIVE.equals(lock.getStatus())
                 || lock.getExpireAt() == null
                 || !lock.getExpireAt().isAfter(now)) {
@@ -103,6 +102,10 @@ public class OrderServiceImpl implements OrderService {
         ShowSnapshot snap = showScheduleMapper.findSnapshot(lock.getShowId());
         if (snap == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "场次不存在");
+        }
+        // 二次防线：开场时间已过仍拒绝下单（锁座后到下单间可能跨过开场时间）
+        if (snap.getStartTime() != null && !snap.getStartTime().isAfter(now)) {
+            throw new BusinessException(ResultCode.SHOW_STARTED, "场次已开场，无法购票");
         }
 
         List<String> seatIds = parseSeatIds(lock.getSeatIdsJson());
@@ -239,6 +242,14 @@ public class OrderServiceImpl implements OrderService {
         // 锁座与座位一并释放；markExpired/releaseByLockId 只影响 active/locked，幂等安全
         seatLockMapper.markExpired(order.getLockId());
         seatStatusMapper.releaseByLockId(order.getLockId());
+    }
+
+    /** 电影结束未使用清扫：仅 issued 命中置为 expired；座位支付时已售出，无需释放 */
+    @Override
+    @Transactional
+    public void expireUnusedOrder(String orderId) {
+        // 条件更新：仅 issued 命中，避免误动已核销/已取消/待支付订单
+        orderTicketMapper.updateExpiredUnused(orderId);
     }
 
     /** 运营协助查单：admin 全量；staff 仅本影院场次订单 */
@@ -395,7 +406,7 @@ public class OrderServiceImpl implements OrderService {
 
     /** OffsetDateTime → ISO-8601 字符串；null 保持 null */
     private String format(OffsetDateTime t) {
-        return t == null ? null : ISO.format(t);
+        return t == null ? null : DateTimeFormats.format(t);
     }
 
     /** page&lt;1 时回落为 1 */

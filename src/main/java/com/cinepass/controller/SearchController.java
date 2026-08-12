@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.security.Public;
 import com.cinepass.service.EsSearchService;
@@ -31,6 +32,7 @@ public class SearchController {
 
     /** 搜索联想：根据输入前缀返回候选词列表，静默失败时返回空数组 */
     @ApiOperation("搜索联想（ES Completion Suggester）")
+    @RateLimit(key = "search", permits = 60, windowSeconds = 60)
     @GetMapping("/suggestions")
     @Public
     public Result<List<String>> suggest(

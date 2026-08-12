@@ -17,9 +17,11 @@ import com.cinepass.service.BookingDraftService;
 import com.cinepass.service.LockService;
 import com.cinepass.service.SeatInventoryService;
 import com.cinepass.util.LockIds;
+import com.cinepass.util.DateTimeFormats;
 import com.cinepass.util.RedisUtil;
 import com.cinepass.vo.LockVO;
 import com.cinepass.vo.UnlockResultVO;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,11 +44,9 @@ import java.util.Set;
  * <p>行锁 seat_status；过期 locked 先释放再占；可选回写 Draft。
  * <p>幂等：传入 idempotencyKey 时，同 key 重复请求从 Redis 返回首次结果（TTL=锁座最大 TTL）。
  */
+@Slf4j
 @Service
 public class LockServiceImpl implements LockService {
-
-    private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-    private static final ZoneOffset TZ = ZoneOffset.ofHours(8);
     private static final int DEFAULT_TTL = 900;
     private static final int MIN_TTL = 60;
     private static final int MAX_TTL = 900;
@@ -83,7 +83,13 @@ public class LockServiceImpl implements LockService {
         // 幂等检查：同 idempotencyKey 的重复请求直接返回首次结果
         if (StringUtils.hasText(idempotencyKey) && redisUtil != null) {
             String cacheKey = IDEMPOTENCY_PREFIX + idempotencyKey.trim();
-            Object cached = redisUtil.get(cacheKey);
+            Object cached = null;
+            try {
+                cached = redisUtil.get(cacheKey);
+            } catch (Exception e) {
+                // Redis 不可用（未配置/故障/mock 未打桩）：降级跳过幂等去重，不影响锁座主流程
+                log.warn("读幂等缓存失败，跳过幂等去重: {}", e.getMessage());
+            }
             if (cached instanceof String) {
                 LockVO cachedVo = JSON.parseObject((String) cached, LockVO.class);
                 if (cachedVo != null && cachedVo.getLockId() != null) {
@@ -108,6 +114,10 @@ public class LockServiceImpl implements LockService {
         if (show == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "场次不存在");
         }
+        // 开场时间已过则禁止锁座，避免开演后仍可购票（系分：锁座/下单/支付统一在开场前）
+        if (show.getStartTime() != null && !show.getStartTime().isAfter(DateTimeFormats.now())) {
+            throw new BusinessException(ResultCode.SHOW_STARTED, "场次已开场，无法购票");
+        }
 
         List<Seat> seats = seatMapper.selectBySeatIds(show.getSeatMapId(), seatIds);
         if (seats == null || seats.size() != seatIds.size()) {
@@ -125,7 +135,7 @@ public class LockServiceImpl implements LockService {
         List<String> orderedIds = new ArrayList<String>(seatIds);
         Collections.sort(orderedIds);
 
-        OffsetDateTime now = OffsetDateTime.now(TZ);
+        OffsetDateTime now = DateTimeFormats.now();
         seatStatusMapper.releaseExpired(showId, orderedIds, now);
 
         List<SeatStatus> lockedRows = seatStatusMapper.selectForUpdate(showId, orderedIds);
@@ -182,7 +192,7 @@ public class LockServiceImpl implements LockService {
         }
 
         if (sessionId != null) {
-            bookingDraftService.bindLock(sessionId, lockId, seatIds, ISO.format(expireAt), userId);
+            bookingDraftService.bindLock(sessionId, lockId, seatIds, DateTimeFormats.format(expireAt), userId);
         }
 
         LockVO vo = toVo(lock, seatIds);
@@ -229,7 +239,7 @@ public class LockServiceImpl implements LockService {
             return UnlockResultVO.builder().lockId(lockId).released(Boolean.TRUE).build();
         }
 
-        OffsetDateTime now = OffsetDateTime.now(TZ);
+        OffsetDateTime now = DateTimeFormats.now();
         if (lock.getExpireAt() != null && !lock.getExpireAt().isAfter(now)) {
             seatLockMapper.markExpired(lockId);
             seatStatusMapper.releaseByLockId(lockId);
@@ -330,7 +340,7 @@ public class LockServiceImpl implements LockService {
                 .showId(lock.getShowId())
                 .seatIds(seatIds)
                 .userId(lock.getUserId())
-                .expireAt(lock.getExpireAt() == null ? null : ISO.format(lock.getExpireAt()))
+                .expireAt(lock.getExpireAt() == null ? null : DateTimeFormats.format(lock.getExpireAt()))
                 .ttlSeconds(lock.getTtlSeconds())
                 .status(lock.getStatus())
                 .build();

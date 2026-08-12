@@ -16,14 +16,18 @@ import com.cinepass.service.SeatInventoryService;
 import com.cinepass.vo.SeatVO;
 import com.cinepass.vo.ShowSeatMapVO;
 import com.cinepass.vo.ShowVO;
+import com.cinepass.util.DateTimeFormats;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -54,7 +58,6 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
         this.showZonePriceMapper = showZonePriceMapper;
     }
 
-    // 幂等初始化场次座位状态：已有状态记录则跳过，无则按座位图模板的default_status批量插入
     @Override
     @Transactional
     public void ensureSeatStatus(String showId, String seatMapId) {
@@ -74,6 +77,7 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
             SeatStatus ss = new SeatStatus();
             ss.setShowId(showId);
             ss.setSeatId(seat.getSeatId());
+            // default_status=unavailable → 不可选；其余视为可售
             if ("unavailable".equals(seat.getDefaultStatus())) {
                 ss.setStatus("unavailable");
             } else {
@@ -84,7 +88,6 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
         seatStatusMapper.batchInsert(rows);
     }
 
-    // 获取场次座位图完整数据：释放过期锁→查询座位图/座位/状态→组装SeatVO（含分区价解析）→构建ShowSeatMapVO
     @Override
     @Transactional
     public ShowSeatMapVO getShowSeatMap(String showId) {
@@ -95,11 +98,11 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
         if (show == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "场次不存在");
         }
-        // 幂等初始化座位状态，并释放已过期的锁
         ensureSeatStatus(show.getShowId(), show.getSeatMapId());
-        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.ofHours(8));
+        // 读图前释放已过期锁，避免 UI 永久显示 locked
+        java.time.OffsetDateTime now = DateTimeFormats.now();
         seatStatusMapper.releaseExpiredByShow(show.getShowId(), now);
-        // 加载座位图模板、物理座位、实时状态
+
         SeatMap seatMap = seatMapMapper.selectById(show.getSeatMapId());
         List<Seat> seats = seatMapper.selectBySeatMapId(show.getSeatMapId());
         List<SeatStatus> statuses = seatStatusMapper.selectByShowId(show.getShowId());
@@ -109,11 +112,11 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
                 statusMap.put(ss.getSeatId(), ss);
             }
         }
-        // 加载分区价格并转换为基础价+分区价列表
+
         Map<String, BigDecimal> zonePriceMap = loadZonePriceMap(show.getShowId());
         BigDecimal basePrice = show.getPrice() != null ? show.getPrice() : BigDecimal.ZERO;
         List<ShowVO.ZonePriceVO> zonePrices = toZonePriceVos(zonePriceMap, basePrice);
-        // 组装每个座位的VO：状态（含过期锁兜底修正）+ 分区价解析
+
         List<SeatVO> seatVos = new ArrayList<SeatVO>();
         if (seats != null) {
             for (Seat seat : seats) {
@@ -142,7 +145,7 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
                         .build());
             }
         }
-        // 构建图例（保持顺序）
+
         Map<String, String> legend = new LinkedHashMap<String, String>();
         legend.put("available", "可选");
         legend.put("locked", "锁定中");
@@ -163,7 +166,6 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
                 .build();
     }
 
-    // 加载场次→分区价格映射：分区名去空格+小写标准化为键
     private Map<String, BigDecimal> loadZonePriceMap(String showId) {
         Map<String, BigDecimal> map = new HashMap<String, BigDecimal>();
         List<ShowZonePrice> rows = showZonePriceMapper.selectByShowId(showId);
@@ -179,7 +181,6 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
         return map;
     }
 
-    // 解析座位价格：有分区匹配则用分区价，无则用基础价
     private BigDecimal resolveSeatPrice(String zone, Map<String, BigDecimal> zonePriceMap, BigDecimal basePrice) {
         if (!StringUtils.hasText(zone)) {
             return basePrice;
@@ -192,7 +193,6 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
         return basePrice;
     }
 
-    // 分区价格Map→VO列表：按字母序排序保证前端展示一致
     private List<ShowVO.ZonePriceVO> toZonePriceVos(Map<String, BigDecimal> zonePriceMap, BigDecimal basePrice) {
         if (zonePriceMap == null || zonePriceMap.isEmpty()) {
             return Collections.emptyList();

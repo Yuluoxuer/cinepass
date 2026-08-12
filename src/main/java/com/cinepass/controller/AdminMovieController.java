@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.cache.MovieChangedEvent;
 import com.cinepass.common.Result;
 import com.cinepass.dto.MovieCreateDTO;
@@ -32,30 +33,34 @@ public class AdminMovieController {
     private final MovieService movieService;
     private final ApplicationEventPublisher eventPublisher;
 
-    public AdminMovieController(MovieService movieService,
-                                ApplicationEventPublisher eventPublisher) {
+    public AdminMovieController(MovieService movieService, ApplicationEventPublisher eventPublisher) {
         this.movieService = movieService;
         this.eventPublisher = eventPublisher;
     }
 
-    /** 新建影片，创建后失效推荐底座缓存 */
+    /** 新建影片 */
+    @RateLimit(key = "admin-movie", permits = 20, windowSeconds = 60)
     @PostMapping
     public Result<MovieVO> create(@Valid @RequestBody MovieCreateDTO body) {
         MovieVO vo = movieService.create(body);
+        // 新片进入候选集，失效推荐底座缓存
         eventPublisher.publishEvent(new MovieChangedEvent(vo.getMovieId()));
         return Result.success(vo);
     }
 
-    /** 部分更新影片，变更后失效推荐底座缓存 */
+    /** 部分更新影片 */
+    @RateLimit(key = "admin-movie", permits = 20, windowSeconds = 60)
     @PutMapping("/{movieId}")
     public Result<MovieVO> update(@PathVariable String movieId,
                                   @Valid @RequestBody MovieUpdateDTO body) {
         MovieVO vo = movieService.update(movieId, body);
+        // 评分/类型/状态变化会影响推荐打分与候选集，失效推荐底座缓存
         eventPublisher.publishEvent(new MovieChangedEvent(movieId));
         return Result.success(vo);
     }
 
     /** 下架：校验该影片未来无在售场次；有则返回冲突提示 */
+    @RateLimit(key = "admin-movie", permits = 20, windowSeconds = 60)
     @PostMapping("/{movieId}/take-down")
     public Result<MovieVO> takeDown(@PathVariable String movieId) {
         MovieVO vo = movieService.takeDown(movieId);
@@ -64,6 +69,7 @@ public class AdminMovieController {
     }
 
     /** 上架：按上映日期自动推导为热映或待映 */
+    @RateLimit(key = "admin-movie", permits = 20, windowSeconds = 60)
     @PostMapping("/{movieId}/relist")
     public Result<MovieVO> relist(@PathVariable String movieId) {
         MovieVO vo = movieService.relist(movieId);

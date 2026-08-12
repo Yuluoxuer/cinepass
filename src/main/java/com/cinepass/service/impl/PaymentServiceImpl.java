@@ -10,9 +10,12 @@ import com.cinepass.dto.PayDTO;
 import com.cinepass.mapper.OrderTicketMapper;
 import com.cinepass.mapper.SeatLockMapper;
 import com.cinepass.mapper.SeatStatusMapper;
+import com.cinepass.mapper.ShowMapper;
 import com.cinepass.model.OrderTicket;
+import com.cinepass.model.ShowSchedule;
 import com.cinepass.service.PaymentService;
 import com.cinepass.util.PayTokenUtil;
+import com.cinepass.util.DateTimeFormats;
 import com.cinepass.util.RedisUtil;
 import com.cinepass.vo.OrderVO;
 import com.cinepass.vo.PayQrVO;
@@ -40,10 +43,7 @@ import java.util.List;
 @Slf4j
 @Service
 public class PaymentServiceImpl implements PaymentService {
-
-    private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final ZoneOffset TZ = ZoneOffset.ofHours(8);
 
     /** PC 轮询订单状态建议间隔（毫秒） */
     private static final int POLL_INTERVAL_MS = 2000;
@@ -61,6 +61,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final OrderTicketMapper orderTicketMapper;
     private final SeatLockMapper seatLockMapper;
     private final SeatStatusMapper seatStatusMapper;
+    private final ShowMapper showMapper;
     private final PayTokenUtil payTokenUtil;
     private final RedisUtil redisUtil;
 
@@ -70,11 +71,13 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentServiceImpl(OrderTicketMapper orderTicketMapper,
                               SeatLockMapper seatLockMapper,
                               SeatStatusMapper seatStatusMapper,
+                              ShowMapper showMapper,
                               PayTokenUtil payTokenUtil,
                               RedisUtil redisUtil) {
         this.orderTicketMapper = orderTicketMapper;
         this.seatLockMapper = seatLockMapper;
         this.seatStatusMapper = seatStatusMapper;
+        this.showMapper = showMapper;
         this.payTokenUtil = payTokenUtil;
         this.redisUtil = redisUtil;
     }
@@ -92,7 +95,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (!OrderStatus.PENDING_PAY.equals(order.getStatus())) {
             throw new BusinessException(ResultCode.ORDER_NOT_PAYABLE, "仅待支付订单可发起支付");
         }
-        OffsetDateTime now = OffsetDateTime.now(TZ);
+        OffsetDateTime now = DateTimeFormats.now();
         if (order.getExpireAt() == null || !order.getExpireAt().isAfter(now)) {
             throw new BusinessException(ResultCode.LOCK_EXPIRED, "支付已超时，请重新下单");
         }
@@ -105,7 +108,7 @@ public class PaymentServiceImpl implements PaymentService {
         return PayQrVO.builder()
                 .orderId(orderId)
                 .amount(order.getAmount())
-                .expireAt(ISO.format(order.getExpireAt()))
+                .expireAt(DateTimeFormats.format(order.getExpireAt()))
                 .payUrl(payUrl)
                 .pollIntervalMs(POLL_INTERVAL_MS)
                 .build();
@@ -148,10 +151,15 @@ public class PaymentServiceImpl implements PaymentService {
         if (!OrderStatus.PENDING_PAY.equals(order.getStatus())) {
             throw new BusinessException(ResultCode.ORDER_NOT_PAYABLE, "仅待支付订单可发起支付");
         }
-        OffsetDateTime now = OffsetDateTime.now(TZ);
+        OffsetDateTime now = DateTimeFormats.now();
         // 过期订单即使二维码仍可扫、token 未过期也拒绝支付（DB 权威截止）
         if (order.getExpireAt() == null || !order.getExpireAt().isAfter(now)) {
             throw new BusinessException(ResultCode.LOCK_EXPIRED, "支付已超时，请重新下单");
+        }
+        // 三次防线：开场时间已过仍拒绝支付出票（订单创建后到支付间可能跨过开场时间）
+        ShowSchedule show = showMapper.selectById(order.getShowId());
+        if (show != null && show.getStartTime() != null && !show.getStartTime().isAfter(now)) {
+            throw new BusinessException(ResultCode.SHOW_STARTED, "场次已开场，无法购票");
         }
 
         String ticketCode = buildTicketCode(orderId, now);
@@ -381,6 +389,6 @@ public class PaymentServiceImpl implements PaymentService {
 
     /** OffsetDateTime → ISO-8601 字符串；null 保持 null */
     private String format(OffsetDateTime t) {
-        return t == null ? null : ISO.format(t);
+        return t == null ? null : DateTimeFormats.format(t);
     }
 }

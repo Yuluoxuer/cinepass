@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.dto.CinemaCreateDTO;
 import com.cinepass.dto.CinemaUpdateDTO;
@@ -89,6 +90,7 @@ public class CinemaController {
 
     /** 新建影院（仅 admin） */
     @ApiOperation("新建影院")
+    @RateLimit(key = "admin-cinema", permits = 15, windowSeconds = 60)
     @PostMapping("/admin/cinemas")
     @Admin
     public Result<CinemaVO> create(@Valid @RequestBody CinemaCreateDTO body) {
@@ -97,6 +99,7 @@ public class CinemaController {
 
     /** 更新影院；staff 仅能改本影院 */
     @ApiOperation("更新影院")
+    @RateLimit(key = "admin-cinema", permits = 15, windowSeconds = 60)
     @PutMapping("/admin/cinemas/{cinemaId}")
     @Staff
     public Result<CinemaVO> update(@PathVariable String cinemaId, @Valid @RequestBody CinemaUpdateDTO body) {
@@ -105,6 +108,7 @@ public class CinemaController {
 
     /** 软删除影院；仍绑定员工时拒绝 */
     @ApiOperation("删除影院")
+    @RateLimit(key = "admin-cinema", permits = 10, windowSeconds = 60)
     @DeleteMapping("/admin/cinemas/{cinemaId}")
     @Admin
     public Result<Void> delete(@PathVariable String cinemaId) {
