@@ -78,18 +78,26 @@ public class AdminShowServiceImpl implements AdminShowService {
         this.userAccountMapper = userAccountMapper;
     }
 
+    // 创建单个场次：权限校验→校验影片(存在+未下架)/影院/影厅→校验时间合法性→冲突检测→落库→锁定座位图→播种座位→同步ES
     @Override
     @Transactional
     public ShowVO create(ShowCreateDTO dto) {
         assertCinemaScope(dto.getCinemaId());
+        // 校验影片存在且未下架
         Movie movie = movieMapper.selectById(dto.getMovieId());
         if (movie == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影片不存在");
         }
+        if ("off".equals(movie.getStatus())) {
+            throw new BusinessException(ResultCode.CONFLICT,
+                    "影片《" + movie.getTitle() + "》已下架，不能创建场次");
+        }
+        // 校验影院存在
         Cinema cinema = cinemaMapper.selectById(dto.getCinemaId());
         if (cinema == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
         }
+        // 校验影厅存在且归属正确
         Hall hall = hallMapper.selectById(dto.getHallId());
         if (hall == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影厅不存在");
@@ -97,6 +105,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         if (!hall.getCinemaId().equals(dto.getCinemaId())) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "影厅不属于所选影院");
         }
+        // 校验时间：散场晚于开场、不能创建过去场次
         OffsetDateTime startTime = OffsetDateTime.parse(dto.getStartTime());
         OffsetDateTime endTime = OffsetDateTime.parse(dto.getEndTime());
         if (!endTime.isAfter(startTime)) {
@@ -105,6 +114,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         if (startTime.isBefore(OffsetDateTime.now())) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "不允许创建过去时间的场次");
         }
+        // 同厅冲突检测：查询与已有场次是否时间重叠（需预留缓冲分钟数）
         List<ShowSchedule> overlaps = showMapper.findOverlapping(
                 hall.getHallId(), startTime, endTime, null);
         if (overlaps != null && !overlaps.isEmpty()) {
@@ -112,7 +122,7 @@ public class AdminShowServiceImpl implements AdminShowService {
                     "与场次 " + overlaps.get(0).getShowId() + " 时间冲突，需预留"
                             + SHOW_BUFFER_MINUTES + " 分钟缓冲");
         }
-
+        // 构造场次实体并落库
         BigDecimal showPrice = computePrice(dto.getZonePrices(), dto.getPrice());
         OffsetDateTime now = OffsetDateTime.now();
         ShowSchedule show = new ShowSchedule();
@@ -128,11 +138,10 @@ public class AdminShowServiceImpl implements AdminShowService {
         show.setCreatedAt(now);
         show.setUpdatedAt(now);
         showMapper.insert(show);
-        // 排片后座位图不可再改布局，避免库存与模板错位
+        // 排片后锁定座位图模板不可再改布局，并播种座位状态
         if (StringUtils.hasText(show.getSeatMapId())) {
             seatMapMapper.markImmutable(show.getSeatMapId());
         }
-        // 排片后立即播种 seat_status，避免购票侧读到空库存
         seatInventoryService.ensureSeatStatus(show.getShowId(), show.getSeatMapId());
         esIndexService.syncCinema(show.getCinemaId());
 
@@ -140,19 +149,25 @@ public class AdminShowServiceImpl implements AdminShowService {
         return showService.buildShowVO(saved, toZonePriceVOs(dto.getZonePrices(), showPrice));
     }
 
+    // 批量创建场次：按日期范围+每日时段+间隔分钟自动排片，冲突场次跳过并汇总错误，一个都没成功则报错
     @Override
     @Transactional
     public List<ShowVO> batchCreate(ShowBatchCreateDTO dto) {
         assertCinemaScope(dto.getCinemaId());
-        // 1. 校验基础数据
+        // 校验影片存在、未下架、时长有效
         Movie movie = movieMapper.selectById(dto.getMovieId());
         if (movie == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影片不存在");
+        }
+        if ("off".equals(movie.getStatus())) {
+            throw new BusinessException(ResultCode.CONFLICT,
+                    "影片《" + movie.getTitle() + "》已下架，不能创建场次");
         }
         if (movie.getDurationMin() == null || movie.getDurationMin() <= 0) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "影片时长信息缺失");
         }
         int durationMin = movie.getDurationMin();
+        // 校验影院、影厅存在且归属
         Cinema cinema = cinemaMapper.selectById(dto.getCinemaId());
         if (cinema == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
@@ -164,27 +179,23 @@ public class AdminShowServiceImpl implements AdminShowService {
         if (!hall.getCinemaId().equals(dto.getCinemaId())) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "影厅不属于所选影院");
         }
-
-        // 2. 校验时间参数
+        // 校验时间参数：间隔不小于影片时长、日期范围合法、每日时段合法
         if (dto.getIntervalMin() < durationMin) {
             throw new BusinessException(ResultCode.PARAM_ERROR,
                     "场次间隔（" + dto.getIntervalMin() + " 分钟）不得小于影片时长（"
                             + durationMin + " 分钟）");
         }
-
         LocalDate dateStart = LocalDate.parse(dto.getDateStart(), DateTimeFormatter.ISO_LOCAL_DATE);
         LocalDate dateEnd = LocalDate.parse(dto.getDateEnd(), DateTimeFormatter.ISO_LOCAL_DATE);
         if (dateEnd.isBefore(dateStart)) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "结束日期必须不早于开始日期");
         }
-
         LocalTime timeStart = LocalTime.parse(dto.getTimeStart(), DateTimeFormatter.ofPattern("HH:mm"));
         LocalTime timeEnd = LocalTime.parse(dto.getTimeEnd(), DateTimeFormatter.ofPattern("HH:mm"));
         if (!timeEnd.isAfter(timeStart)) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "每日结束时间必须晚于开始时间");
         }
-
-        // 3. 生成场次列表，逐场校验冲突并创建
+        // 逐日逐场生成场次：跳过过去场次、冲突场次，成功则落库
         BigDecimal showPrice = computePrice(dto.getZonePrices(), dto.getPrice());
         OffsetDateTime now = OffsetDateTime.now();
         int intervalMin = dto.getIntervalMin();
@@ -194,22 +205,18 @@ public class AdminShowServiceImpl implements AdminShowService {
         for (LocalDate date = dateStart; !date.isAfter(dateEnd); date = date.plusDays(1)) {
             LocalTime cursor = timeStart;
             while (true) {
-                // 下一场开场时间
                 OffsetDateTime startTime = OffsetDateTime.of(date, cursor, ZoneOffset.ofHours(8));
-                // 散场时间 = 开场 + 影片时长
                 OffsetDateTime endTime = startTime.plusMinutes(durationMin);
-
-                // 末场散场不能晚于 timeEnd
+                // 末场散场不晚于每日结束时间
                 if (endTime.toLocalTime().isAfter(timeEnd)) {
                     break;
                 }
-                // 不允许创建过去场次
+                // 跳过过去场次
                 if (startTime.isBefore(now)) {
                     cursor = cursor.plusMinutes(intervalMin);
                     continue;
                 }
-
-                // 冲突检测
+                // 同厅冲突检测
                 List<ShowSchedule> overlaps = showMapper.findOverlapping(
                         hall.getHallId(), startTime, endTime, null);
                 if (overlaps != null && !overlaps.isEmpty()) {
@@ -218,8 +225,7 @@ public class AdminShowServiceImpl implements AdminShowService {
                     cursor = cursor.plusMinutes(intervalMin);
                     continue;
                 }
-
-                // 创建场次
+                // 落库
                 ShowSchedule show = new ShowSchedule();
                 show.setShowId(ShowIds.next());
                 show.setMovieId(dto.getMovieId());
@@ -243,23 +249,19 @@ public class AdminShowServiceImpl implements AdminShowService {
                 created.add(showService.buildShowVO(saved,
                         toZonePriceVOs(dto.getZonePrices(), showPrice)));
 
-                // 下一场：开场 = 当前开场 + interval
                 cursor = cursor.plusMinutes(intervalMin);
             }
         }
-
-        // 4. ES 同步
+        // 同步ES，全失败则报错
         esIndexService.syncCinema(dto.getCinemaId());
-
-        // 5. 一个都没创建成功则报错
         if (created.isEmpty() && !errors.isEmpty()) {
             throw new BusinessException(ResultCode.CONFLICT,
                     "批量创建失败：" + String.join("；", errors));
         }
-
         return created;
     }
 
+    // 更新场次：仅可修改在售场次，存在有效锁座/订单时拒绝改期，修改后同步ES
     @Override
     @Transactional
     public ShowVO update(String showId, ShowUpdateDTO dto) {
@@ -270,11 +272,12 @@ public class AdminShowServiceImpl implements AdminShowService {
         if (!"on_sale".equals(show.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "仅可修改在售场次");
         }
-        // 有在途锁座或订单时禁止改期，避免已售座位时间错位
+        // 有在途锁座或订单时禁止改期
         int activeLocks = showMapper.countActiveLocksOrOrders(showId);
         if (activeLocks > 0) {
             throw new BusinessException(ResultCode.CONFLICT, "场次存在有效锁座，无法修改");
         }
+        // 解析新时间（null则保持原值），校验时间合法性
         OffsetDateTime newStart = dto.getStartTime() != null
                 ? OffsetDateTime.parse(dto.getStartTime()) : show.getStartTime();
         OffsetDateTime newEnd = dto.getEndTime() != null
@@ -282,6 +285,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         if (!newEnd.isAfter(newStart)) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "散场时间必须晚于开场时间");
         }
+        // 冲突检测（排除自身）
         List<ShowSchedule> overlaps = showMapper.findOverlapping(
                 show.getHallId(), newStart, newEnd, showId);
         if (overlaps != null && !overlaps.isEmpty()) {
@@ -300,6 +304,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         return showService.buildShowVO(updated, toZonePriceVOs(dto.getZonePrices(), updated.getPrice()));
     }
 
+    // 取消场次（幂等）：已取消则拒绝重复操作，取消后同步ES
     @Override
     @Transactional
     public ShowVO cancel(String showId) {
@@ -316,6 +321,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         return showService.buildShowVO(updated, null);
     }
 
+    // 停售：仅可在售场次可停售，停售后同步ES
     @Override
     @Transactional
     public ShowVO closeSale(String showId) {
@@ -332,6 +338,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         return showService.buildShowVO(updated, null);
     }
 
+    // 恢复售票：仅已停售或已取消可恢复，恢复后同步ES
     @Override
     @Transactional
     public ShowVO resumeSale(String showId) {
@@ -339,7 +346,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         if (show == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "场次不存在");
         }
-        if (!"cancelled".equals(show.getStatus())) {
+        if (!"off_sale".equals(show.getStatus()) && !"cancelled".equals(show.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "仅可恢复已停售/取消的场次");
         }
         showMapper.resumeSale(showId);
@@ -362,6 +369,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         return BigDecimal.ZERO;
     }
 
+    // 分区价格DTO→VO列表：价格保留2位小数
     private List<ShowVO.ZonePriceVO> toZonePriceVOs(List<ShowCreateDTO.ZonePriceItem> items, BigDecimal fallback) {
         if (items == null || items.isEmpty()) return null;
         List<ShowVO.ZonePriceVO> vos = new ArrayList<>();
@@ -384,6 +392,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         }
     }
 
+    // 获取当前staff绑定的影院ID：优先从Token取，Token无则查库
     private String currentStaffCinemaId() {
         String cinemaIdFromToken = SecurityContext.getCurrentCinemaId();
         if (StringUtils.hasText(cinemaIdFromToken)) return cinemaIdFromToken;

@@ -41,18 +41,18 @@ public class AdminShowController {
     private final AdminShowService adminShowService;
     private final ShowService showService;
 
-    public AdminShowController(AdminShowService adminShowService, ShowService showService) {
+    public AdminShowController(AdminShowService adminShowService,
+                                ShowService showService) {
         this.adminShowService = adminShowService;
         this.showService = showService;
     }
 
-    /** 排片列表；未传 movieId 则返回该院全部场次；未传 date 则返回全部日期 */
+    /** 排片列表：未传 movieId 则返回该院全部场次；未传 date 则返回全部日期 */
     @GetMapping
     public Result<ShowListResult> list(@RequestParam String cinemaId,
                                         @RequestParam(required = false) String movieId,
                                         @RequestParam(required = false) String date) {
         if (movieId == null || movieId.isEmpty()) {
-            // 查询该影院所有场次（不限影片）
             return Result.success(showService.listAll(cinemaId, null));
         }
         if (date != null && !date.isEmpty()) {

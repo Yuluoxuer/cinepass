@@ -25,9 +25,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * {@link ShowService} 实现。
@@ -54,6 +52,7 @@ public class ShowServiceImpl implements ShowService {
         this.cinemaMapper = cinemaMapper;
     }
 
+    // 按影院+影片+日期查询场次列表，将实体转为VO后封装日期+列表结果返回
     @Override
     public ShowListResult list(String cinemaId, String movieId, String date) {
         List<ShowSchedule> rows = showMapper.listByMovieCinemaDate(cinemaId, movieId, date);
@@ -66,6 +65,7 @@ public class ShowServiceImpl implements ShowService {
         return ShowListResult.builder().date(date).items(items).build();
     }
 
+    // 查询某影院某影片的不区分日期的全部场次
     @Override
     public ShowListResult listAll(String cinemaId, String movieId) {
         List<ShowSchedule> rows = showMapper.listByMovieCinema(cinemaId, movieId);
@@ -78,6 +78,7 @@ public class ShowServiceImpl implements ShowService {
         return ShowListResult.builder().date(null).items(items).build();
     }
 
+    // 查某影院当前在售影片列表：校验影院存在→查询每个影片的最早未来场次→组装VO并附带最近排片日
     @Override
     public PageResult<MovieVO> listOnSaleMovies(String cinemaId) {
         if (cinemaMapper.selectById(cinemaId) == null) {
@@ -105,6 +106,7 @@ public class ShowServiceImpl implements ShowService {
         return new PageResult<>(items, 1, items.size(), items.size());
     }
 
+    // 查场次详情，组装场次VO + 影片VO + 影院简要信息
     @Override
     public ShowDetailVO get(String showId) {
         ShowSchedule s = showMapper.selectById(showId);
@@ -129,6 +131,7 @@ public class ShowServiceImpl implements ShowService {
         return buildShowVO(s, null);
     }
 
+    // 场次实体→VO：统计余座、计算余座等级、格式化时间、组装分区价格
     @Override
     public ShowVO buildShowVO(ShowSchedule s, List<ShowVO.ZonePriceVO> zonePrices) {
         int total = seatStatusMapper.countTotal(s.getShowId());
@@ -146,6 +149,7 @@ public class ShowServiceImpl implements ShowService {
                 .status(s.getStatus()).build();
     }
 
+    // 根据影片ID构建MovieVO：解析genres JSON、评分四舍五入保留1位小数
     private MovieVO buildMovieVO(String movieId) {
         Movie m = movieMapper.selectById(movieId);
         if (m == null) return null;
@@ -161,6 +165,7 @@ public class ShowServiceImpl implements ShowService {
                 .cast(m.getCastText()).wantSeeCount(m.getWantSeeCount()).build();
     }
 
+    // 根据影院ID构建影院简要信息（名称+地址）
     private ShowDetailVO.CinemaBrief buildCinemaBrief(String cinemaId) {
         Cinema c = cinemaMapper.selectById(cinemaId);
         if (c == null) return null;
@@ -175,5 +180,38 @@ public class ShowServiceImpl implements ShowService {
         if (ratio >= 0.4) return "ample";
         if (ratio >= 0.15) return "tight";
         return "almost_full";
+    }
+
+    // 按时间范围+影院分页查询有排片的影片：归一化分页参数→查总数→分页查场次→组装VO并附最近排片日
+    @Override
+    public PageResult<MovieVO> listMoviesByTimeRange(OffsetDateTime startTime, OffsetDateTime endTime,
+                                                     String cinemaId, int page, int size) {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 50) size = 10;
+        int offset = (page - 1) * size;
+
+        long total = showMapper.countMoviesByTimeRange(startTime, endTime, cinemaId);
+        if (total == 0) {
+            return new PageResult<>(Collections.<MovieVO>emptyList(), page, size, 0);
+        }
+
+        List<ShowSchedule> rows = showMapper.listMoviesByTimeRange(startTime, endTime, cinemaId, offset, size);
+        List<MovieVO> items = new ArrayList<>();
+        if (rows != null) {
+            for (ShowSchedule row : rows) {
+                if (row == null || row.getMovieId() == null) {
+                    continue;
+                }
+                MovieVO vo = buildMovieVO(row.getMovieId());
+                if (vo == null) {
+                    continue;
+                }
+                if (row.getStartTime() != null) {
+                    vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DISPLAY_ZONE).toLocalDate().toString());
+                }
+                items.add(vo);
+            }
+        }
+        return new PageResult<>(items, page, size, total);
     }
 }
