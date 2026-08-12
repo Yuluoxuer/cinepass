@@ -245,9 +245,12 @@ const AdminShowsPage: React.FC = () => {
     if (!zones.length) zones = ['A'];
     setEditZones(zones);
     const priceMap: Record<string, number> = {};
-    const saved = new Map((show.zonePrices || []).map((z) => [z.zone, z.price]));
+    const saved = new Map(
+      (show.zonePrices || []).map((z) => [String(z.zone).toLowerCase(), z.price] as const),
+    );
     for (const z of zones) {
-      priceMap[z] = saved.has(z) ? Number(saved.get(z)) : show.price;
+      const hit = saved.get(String(z).toLowerCase());
+      priceMap[z] = hit != null ? Number(hit) : show.price;
     }
     editForm.setFieldsValue({ zonePriceMap: priceMap, startTime: dayjs(show.startTime) });
   };
