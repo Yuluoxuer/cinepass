@@ -40,6 +40,17 @@ public class ShowVO {
     /** 场次状态，如 on_sale / closed / cancelled */
     private String status;
 
+    /** 影片名称（JOIN movie 得到）；影片被删除时可能为 null */
+    private String movieTitle;
+
+    /**
+     * 运行时状态（由后端根据当前时间计算，前端直接使用）。
+     * not_started — 未开始（开场时间在未来）；
+     * in_progress — 进行中（当前时间在开场~散场之间）；
+     * ended — 已结束（散场时间已过）。
+     */
+    private String runtimeState;
+
     /** 分区价展示项 */
     @Data
     @Builder

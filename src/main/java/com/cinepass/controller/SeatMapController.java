@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.dto.SeatMapCreateDTO;
 import com.cinepass.dto.SeatMapUpdateDTO;
@@ -49,6 +50,7 @@ public class SeatMapController {
 
     /** 创建稀疏座位图并批量写入座位行 */
     @ApiOperation("创建稀疏座位图")
+    @RateLimit(key = "admin-seatmap", permits = 15, windowSeconds = 60)
     @PostMapping
     public Result<SeatMapVO> create(@Valid @RequestBody SeatMapCreateDTO body) {
         return Result.success(cinemaService.createSeatMap(body));
@@ -72,6 +74,7 @@ public class SeatMapController {
 
     /** 全量替换座位集合；仅 mutable 时可改 */
     @ApiOperation("更新座位图")
+    @RateLimit(key = "admin-seatmap", permits = 15, windowSeconds = 60)
     @PutMapping("/{seatMapId}")
     public Result<SeatMapVO> update(@PathVariable String seatMapId,
                                     @Valid @RequestBody SeatMapUpdateDTO body) {
@@ -80,6 +83,7 @@ public class SeatMapController {
 
     /** 删除座位图；仍被影厅或场次引用时 409 */
     @ApiOperation("删除座位图")
+    @RateLimit(key = "admin-seatmap", permits = 10, windowSeconds = 60)
     @DeleteMapping("/{seatMapId}")
     public Result<SeatMapDeletedVO> delete(@PathVariable String seatMapId) {
         return Result.success(cinemaService.deleteSeatMap(seatMapId));

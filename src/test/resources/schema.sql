@@ -15,6 +15,17 @@ CREATE TABLE IF NOT EXISTS user_account (
   CONSTRAINT uk_user_phone UNIQUE (phone)
 );
 
+CREATE TABLE IF NOT EXISTS auth_refresh_session (
+  sid          VARCHAR(64)    NOT NULL,
+  user_id      VARCHAR(40)    NOT NULL,
+  role         VARCHAR(16)    NOT NULL,
+  refresh_jti  VARCHAR(64)    NOT NULL,
+  expire_at    TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at   TIMESTAMP WITH TIME ZONE NOT NULL,
+  updated_at   TIMESTAMP WITH TIME ZONE NOT NULL,
+  PRIMARY KEY (sid)
+);
+
 CREATE TABLE IF NOT EXISTS user_profile (
   user_id             VARCHAR(40)    NOT NULL,
   prefer_genres_json  VARCHAR(2048)  NOT NULL,

@@ -21,9 +21,10 @@ public interface ShowMapper {
                                               @Param("movieId") String movieId,
                                               @Param("date") String date);
 
-    /** 影院+影片全部场次 */
+    /** 影院+影片全部场次；after 不为空时只返回开场时间 >= after 的场次 */
     List<ShowSchedule> listByMovieCinema(@Param("cinemaId") String cinemaId,
-                                          @Param("movieId") String movieId);
+                                          @Param("movieId") String movieId,
+                                          @Param("after") OffsetDateTime after);
 
     /**
      * 影院在 {@code after} 之后仍有 on_sale 场次的影片：每片取最早一场。

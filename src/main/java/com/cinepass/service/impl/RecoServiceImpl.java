@@ -20,6 +20,7 @@ import com.cinepass.vo.PersonalRecoItemVO;
 import com.cinepass.vo.PersonalRecoVO;
 import com.cinepass.vo.WeeklyHotItemVO;
 import com.cinepass.vo.WeeklyHotVO;
+import com.cinepass.util.DateTimeFormats;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -51,10 +52,6 @@ import java.util.Set;
 @Slf4j
 @Service
 public class RecoServiceImpl implements RecoService {
-
-    private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-    private static final ZoneId TZ = ZoneId.of("Asia/Shanghai");
-    private static final ZoneOffset ZO = ZoneOffset.ofHours(8);
     private static final BigDecimal HUNDRED = new BigDecimal("100");
     private static final BigDecimal ZERO = BigDecimal.ZERO;
 
@@ -92,14 +89,14 @@ public class RecoServiceImpl implements RecoService {
         RecoWeight weight = recoWeightMapper.selectByCity(city);
         if (weight == null) {
             // 幂等 seed 默认权重后重读；读不到仍回退常量默认值
-            recoWeightMapper.insertDefault(city, OffsetDateTime.now(ZO));
+            recoWeightMapper.insertDefault(city, DateTimeFormats.now());
             weight = recoWeightMapper.selectByCity(city);
         }
 
         List<Ranked> ranked = rankByCityWeights(base, cityWeights(weight));
         if (ranked.isEmpty()) {
             return WeeklyHotVO.builder()
-                    .computedAt(ISO.format(OffsetDateTime.now(ZO)))
+                    .computedAt(DateTimeFormats.format(DateTimeFormats.now()))
                     .items(Collections.<WeeklyHotItemVO>emptyList())
                     .build();
         }
@@ -168,13 +165,13 @@ public class RecoServiceImpl implements RecoService {
 
     @Override
     public void recomputeStats() {
-        OffsetDateTime now = OffsetDateTime.now(ZO);
+        OffsetDateTime now = DateTimeFormats.now();
         List<Movie> movies = movieMapper.listAll();
         if (movies == null || movies.isEmpty()) {
             return;
         }
         Map<String, Integer> orders = orderCountMap(recoStatsMapper.selectWeekOrderCounts(now.minusDays(7)));
-        Map<String, Integer> clicks = clickCountMap(recoStatsMapper.selectWeekClickCounts(LocalDate.now(TZ).minusDays(7)));
+        Map<String, Integer> clicks = clickCountMap(recoStatsMapper.selectWeekClickCounts(LocalDate.now(DateTimeFormats.ZONE).minusDays(7)));
 
         List<RecoStats> rows = new ArrayList<RecoStats>();
         for (Movie m : movies) {
@@ -268,7 +265,7 @@ public class RecoServiceImpl implements RecoService {
         if (releaseDate == null) {
             return ZERO;
         }
-        LocalDate today = LocalDate.now(TZ);
+        LocalDate today = LocalDate.now(DateTimeFormats.ZONE);
         double f;
         if ("hot_showing".equals(status)) {
             long days = ChronoUnit.DAYS.between(releaseDate, today);
@@ -388,7 +385,7 @@ public class RecoServiceImpl implements RecoService {
                 }
             }
         }
-        return ISO.format(max != null ? max : OffsetDateTime.now(ZO));
+        return DateTimeFormats.format(max != null ? max : DateTimeFormats.now());
     }
 
     /** 按城市权重对底座信号打分排序（只读缓存对象，不修改） */

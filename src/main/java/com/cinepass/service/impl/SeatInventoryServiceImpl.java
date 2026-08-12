@@ -16,6 +16,7 @@ import com.cinepass.service.SeatInventoryService;
 import com.cinepass.vo.SeatVO;
 import com.cinepass.vo.ShowSeatMapVO;
 import com.cinepass.vo.ShowVO;
+import com.cinepass.util.DateTimeFormats;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -99,7 +100,7 @@ public class SeatInventoryServiceImpl implements SeatInventoryService {
         }
         ensureSeatStatus(show.getShowId(), show.getSeatMapId());
         // 读图前释放已过期锁，避免 UI 永久显示 locked
-        java.time.OffsetDateTime now = java.time.OffsetDateTime.now(java.time.ZoneOffset.ofHours(8));
+        java.time.OffsetDateTime now = DateTimeFormats.now();
         seatStatusMapper.releaseExpiredByShow(show.getShowId(), now);
 
         SeatMap seatMap = seatMapMapper.selectById(show.getSeatMapId());

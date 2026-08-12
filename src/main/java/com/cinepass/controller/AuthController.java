@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.dto.LoginDTO;
 import com.cinepass.dto.PasswordChangeDTO;
@@ -33,18 +34,21 @@ public class AuthController {
     }
 
     /** 登录，返回 Access Token 与角色信息 */
+    @RateLimit(key = "login", permits = 5, windowSeconds = 60)
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO body) {
         return Result.success(authService.login(body));
     }
 
     /** 注册普通用户并自动登录 */
+    @RateLimit(key = "register", permits = 2, windowSeconds = 60)
     @PostMapping("/register")
     public Result<LoginVO> register(@Valid @RequestBody RegisterDTO body) {
         return Result.success(authService.register(body));
     }
 
     /** 旧密码 + 新密码改密；可匿名（须带 account）或已登录 */
+    @RateLimit(key = "auth-password", permits = 3, windowSeconds = 60)
     @PostMapping("/password/change")
     public Result<Map<String, Boolean>> changePassword(@Valid @RequestBody PasswordChangeDTO body) {
         authService.changePassword(SecurityContext.getCurrentUserId(), body);

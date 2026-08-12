@@ -2,6 +2,7 @@ package com.cinepass.config;
 
 import com.cinepass.mapper.OrderTicketMapper;
 import com.cinepass.service.OrderService;
+import com.cinepass.util.DateTimeFormats;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -43,7 +44,7 @@ public class OrderExpireScheduler {
 
     /** 单次清扫：取候选并按订单逐个事务过期（便于测试与手动触发） */
     public int runOnce(int limit) {
-        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.ofHours(8));
+        OffsetDateTime now = DateTimeFormats.now();
         List<String> expiredIds = orderTicketMapper.selectExpiredPendingPay(now, limit);
         int done = 0;
         for (String orderId : expiredIds) {

@@ -12,6 +12,7 @@ import com.cinepass.mapper.AgentSessionMapper;
 import com.cinepass.model.AgentSession;
 import com.cinepass.service.BookingDraftService;
 import com.cinepass.util.SessionIds;
+import com.cinepass.util.DateTimeFormats;
 import com.cinepass.vo.BookingDraftVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,9 +35,6 @@ import java.util.Set;
  */
 @Service
 public class BookingDraftServiceImpl implements BookingDraftService {
-
-    private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-    private static final ZoneOffset TZ = ZoneOffset.ofHours(8);
 
     private static final Set<String> PATCH_ALLOWED;
     static {
@@ -79,7 +77,7 @@ public class BookingDraftServiceImpl implements BookingDraftService {
         String movieId = dto != null && StringUtils.hasText(dto.getMovieId())
                 ? dto.getMovieId().trim() : null;
 
-        OffsetDateTime now = OffsetDateTime.now(TZ);
+        OffsetDateTime now = DateTimeFormats.now();
         String sessionId = SessionIds.next();
 
         BookingDraftVO draft = emptyDraft(sessionId, source, currentUserId, now);
@@ -97,7 +95,7 @@ public class BookingDraftServiceImpl implements BookingDraftService {
         requireSessionId(sessionId);
         AgentSession row = agentSessionMapper.findById(sessionId);
         if (row == null) {
-            OffsetDateTime now = OffsetDateTime.now(TZ);
+            OffsetDateTime now = DateTimeFormats.now();
             BookingDraftVO draft = emptyDraft(sessionId, "manual", currentUserId, now);
             persistNew(draft, now);
             return draft;
@@ -137,8 +135,8 @@ public class BookingDraftServiceImpl implements BookingDraftService {
         draft.setExpireAt(expireAt);
         draft.setState(BookingStates.CONFIRM_ORDER);
         draft.setVersion(draft.getVersion() == null ? 1L : draft.getVersion() + 1);
-        OffsetDateTime now = OffsetDateTime.now(TZ);
-        draft.setUpdatedAt(ISO.format(now));
+        OffsetDateTime now = DateTimeFormats.now();
+        draft.setUpdatedAt(DateTimeFormats.format(now));
         AgentSession upd = toRow(draft, row.getCreatedAt(), now);
         agentSessionMapper.updateCas(upd);
     }
@@ -164,8 +162,8 @@ public class BookingDraftServiceImpl implements BookingDraftService {
             draft.setState(BookingStates.SELECT_SEAT);
         }
         draft.setVersion(draft.getVersion() == null ? 1L : draft.getVersion() + 1);
-        OffsetDateTime now = OffsetDateTime.now(TZ);
-        draft.setUpdatedAt(ISO.format(now));
+        OffsetDateTime now = DateTimeFormats.now();
+        draft.setUpdatedAt(DateTimeFormats.format(now));
         AgentSession upd = toRow(draft, row.getCreatedAt(), now);
         agentSessionMapper.updateCas(upd);
     }
@@ -198,8 +196,8 @@ public class BookingDraftServiceImpl implements BookingDraftService {
 
         BookingDraftVO next = applyPatch(current, dto.getPatch(), currentUserId);
         next.setVersion(current.getVersion() + 1);
-        OffsetDateTime now = OffsetDateTime.now(TZ);
-        next.setUpdatedAt(ISO.format(now));
+        OffsetDateTime now = DateTimeFormats.now();
+        next.setUpdatedAt(DateTimeFormats.format(now));
 
         AgentSession upd = toRow(next, row.getCreatedAt(), now);
         int n = agentSessionMapper.updateCas(upd);
@@ -321,8 +319,8 @@ public class BookingDraftServiceImpl implements BookingDraftService {
 
         // ⑤ version = max + 1
         next.setVersion(Math.max(serverVersion, inVer) + 1);
-        OffsetDateTime now = OffsetDateTime.now(TZ);
-        next.setUpdatedAt(ISO.format(now));
+        OffsetDateTime now = DateTimeFormats.now();
+        next.setUpdatedAt(DateTimeFormats.format(now));
 
         AgentSession upd = toRow(next, row.getCreatedAt(), now);
         int n = agentSessionMapper.updateCas(upd);
@@ -529,7 +527,7 @@ public class BookingDraftServiceImpl implements BookingDraftService {
         draft.setState(row.getState());
         draft.setVersion(row.getVersion());
         if (row.getUpdatedAt() != null) {
-            draft.setUpdatedAt(ISO.format(row.getUpdatedAt()));
+            draft.setUpdatedAt(DateTimeFormats.format(row.getUpdatedAt()));
         }
         if (draft.getCount() == null) {
             draft.setCount(1);
@@ -549,7 +547,7 @@ public class BookingDraftServiceImpl implements BookingDraftService {
                 .count(1)
                 .seatIds(new ArrayList<String>())
                 .version(0L)
-                .updatedAt(ISO.format(now))
+                .updatedAt(DateTimeFormats.format(now))
                 .build();
     }
 

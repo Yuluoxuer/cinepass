@@ -15,6 +15,7 @@ import com.cinepass.service.EsSearchService;
 import com.cinepass.service.EsIndexService;
 import com.cinepass.service.MovieService;
 import com.cinepass.util.MovieIds;
+import com.cinepass.util.DateTimeFormats;
 import com.cinepass.util.TagIds;
 import com.cinepass.vo.CastMemberVO;
 import com.cinepass.vo.MovieVO;
@@ -46,9 +47,7 @@ import java.util.Set;
 public class MovieServiceImpl implements MovieService {
 
     private static final Logger log = LoggerFactory.getLogger(MovieServiceImpl.class);
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
     /** 点击计数按本地日历日切分 */
-    private static final ZoneId CLICK_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final MovieMapper movieMapper;
     private final ShowMapper showMapper;
@@ -182,13 +181,13 @@ public class MovieServiceImpl implements MovieService {
     /** 批量查询影片最近排片日期，返回 movieId → yyyy-MM-dd 映射（统一东八区，避免 JVM 默认时区偏移一天） */
     private Map<String, String> batchGetNextShowDates(List<String> movieIds) {
         if (movieIds.isEmpty()) return Collections.emptyMap();
-        List<ShowSchedule> rows = showMapper.listEarliestByMovieIds(movieIds, OffsetDateTime.now());
+        List<ShowSchedule> rows = showMapper.listEarliestByMovieIds(movieIds, DateTimeFormats.now());
         Map<String, String> map = new HashMap<>();
         if (rows != null) {
             for (ShowSchedule s : rows) {
                 if (s.getMovieId() != null && s.getStartTime() != null) {
                     map.put(s.getMovieId(),
-                            s.getStartTime().atZoneSameInstant(CLICK_ZONE).toLocalDate().toString());
+                            s.getStartTime().atZoneSameInstant(DateTimeFormats.ZONE).toLocalDate().toString());
                 }
             }
         }
@@ -203,7 +202,7 @@ public class MovieServiceImpl implements MovieService {
         }
         // 详情访问即记当日点击，供每周热门 week_clicks 统计（系分 §3.6）；失败不影响详情返回
         try {
-            recoClickMapper.incrClick(movieId, LocalDate.now(CLICK_ZONE));
+            recoClickMapper.incrClick(movieId, LocalDate.now(DateTimeFormats.ZONE));
         } catch (Exception e) {
             log.warn("记录影片点击失败: {}", e.getMessage());
         }
@@ -213,7 +212,7 @@ public class MovieServiceImpl implements MovieService {
     @Override
     @Transactional
     public MovieVO create(MovieCreateDTO dto) {
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = DateTimeFormats.now();
         Movie m = new Movie();
         m.setMovieId(MovieIds.next());
         m.setTitle(dto.getTitle().trim());
@@ -221,7 +220,7 @@ public class MovieServiceImpl implements MovieService {
         m.setGenresJson(JSON.toJSONString(dto.getGenres()));
         m.setRating(dto.getRating());
         m.setDurationMin(dto.getDurationMin());
-        m.setReleaseDate(LocalDate.parse(dto.getReleaseDate(), DATE_FMT));
+        m.setReleaseDate(LocalDate.parse(dto.getReleaseDate(), DateTimeFormats.DATE));
         m.setStatus(StringUtils.hasText(dto.getStatus()) ? dto.getStatus() : "coming_soon");
         m.setDescription(dto.getDescription());
         m.setCastText(StringUtils.hasText(dto.getCast()) ? dto.getCast() : null);
@@ -246,10 +245,10 @@ public class MovieServiceImpl implements MovieService {
         if (dto.getGenres() != null) m.setGenresJson(JSON.toJSONString(dto.getGenres()));
         if (dto.getRating() != null) m.setRating(dto.getRating());
         if (dto.getDurationMin() != null) m.setDurationMin(dto.getDurationMin());
-        if (dto.getReleaseDate() != null) m.setReleaseDate(LocalDate.parse(dto.getReleaseDate(), DATE_FMT));
+        if (dto.getReleaseDate() != null) m.setReleaseDate(LocalDate.parse(dto.getReleaseDate(), DateTimeFormats.DATE));
         if ("off".equals(dto.getStatus()) && !"off".equals(m.getStatus())) {
             // 下架前校验：未来仍有在售场次则阻止，避免下架后场次仍可被购买
-            long onSaleShows = showMapper.countOnSaleByMovie(movieId, OffsetDateTime.now());
+            long onSaleShows = showMapper.countOnSaleByMovie(movieId, DateTimeFormats.now());
             if (onSaleShows > 0) {
                 throw new BusinessException(ResultCode.CONFLICT,
                         "该影片还有 " + onSaleShows + " 场在售场次，请先在「场次管理」取消场次后再下架");
@@ -258,7 +257,7 @@ public class MovieServiceImpl implements MovieService {
         if (dto.getStatus() != null) m.setStatus(dto.getStatus());
         if (dto.getDescription() != null) m.setDescription(dto.getDescription());
         if (dto.getCast() != null) m.setCastText(dto.getCast());
-        m.setUpdatedAt(OffsetDateTime.now());
+        m.setUpdatedAt(DateTimeFormats.now());
         movieMapper.update(m);
         if (dto.getGenres() != null) {
             syncTags(dto.getGenres());
@@ -292,7 +291,7 @@ public class MovieServiceImpl implements MovieService {
         }
         // 上架状态按上映日期推导：今天已上映→热映，未上映→待映
         String target = m.getReleaseDate() != null
-                && !m.getReleaseDate().isAfter(LocalDate.now(CLICK_ZONE))
+                && !m.getReleaseDate().isAfter(LocalDate.now(DateTimeFormats.ZONE))
                 ? "hot_showing" : "coming_soon";
         MovieUpdateDTO dto = new MovieUpdateDTO();
         dto.setStatus(target);
@@ -310,7 +309,7 @@ public class MovieServiceImpl implements MovieService {
         if (genres == null || genres.isEmpty()) {
             return;
         }
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = DateTimeFormats.now();
         Set<String> seen = new LinkedHashSet<String>();
         for (String genre : genres) {
             if (genre == null) {

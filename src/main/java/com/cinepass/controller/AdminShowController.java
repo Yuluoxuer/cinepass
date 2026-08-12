@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.dto.ShowBatchCreateDTO;
 import com.cinepass.dto.ShowCreateDTO;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -46,34 +48,41 @@ public class AdminShowController {
         this.showService = showService;
     }
 
-    /** 排片列表；未传 movieId 则返回该院全部场次；未传 date 则返回全部日期 */
+    /** 排片列表；未传 movieId 则返回该院全部场次；未传 date 则返回全部日期；
+     *  after 为 ISO-8601，只返回开场时间 >= after 的场次（前台"未开始"筛选用） */
     @GetMapping
     public Result<ShowListResult> list(@RequestParam String cinemaId,
                                         @RequestParam(required = false) String movieId,
-                                        @RequestParam(required = false) String date) {
+                                        @RequestParam(required = false) String date,
+                                        @RequestParam(required = false) String after) {
+        OffsetDateTime afterTime = (after != null && !after.isEmpty())
+                ? OffsetDateTime.parse(after) : null;
         if (movieId == null || movieId.isEmpty()) {
             // 查询该影院所有场次（不限影片）
-            return Result.success(showService.listAll(cinemaId, null));
+            return Result.success(showService.listAll(cinemaId, null, afterTime));
         }
         if (date != null && !date.isEmpty()) {
             return Result.success(showService.list(cinemaId, movieId, date));
         }
-        return Result.success(showService.listAll(cinemaId, movieId));
+        return Result.success(showService.listAll(cinemaId, movieId, afterTime));
     }
 
     /** 新建场次；同厅时间冲突则 409 */
+    @RateLimit(key = "admin-show", permits = 20, windowSeconds = 60)
     @PostMapping
     public Result<ShowVO> create(@Valid @RequestBody ShowCreateDTO body) {
         return Result.success(adminShowService.create(body));
     }
 
     /** 批量新建场次；返回成功创建的列表和跳过信息 */
+    @RateLimit(key = "admin-show-batch", permits = 5, windowSeconds = 60)
     @PostMapping("/batch")
     public Result<List<ShowVO>> batchCreate(@Valid @RequestBody ShowBatchCreateDTO body) {
         return Result.success(adminShowService.batchCreate(body));
     }
 
     /** 改开场/散场或分区价；有在途锁座/订单时拒绝改时 */
+    @RateLimit(key = "admin-show", permits = 20, windowSeconds = 60)
     @PutMapping("/{showId}")
     public Result<ShowVO> update(@PathVariable String showId,
                                   @Valid @RequestBody ShowUpdateDTO body) {
@@ -81,18 +90,21 @@ public class AdminShowController {
     }
 
     /** 取消场次 */
+    @RateLimit(key = "admin-show", permits = 20, windowSeconds = 60)
     @PostMapping("/{showId}/cancel")
     public Result<ShowVO> cancel(@PathVariable String showId) {
         return Result.success(adminShowService.cancel(showId));
     }
 
     /** 停售（保留场次，不可再购） */
+    @RateLimit(key = "admin-show", permits = 20, windowSeconds = 60)
     @PostMapping("/{showId}/close-sale")
     public Result<ShowVO> closeSale(@PathVariable String showId) {
         return Result.success(adminShowService.closeSale(showId));
     }
 
     /** 恢复开售 */
+    @RateLimit(key = "admin-show", permits = 20, windowSeconds = 60)
     @PostMapping("/{showId}/resume-sale")
     public Result<ShowVO> resumeSale(@PathVariable String showId) {
         return Result.success(adminShowService.resumeSale(showId));

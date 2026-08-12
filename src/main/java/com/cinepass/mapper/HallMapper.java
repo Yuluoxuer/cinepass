@@ -15,6 +15,12 @@ public interface HallMapper {
     /** 按主键查询 */
     Hall selectById(@Param("hallId") String hallId);
 
+    /**
+     * 按主键查询并加行锁（{@code SELECT … FOR UPDATE}）。
+     * 排片冲突检测前锁定影厅，避免并发建场次绕过 overlap 检查。
+     */
+    Hall selectByIdForUpdate(@Param("hallId") String hallId);
+
     /** 某影院下全部影厅（C 端详情用） */
     List<Hall> selectByCinemaId(@Param("cinemaId") String cinemaId);
 

@@ -30,7 +30,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -57,12 +56,16 @@ class AuthServiceTest {
     private AuthServiceImpl authService;
 
     @Test
-    void login_unknownAccount_shouldNotFound() {
+    void login_unknownAccount_shouldUnauthorizedWithUnifiedMessage() {
         when(userAccountMapper.findByNickname("nobody")).thenReturn(null);
         LoginDTO dto = new LoginDTO();
         dto.setAccount("nobody");
         dto.setPassword("password1");
-        assertBiz(() -> authService.login(dto), ResultCode.NOT_FOUND);
+        assertThatThrownBy(() -> authService.login(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("用户名或密码错误")
+                .extracting(ex -> ((BusinessException) ex).getCode())
+                .isEqualTo(ResultCode.UNAUTHORIZED.getCode());
     }
 
     @Test
@@ -70,11 +73,11 @@ class AuthServiceTest {
         UserAccount user = activeUser();
         user.setStatus(0);
         when(userAccountMapper.findByNickname("alice")).thenReturn(user);
+        when(passwordEncoder.matches("password1", "HASH")).thenReturn(true);
         LoginDTO dto = new LoginDTO();
         dto.setAccount("alice");
         dto.setPassword("password1");
         assertBiz(() -> authService.login(dto), ResultCode.UNAUTHORIZED);
-        verify(passwordEncoder, never()).matches(anyString(), anyString());
     }
 
     @Test
@@ -84,7 +87,11 @@ class AuthServiceTest {
         LoginDTO dto = new LoginDTO();
         dto.setAccount("alice");
         dto.setPassword("bad");
-        assertBiz(() -> authService.login(dto), ResultCode.UNAUTHORIZED);
+        assertThatThrownBy(() -> authService.login(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("用户名或密码错误")
+                .extracting(ex -> ((BusinessException) ex).getCode())
+                .isEqualTo(ResultCode.UNAUTHORIZED.getCode());
     }
 
     @Test

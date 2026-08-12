@@ -36,6 +36,9 @@ public class ShowSchedule implements Serializable {
     /** 非表字段：JOIN hall */
     private String hallName;
 
+    /** 非表字段：JOIN movie */
+    private String movieTitle;
+
     /** 非表字段：seat_status 余座聚合 */
     private int seatRemain;
 

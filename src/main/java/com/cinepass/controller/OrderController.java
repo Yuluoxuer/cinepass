@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.dto.CancelOrderDTO;
 import com.cinepass.dto.CreateOrderDTO;
@@ -52,6 +53,7 @@ public class OrderController {
     }
 
     /** 由有效锁座创建订单；同 lockId 幂等返回已有单 */
+    @RateLimit(key = "order-create", permits = 15, windowSeconds = 60)
     @PostMapping
     @LoginUser
     public Result<OrderVO> create(@Valid @RequestBody CreateOrderDTO dto) {
@@ -76,6 +78,7 @@ public class OrderController {
     }
 
     /** 取消待支付订单并释放锁座；已取消幂等返回 */
+    @RateLimit(key = "order-cancel", permits = 10, windowSeconds = 60)
     @PostMapping("/{orderId}/cancel")
     @LoginUser
     public Result<OrderVO> cancel(@PathVariable String orderId,
@@ -98,6 +101,7 @@ public class OrderController {
     }
 
     /** 确认模拟支付并出票；鉴权二选一：本人 JWT 或 Header X-Pay-Token */
+    @RateLimit(key = "pay", permits = 10, windowSeconds = 60)
     @PostMapping("/{orderId}/pay")
     public Result<OrderVO> pay(@PathVariable String orderId,
                                @RequestHeader(value = "X-Pay-Token", required = false) String payToken,
@@ -120,6 +124,7 @@ public class OrderController {
     }
 
     /** 确认核销：仅已出票订单可转为已核销；鉴权二选一：本人 JWT 或 Header X-Redeem-Token */
+    @RateLimit(key = "redeem", permits = 10, windowSeconds = 60)
     @PostMapping("/{orderId}/redeem")
     public Result<OrderVO> redeem(@PathVariable String orderId,
                                   @RequestHeader(value = "X-Redeem-Token", required = false) String redeemToken) {

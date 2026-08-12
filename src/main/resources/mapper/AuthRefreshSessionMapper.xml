@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.AuthRefreshSessionMapper">
+
+    <resultMap id="AuthRefreshSessionMap" type="com.cinepass.model.AuthRefreshSession">
+        <id property="sid" column="sid"/>
+        <result property="userId" column="user_id"/>
+        <result property="role" column="role"/>
+        <result property="refreshJti" column="refresh_jti"/>
+        <result property="expireAt" column="expire_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="cols">
+        sid, user_id, role, refresh_jti, expire_at, created_at, updated_at
+    </sql>
+
+    <insert id="upsert" databaseId="postgresql">
+        INSERT INTO auth_refresh_session (
+            sid, user_id, role, refresh_jti, expire_at, created_at, updated_at
+        ) VALUES (
+            #{sid}, #{userId}, #{role}, #{refreshJti}, #{expireAt}, #{createdAt}, #{updatedAt}
+        )
+        ON CONFLICT (sid) DO UPDATE SET
+            user_id = EXCLUDED.user_id,
+            role = EXCLUDED.role,
+            refresh_jti = EXCLUDED.refresh_jti,
+            expire_at = EXCLUDED.expire_at,
+            updated_at = EXCLUDED.updated_at
+    </insert>
+
+    <!-- H2：MERGE 按主键覆盖 -->
+    <insert id="upsert">
+        MERGE INTO auth_refresh_session KEY(sid)
+        VALUES (#{sid}, #{userId}, #{role}, #{refreshJti}, #{expireAt}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <select id="findValidBySid" resultMap="AuthRefreshSessionMap">
+        SELECT <include refid="cols"/>
+        FROM auth_refresh_session
+        WHERE sid = #{sid}
+          AND expire_at &gt; #{now}
+    </select>
+
+    <delete id="deleteBySid">
+        DELETE FROM auth_refresh_session WHERE sid = #{sid}
+    </delete>
+</mapper>

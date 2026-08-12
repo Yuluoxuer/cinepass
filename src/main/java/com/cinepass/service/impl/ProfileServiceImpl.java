@@ -9,6 +9,7 @@ import com.cinepass.mapper.WantSeeMapper;
 import com.cinepass.model.UserProfile;
 import com.cinepass.service.ProfileService;
 import com.cinepass.vo.ProfileVO;
+import com.cinepass.util.DateTimeFormats;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,7 +81,7 @@ public class ProfileServiceImpl implements ProfileService {
         profile.setPreferGenresJson(JSON.toJSONString(genres));
         profile.setPreferRow(dto.getPreferRow());
         profile.setPreferSide(dto.getPreferSide());
-        profile.setUpdatedAt(OffsetDateTime.now());
+        profile.setUpdatedAt(DateTimeFormats.now());
         userProfileMapper.upsert(profile);
         return get(userId);
     }

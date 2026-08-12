@@ -29,6 +29,19 @@ CREATE TABLE IF NOT EXISTS user_account (
 );
 CREATE INDEX IF NOT EXISTS idx_user_cinema ON user_account (cinema_id);
 
+-- Refresh 会话真相表（Redis auth:refresh:{sid} 为缓存）
+CREATE TABLE IF NOT EXISTS auth_refresh_session (
+  sid          VARCHAR(64)    NOT NULL,
+  user_id      VARCHAR(40)    NOT NULL,
+  role         VARCHAR(16)    NOT NULL,
+  refresh_jti  VARCHAR(64)    NOT NULL,
+  expire_at    TIMESTAMPTZ(3) NOT NULL,
+  created_at   TIMESTAMPTZ(3) NOT NULL,
+  updated_at   TIMESTAMPTZ(3) NOT NULL,
+  PRIMARY KEY (sid)
+);
+CREATE INDEX IF NOT EXISTS idx_auth_refresh_user ON auth_refresh_session (user_id);
+
 CREATE TABLE IF NOT EXISTS user_profile (
   user_id             VARCHAR(40)    NOT NULL,
   prefer_genres_json  JSONB          NOT NULL,
@@ -164,6 +177,15 @@ CREATE TABLE IF NOT EXISTS show_schedule (
 
 CREATE INDEX IF NOT EXISTS idx_show_cinema_movie_time ON show_schedule (cinema_id, movie_id, start_time);
 CREATE INDEX IF NOT EXISTS idx_show_movie_time ON show_schedule (movie_id, start_time);
+
+-- 同厅排片互斥（需 btree_gist；与 Flyway V5 对齐；新建库可执行）
+-- CREATE EXTENSION IF NOT EXISTS btree_gist;
+-- ALTER TABLE show_schedule ADD CONSTRAINT show_hall_time_excl
+--   EXCLUDE USING gist (
+--     hall_id WITH =,
+--     tstzrange(start_time, end_time + INTERVAL '20 minutes', '[)') WITH &&
+--   ) WHERE (status IS DISTINCT FROM 'cancelled');
+
 
 -- 4. 库存
 CREATE TABLE IF NOT EXISTS seat_status (

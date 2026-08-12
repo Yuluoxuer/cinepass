@@ -17,6 +17,7 @@ import com.cinepass.service.BookingDraftService;
 import com.cinepass.service.LockService;
 import com.cinepass.service.SeatInventoryService;
 import com.cinepass.util.LockIds;
+import com.cinepass.util.DateTimeFormats;
 import com.cinepass.util.RedisUtil;
 import com.cinepass.vo.LockVO;
 import com.cinepass.vo.UnlockResultVO;
@@ -46,9 +47,6 @@ import java.util.Set;
 @Slf4j
 @Service
 public class LockServiceImpl implements LockService {
-
-    private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-    private static final ZoneOffset TZ = ZoneOffset.ofHours(8);
     private static final int DEFAULT_TTL = 900;
     private static final int MIN_TTL = 60;
     private static final int MAX_TTL = 900;
@@ -116,6 +114,10 @@ public class LockServiceImpl implements LockService {
         if (show == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "场次不存在");
         }
+        // 开场时间已过则禁止锁座，避免开演后仍可购票（系分：锁座/下单/支付统一在开场前）
+        if (show.getStartTime() != null && !show.getStartTime().isAfter(DateTimeFormats.now())) {
+            throw new BusinessException(ResultCode.SHOW_STARTED, "场次已开场，无法购票");
+        }
 
         List<Seat> seats = seatMapper.selectBySeatIds(show.getSeatMapId(), seatIds);
         if (seats == null || seats.size() != seatIds.size()) {
@@ -133,7 +135,7 @@ public class LockServiceImpl implements LockService {
         List<String> orderedIds = new ArrayList<String>(seatIds);
         Collections.sort(orderedIds);
 
-        OffsetDateTime now = OffsetDateTime.now(TZ);
+        OffsetDateTime now = DateTimeFormats.now();
         seatStatusMapper.releaseExpired(showId, orderedIds, now);
 
         List<SeatStatus> lockedRows = seatStatusMapper.selectForUpdate(showId, orderedIds);
@@ -190,7 +192,7 @@ public class LockServiceImpl implements LockService {
         }
 
         if (sessionId != null) {
-            bookingDraftService.bindLock(sessionId, lockId, seatIds, ISO.format(expireAt), userId);
+            bookingDraftService.bindLock(sessionId, lockId, seatIds, DateTimeFormats.format(expireAt), userId);
         }
 
         LockVO vo = toVo(lock, seatIds);
@@ -237,7 +239,7 @@ public class LockServiceImpl implements LockService {
             return UnlockResultVO.builder().lockId(lockId).released(Boolean.TRUE).build();
         }
 
-        OffsetDateTime now = OffsetDateTime.now(TZ);
+        OffsetDateTime now = DateTimeFormats.now();
         if (lock.getExpireAt() != null && !lock.getExpireAt().isAfter(now)) {
             seatLockMapper.markExpired(lockId);
             seatStatusMapper.releaseByLockId(lockId);
@@ -338,7 +340,7 @@ public class LockServiceImpl implements LockService {
                 .showId(lock.getShowId())
                 .seatIds(seatIds)
                 .userId(lock.getUserId())
-                .expireAt(lock.getExpireAt() == null ? null : ISO.format(lock.getExpireAt()))
+                .expireAt(lock.getExpireAt() == null ? null : DateTimeFormats.format(lock.getExpireAt()))
                 .ttlSeconds(lock.getTtlSeconds())
                 .status(lock.getStatus())
                 .build();

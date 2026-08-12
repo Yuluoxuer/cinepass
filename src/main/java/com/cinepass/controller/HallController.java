@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.dto.HallCreateDTO;
 import com.cinepass.dto.HallUpdateDTO;
@@ -45,6 +46,7 @@ public class HallController {
 
     /** 新建影厅并绑定已有座位图 */
     @ApiOperation("新建影厅并绑定座位图")
+    @RateLimit(key = "admin-hall", permits = 15, windowSeconds = 60)
     @PostMapping("/halls")
     public Result<HallVO> create(@Valid @RequestBody HallCreateDTO body) {
         return Result.success(cinemaService.createHall(body));
@@ -61,6 +63,7 @@ public class HallController {
 
     /** 仅修改影厅名称 */
     @ApiOperation("修改影厅名称")
+    @RateLimit(key = "admin-hall", permits = 15, windowSeconds = 60)
     @PutMapping("/admin/halls/{hallId}")
     public Result<HallVO> update(@PathVariable String hallId, @Valid @RequestBody HallUpdateDTO body) {
         return Result.success(cinemaService.updateHall(hallId, body));

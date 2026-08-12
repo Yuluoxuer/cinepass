@@ -69,7 +69,7 @@ class AdminShowServiceImplTest {
         Hall hall = new Hall();
         hall.setHallId("hall_1");
         hall.setCinemaId("cinema_1");
-        when(hallMapper.selectById("hall_1")).thenReturn(hall);
+        when(hallMapper.selectByIdForUpdate("hall_1")).thenReturn(hall);
         when(showMapper.findOverlapping(anyString(), any(), any(), isNull()))
                 .thenReturn(Collections.emptyList());
         when(showMapper.selectById(anyString())).thenAnswer(invocation -> {
@@ -98,7 +98,45 @@ class AdminShowServiceImplTest {
 
         service.create(dto);
 
+        verify(hallMapper).selectByIdForUpdate("hall_1");
         verify(esIndexService).syncCinema("cinema_1");
+    }
+
+    @Test
+    void create_rejectsOverlappingHallSchedule() {
+        ShowMapper showMapper = mock(ShowMapper.class);
+        MovieMapper movieMapper = mock(MovieMapper.class);
+        CinemaMapper cinemaMapper = mock(CinemaMapper.class);
+        HallMapper hallMapper = mock(HallMapper.class);
+
+        when(movieMapper.selectById("movie_1")).thenReturn(new Movie());
+        when(cinemaMapper.selectById("cinema_1")).thenReturn(new Cinema());
+        Hall hall = new Hall();
+        hall.setHallId("hall_1");
+        hall.setCinemaId("cinema_1");
+        when(hallMapper.selectByIdForUpdate("hall_1")).thenReturn(hall);
+
+        ShowSchedule existing = new ShowSchedule();
+        existing.setShowId("show_existing");
+        existing.setHallId("hall_1");
+        when(showMapper.findOverlapping(anyString(), any(), any(), isNull()))
+                .thenReturn(Collections.singletonList(existing));
+
+        AdminShowServiceImpl service = new AdminShowServiceImpl(
+                showMapper, movieMapper, cinemaMapper, hallMapper, mock(SeatMapMapper.class),
+                mock(ShowService.class), mock(SeatInventoryService.class), mock(EsIndexService.class),
+                mock(UserAccountMapper.class));
+        ShowCreateDTO dto = new ShowCreateDTO();
+        dto.setMovieId("movie_1");
+        dto.setCinemaId("cinema_1");
+        dto.setHallId("hall_1");
+        dto.setStartTime(OffsetDateTime.now().plusDays(1).toString());
+        dto.setEndTime(OffsetDateTime.now().plusDays(1).plusHours(2).toString());
+        dto.setPrice(new BigDecimal("39.90"));
+
+        assertThatThrownBy(() -> service.create(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("时间冲突");
     }
 
     @Test

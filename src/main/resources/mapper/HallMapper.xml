@@ -11,6 +11,12 @@
         FROM hall h WHERE h.hall_id = #{hallId}
     </select>
 
+    <select id="selectByIdForUpdate" resultType="com.cinepass.model.Hall">
+        SELECT <include refid="hallColumns" />
+        FROM hall h WHERE h.hall_id = #{hallId}
+        FOR UPDATE
+    </select>
+
     <select id="selectByCinemaId" resultType="com.cinepass.model.Hall">
         SELECT <include refid="hallColumns" />
         FROM hall h WHERE h.cinema_id = #{cinemaId}

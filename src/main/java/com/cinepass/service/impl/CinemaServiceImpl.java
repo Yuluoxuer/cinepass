@@ -27,6 +27,7 @@ import com.cinepass.service.CinemaService;
 import com.cinepass.service.EsIndexService;
 import com.cinepass.service.EsSearchService;
 import com.cinepass.util.CinemaIds;
+import com.cinepass.util.DateTimeFormats;
 import com.cinepass.vo.CinemaVO;
 import com.cinepass.vo.HallVO;
 import com.cinepass.vo.PageResult;
@@ -238,8 +239,8 @@ public class CinemaServiceImpl implements CinemaService {
         cinema.setLng(dto.getLng());
         cinema.setTrafficNote(trimToNull(dto.getTrafficNote()));
         cinema.setTagsJson(toTagsJson(dto.getTags()));
-        cinema.setCreatedAt(OffsetDateTime.now());
-        cinema.setUpdatedAt(OffsetDateTime.now());
+        cinema.setCreatedAt(DateTimeFormats.now());
+        cinema.setUpdatedAt(DateTimeFormats.now());
         cinemaMapper.insert(cinema);
         esIndexService.syncCinema(cinema.getCinemaId());
         return toCinemaVO(cinema, true);
@@ -265,7 +266,7 @@ public class CinemaServiceImpl implements CinemaService {
         if (dto.getLng() != null) cinema.setLng(dto.getLng());
         if (dto.getTrafficNote() != null) cinema.setTrafficNote(trimToNull(dto.getTrafficNote()));
         if (dto.getTags() != null) cinema.setTagsJson(toTagsJson(dto.getTags()));
-        cinema.setUpdatedAt(OffsetDateTime.now());
+        cinema.setUpdatedAt(DateTimeFormats.now());
         cinemaMapper.update(cinema);
         esIndexService.syncCinema(cinemaId);
         return toCinemaVO(cinema, true);

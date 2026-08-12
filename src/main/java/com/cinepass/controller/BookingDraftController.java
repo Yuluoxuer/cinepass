@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.common.Result;
 import com.cinepass.dto.CreateBookingDraftDTO;
 import com.cinepass.dto.MergeBookingDraftDTO;
@@ -36,6 +37,7 @@ public class BookingDraftController {
     }
 
     /** 创建 Draft（公开） */
+    @RateLimit(key = "draft", permits = 20, windowSeconds = 60)
     @PostMapping
     public Result<BookingDraftVO> create(@RequestBody(required = false) @Valid CreateBookingDraftDTO dto) {
         if (dto == null) {
@@ -51,6 +53,7 @@ public class BookingDraftController {
     }
 
     /** CAS 更新；冲突返回 DRAFT_CONFLICT + serverDraft */
+    @RateLimit(key = "draft", permits = 20, windowSeconds = 60)
     @PutMapping("/{sessionId}")
     public Result<BookingDraftVO> update(@PathVariable String sessionId,
                                          @Valid @RequestBody UpdateBookingDraftDTO dto) {
@@ -58,6 +61,7 @@ public class BookingDraftController {
     }
 
     /** Agent 写回合并：整份草稿 version 感知合并，供手动页面读取 Agent 成果 */
+    @RateLimit(key = "draft-merge", permits = 10, windowSeconds = 60)
     @PostMapping("/{sessionId}/merge")
     public Result<BookingDraftVO> merge(@PathVariable String sessionId,
                                         @Valid @RequestBody MergeBookingDraftDTO dto) {

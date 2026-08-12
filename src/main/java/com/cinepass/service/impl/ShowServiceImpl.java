@@ -16,6 +16,7 @@ import com.cinepass.vo.PageResult;
 import com.cinepass.vo.ShowDetailVO;
 import com.cinepass.vo.ShowListResult;
 import com.cinepass.vo.ShowVO;
+import com.cinepass.util.DateTimeFormats;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -34,10 +35,6 @@ import java.util.Map;
  */
 @Service
 public class ShowServiceImpl implements ShowService {
-
-    private static final DateTimeFormatter FMT = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-    /** 院→片 nextShowDate 展示时区（与产品本地日历日一致） */
-    private static final ZoneId DISPLAY_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final ShowMapper showMapper;
     private final SeatStatusMapper seatStatusMapper;
@@ -67,8 +64,8 @@ public class ShowServiceImpl implements ShowService {
     }
 
     @Override
-    public ShowListResult listAll(String cinemaId, String movieId) {
-        List<ShowSchedule> rows = showMapper.listByMovieCinema(cinemaId, movieId);
+    public ShowListResult listAll(String cinemaId, String movieId, OffsetDateTime after) {
+        List<ShowSchedule> rows = showMapper.listByMovieCinema(cinemaId, movieId, after);
         List<ShowVO> items = new ArrayList<>();
         if (rows != null) {
             for (ShowSchedule s : rows) {
@@ -83,7 +80,7 @@ public class ShowServiceImpl implements ShowService {
         if (cinemaMapper.selectById(cinemaId) == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
         }
-        OffsetDateTime after = OffsetDateTime.now();
+        OffsetDateTime after = DateTimeFormats.now();
         List<ShowSchedule> earliest = showMapper.listEarliestUpcomingByCinema(cinemaId, after);
         if (earliest == null || earliest.isEmpty()) {
             return new PageResult<>(Collections.<MovieVO>emptyList(), 1, 0, 0);
@@ -98,7 +95,7 @@ public class ShowServiceImpl implements ShowService {
                 continue;
             }
             if (row.getStartTime() != null) {
-                vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DISPLAY_ZONE).toLocalDate().toString());
+                vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DateTimeFormats.ZONE).toLocalDate().toString());
             }
             items.add(vo);
         }
@@ -135,15 +132,17 @@ public class ShowServiceImpl implements ShowService {
         int available = seatStatusMapper.countAvailable(s.getShowId());
         String level = calcSeatRemainLevel(total, available);
         return ShowVO.builder()
-                .showId(s.getShowId()).movieId(s.getMovieId())
+                .showId(s.getShowId()).movieId(s.getMovieId()).movieTitle(s.getMovieTitle())
                 .cinemaId(s.getCinemaId()).hallId(s.getHallId())
                 .hallName(s.getHallName())
-                .startTime(s.getStartTime() != null ? FMT.format(s.getStartTime()) : null)
-                .endTime(s.getEndTime() != null ? FMT.format(s.getEndTime()) : null)
+                .startTime(s.getStartTime() != null ? DateTimeFormats.format(s.getStartTime()) : null)
+                .endTime(s.getEndTime() != null ? DateTimeFormats.format(s.getEndTime()) : null)
                 .price(s.getPrice())
                 .zonePrices(zonePrices)
                 .seatRemain(available).seatRemainLevel(level)
-                .status(s.getStatus()).build();
+                .status(s.getStatus())
+                .runtimeState(calcRuntimeState(s))
+                .build();
     }
 
     private MovieVO buildMovieVO(String movieId) {
@@ -177,6 +176,26 @@ public class ShowServiceImpl implements ShowService {
         return "almost_full";
     }
 
+    /**
+     * 根据当前时间计算场次运行时状态。
+     * not_started — 未开始（开场时间在未来）；
+     * in_progress — 进行中（当前在开场~散场之间）；
+     * ended — 已结束（散场时间已过）。
+     */
+    static String calcRuntimeState(ShowSchedule s) {
+        if (s == null || s.getStartTime() == null || s.getEndTime() == null) {
+            return null;
+        }
+        OffsetDateTime now = DateTimeFormats.now();
+        if (now.isBefore(s.getStartTime())) {
+            return "not_started";
+        }
+        if (now.isBefore(s.getEndTime())) {
+            return "in_progress";
+        }
+        return "ended";
+    }
+
     @Override
     public PageResult<MovieVO> listMoviesByTimeRange(OffsetDateTime startTime, OffsetDateTime endTime,
                                                      String cinemaId, int page, int size) {
@@ -203,7 +222,7 @@ public class ShowServiceImpl implements ShowService {
                 }
                 // nextShowDate 使用该时间段内最早开场日期
                 if (row.getStartTime() != null) {
-                    vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DISPLAY_ZONE).toLocalDate().toString());
+                    vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DateTimeFormats.ZONE).toLocalDate().toString());
                 }
                 items.add(vo);
             }

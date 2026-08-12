@@ -34,6 +34,9 @@ public enum ResultCode {
     ORDER_NOT_PAYABLE(4103, "订单不可支付"),
     ORDER_NOT_REDEEMABLE(4104, "订单不可核销"),
 
+    /** 场次已开场（开场时间已过），禁止锁座/下单/支付（系分 errorCode=SHOW_STARTED） */
+    SHOW_STARTED(4108, "场次已开场，无法购票"),
+
     /** 支付二维码 payToken 验签失败或与订单不匹配（系分 errorCode=PAY_TOKEN_INVALID） */
     PAY_TOKEN_INVALID(4105, "支付令牌无效"),
 
@@ -54,6 +57,9 @@ public enum ResultCode {
 
     /** 情侣座须成对选择（系分 errorCode=COUPLE_RULE） */
     COUPLE_RULE(-1, "couple seats must be selected together"),
+
+    /** 请求频率超限 */
+    TOO_MANY_REQUESTS(429, "请求过于频繁，请稍后再试"),
 
     /** 座位不属于该场次座位图（系分 errorCode=SEAT_INVALID） */
     SEAT_INVALID(-1, "seat does not belong to show"),

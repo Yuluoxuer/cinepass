@@ -1,15 +1,11 @@
 package com.cinepass.service;
 
 import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
 /**
- * 登录会话管理：Refresh 会话落 Redis、Access jti 黑名单（登出/吊销）。
+ * 登录会话管理：Refresh 会话以 DB 为真相、Redis 为缓存；Access jti 黑名单仅 Redis（异常 fail-open）。
  */
 public interface AuthSessionService {
 
@@ -25,13 +21,13 @@ public interface AuthSessionService {
     /** 将 Access Token 的 jti 加入黑名单，TTL 覆盖剩余有效期 */
     void denyJti(String jti, long ttlSeconds);
 
-    /** 判断 jti 是否已被吊销 */
+    /** 判断 jti 是否已被吊销；Redis 异常时 fail-open（返回 false） */
     boolean isDenied(String jti);
 
     /** 返回 Refresh 会话默认过期秒数 */
     long getRefreshExpireSeconds();
 
-    /** Redis 中存储的 Refresh 会话结构 */
+    /** Refresh 会话结构（Redis JSON / DB 行投影） */
     @Data
     class RefreshSession {
         /** 用户 ID */

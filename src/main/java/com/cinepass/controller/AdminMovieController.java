@@ -1,5 +1,6 @@
 package com.cinepass.controller;
 
+import com.cinepass.aop.RateLimit;
 import com.cinepass.cache.MovieChangedEvent;
 import com.cinepass.common.Result;
 import com.cinepass.dto.MovieCreateDTO;
@@ -38,6 +39,7 @@ public class AdminMovieController {
     }
 
     /** 新建影片 */
+    @RateLimit(key = "admin-movie", permits = 20, windowSeconds = 60)
     @PostMapping
     public Result<MovieVO> create(@Valid @RequestBody MovieCreateDTO body) {
         MovieVO vo = movieService.create(body);
@@ -47,6 +49,7 @@ public class AdminMovieController {
     }
 
     /** 部分更新影片 */
+    @RateLimit(key = "admin-movie", permits = 20, windowSeconds = 60)
     @PutMapping("/{movieId}")
     public Result<MovieVO> update(@PathVariable String movieId,
                                   @Valid @RequestBody MovieUpdateDTO body) {
@@ -57,6 +60,7 @@ public class AdminMovieController {
     }
 
     /** 下架：校验该影片未来无在售场次；有则返回冲突提示 */
+    @RateLimit(key = "admin-movie", permits = 20, windowSeconds = 60)
     @PostMapping("/{movieId}/take-down")
     public Result<MovieVO> takeDown(@PathVariable String movieId) {
         MovieVO vo = movieService.takeDown(movieId);
@@ -65,6 +69,7 @@ public class AdminMovieController {
     }
 
     /** 上架：按上映日期自动推导为热映或待映 */
+    @RateLimit(key = "admin-movie", permits = 20, windowSeconds = 60)
     @PostMapping("/{movieId}/relist")
     public Result<MovieVO> relist(@PathVariable String movieId) {
         MovieVO vo = movieService.relist(movieId);

@@ -21,13 +21,15 @@
     </select>
 
     <select id="listSeatPrices" resultType="com.cinepass.model.SeatPriceRow">
+        <!-- 分区价 JOIN 用 UPPER 归一化：seat.zone 存大写（A/B/C），show_zone_price.zone 存小写（a/b/c），
+             大小写不一致会导致 zp.price 匹配不上而回退场次基础价（分区价失效按最低价结算） -->
         SELECT seat.seat_id   AS seatId,
                seat.zone      AS zone,
                seat.seat_name AS seatName,
                COALESCE(zp.price, s.price) AS price
         FROM seat
         INNER JOIN show_schedule s ON s.seat_map_id = seat.seat_map_id
-        LEFT JOIN show_zone_price zp ON zp.show_id = s.show_id AND zp.zone = seat.zone
+        LEFT JOIN show_zone_price zp ON zp.show_id = s.show_id AND UPPER(zp.zone) = UPPER(seat.zone)
         WHERE s.show_id = #{showId}
           AND seat.seat_id IN
           <foreach collection="seatIds" item="id" open="(" separator="," close=")">
