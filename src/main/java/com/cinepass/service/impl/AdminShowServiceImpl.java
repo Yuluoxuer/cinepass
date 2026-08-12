@@ -10,11 +10,13 @@ import com.cinepass.mapper.HallMapper;
 import com.cinepass.mapper.MovieMapper;
 import com.cinepass.mapper.SeatMapMapper;
 import com.cinepass.mapper.ShowMapper;
+import com.cinepass.mapper.ShowZonePriceMapper;
 import com.cinepass.mapper.UserAccountMapper;
 import com.cinepass.model.Cinema;
 import com.cinepass.model.Hall;
 import com.cinepass.model.Movie;
 import com.cinepass.model.ShowSchedule;
+import com.cinepass.model.ShowZonePrice;
 import com.cinepass.model.UserAccount;
 import com.cinepass.security.Roles;
 import com.cinepass.security.SecurityContext;
@@ -36,11 +38,14 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * {@link AdminShowService} 实现。
  * <p>同厅排片冲突：事务内锁定影厅行后再查 overlap；库侧 EXCLUDE 约束兜底并发。
+ * 分区价写入 {@code show_zone_price}，{@code show_schedule.price} 仅存最低区价。
  * 对外错误文案提示 {@link #SHOW_BUFFER_MINUTES} 分钟清场缓冲。
  */
 @Service
@@ -54,6 +59,7 @@ public class AdminShowServiceImpl implements AdminShowService {
     private final CinemaMapper cinemaMapper;
     private final HallMapper hallMapper;
     private final SeatMapMapper seatMapMapper;
+    private final ShowZonePriceMapper showZonePriceMapper;
     private final ShowService showService;
     private final SeatInventoryService seatInventoryService;
     private final EsIndexService esIndexService;
@@ -64,6 +70,7 @@ public class AdminShowServiceImpl implements AdminShowService {
                                 CinemaMapper cinemaMapper,
                                 HallMapper hallMapper,
                                 SeatMapMapper seatMapMapper,
+                                ShowZonePriceMapper showZonePriceMapper,
                                 ShowService showService,
                                 SeatInventoryService seatInventoryService,
                                 EsIndexService esIndexService,
@@ -73,6 +80,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         this.cinemaMapper = cinemaMapper;
         this.hallMapper = hallMapper;
         this.seatMapMapper = seatMapMapper;
+        this.showZonePriceMapper = showZonePriceMapper;
         this.showService = showService;
         this.seatInventoryService = seatInventoryService;
         this.esIndexService = esIndexService;
@@ -121,6 +129,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         show.setCreatedAt(now);
         show.setUpdatedAt(now);
         insertShowGuarded(show);
+        replaceZonePrices(show.getShowId(), dto.getZonePrices());
         if (StringUtils.hasText(show.getSeatMapId())) {
             seatMapMapper.markImmutable(show.getSeatMapId());
         }
@@ -128,7 +137,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         esIndexService.syncCinema(show.getCinemaId());
 
         ShowSchedule saved = showMapper.selectById(show.getShowId());
-        return showService.buildShowVO(saved, toZonePriceVOs(dto.getZonePrices(), showPrice));
+        return showService.buildShowVO(saved);
     }
 
     @Override
@@ -151,7 +160,6 @@ public class AdminShowServiceImpl implements AdminShowService {
         if (cinema == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "影院不存在");
         }
-        // 整批共用同一影厅锁，避免批内/批间并发双写
         Hall hall = requireHallForUpdate(dto.getHallId(), dto.getCinemaId());
 
         if (dto.getIntervalMin() < durationMin) {
@@ -223,6 +231,7 @@ public class AdminShowServiceImpl implements AdminShowService {
                     }
                     throw ex;
                 }
+                replaceZonePrices(show.getShowId(), dto.getZonePrices());
 
                 if (StringUtils.hasText(show.getSeatMapId())) {
                     seatMapMapper.markImmutable(show.getSeatMapId());
@@ -230,8 +239,7 @@ public class AdminShowServiceImpl implements AdminShowService {
                 seatInventoryService.ensureSeatStatus(show.getShowId(), show.getSeatMapId());
 
                 ShowSchedule saved = showMapper.selectById(show.getShowId());
-                created.add(showService.buildShowVO(saved,
-                        toZonePriceVOs(dto.getZonePrices(), showPrice)));
+                created.add(showService.buildShowVO(saved));
 
                 cursor = cursor.plusMinutes(intervalMin);
             }
@@ -273,8 +281,11 @@ public class AdminShowServiceImpl implements AdminShowService {
         assertNoHallConflict(show.getHallId(), newStart, newEnd, showId);
         show.setStartTime(newStart);
         show.setEndTime(newEnd);
-        if (dto.getPrice() != null || dto.getZonePrices() != null) {
+        if (dto.getZonePrices() != null) {
+            replaceZonePrices(showId, dto.getZonePrices());
             show.setPrice(computePrice(dto.getZonePrices(), dto.getPrice()));
+        } else if (dto.getPrice() != null) {
+            show.setPrice(computePrice(null, dto.getPrice()));
         }
         show.setUpdatedAt(DateTimeFormats.now());
         try {
@@ -284,7 +295,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         }
         esIndexService.syncCinema(show.getCinemaId());
         ShowSchedule updated = showMapper.selectById(showId);
-        return showService.buildShowVO(updated, toZonePriceVOs(dto.getZonePrices(), updated.getPrice()));
+        return showService.buildShowVO(updated);
     }
 
     @Override
@@ -301,7 +312,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         showMapper.cancel(showId);
         esIndexService.syncCinema(show.getCinemaId());
         ShowSchedule updated = showMapper.selectById(showId);
-        return showService.buildShowVO(updated, null);
+        return showService.buildShowVO(updated);
     }
 
     @Override
@@ -318,7 +329,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         showMapper.closeSale(showId);
         esIndexService.syncCinema(show.getCinemaId());
         ShowSchedule updated = showMapper.selectById(showId);
-        return showService.buildShowVO(updated, null);
+        return showService.buildShowVO(updated);
     }
 
     @Override
@@ -341,10 +352,34 @@ public class AdminShowServiceImpl implements AdminShowService {
         }
         esIndexService.syncCinema(show.getCinemaId());
         ShowSchedule updated = showMapper.selectById(showId);
-        return showService.buildShowVO(updated, null);
+        return showService.buildShowVO(updated);
     }
 
-    /** 锁定影厅行并校验归属，供冲突检测与写库串行化 */
+    /** 全量替换场次分区价；{@code show_schedule.price} 由调用方同步为最低价 */
+    private void replaceZonePrices(String showId, List<ShowCreateDTO.ZonePriceItem> zonePrices) {
+        showZonePriceMapper.deleteByShowId(showId);
+        if (zonePrices == null || zonePrices.isEmpty()) {
+            return;
+        }
+        // 同区后者覆盖前者，避免重复主键
+        Map<String, ShowZonePrice> byZone = new LinkedHashMap<>();
+        for (ShowCreateDTO.ZonePriceItem item : zonePrices) {
+            if (item == null || !StringUtils.hasText(item.getZone()) || item.getPrice() == null) {
+                throw new BusinessException(ResultCode.PARAM_ERROR, "分区价不完整");
+            }
+            if (item.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException(ResultCode.PARAM_ERROR, "分区价必须大于 0");
+            }
+            String zone = item.getZone().trim();
+            ShowZonePrice row = new ShowZonePrice();
+            row.setShowId(showId);
+            row.setZone(zone);
+            row.setPrice(item.getPrice().setScale(2, RoundingMode.HALF_UP));
+            byZone.put(zone.toLowerCase(), row);
+        }
+        showZonePriceMapper.insertBatch(new ArrayList<>(byZone.values()));
+    }
+
     private Hall requireHallForUpdate(String hallId, String cinemaId) {
         Hall hall = hallMapper.selectByIdForUpdate(hallId);
         if (hall == null) {
@@ -356,7 +391,6 @@ public class AdminShowServiceImpl implements AdminShowService {
         return hall;
     }
 
-    /** 同厅时段 + 清场缓冲冲突则抛 CONFLICT */
     private void assertNoHallConflict(String hallId, OffsetDateTime start, OffsetDateTime end,
                                       String excludeShowId) {
         List<ShowSchedule> overlaps = showMapper.findOverlapping(hallId, start, end, excludeShowId);
@@ -390,6 +424,7 @@ public class AdminShowServiceImpl implements AdminShowService {
         if (zonePrices != null && !zonePrices.isEmpty()) {
             return zonePrices.stream()
                     .map(ShowCreateDTO.ZonePriceItem::getPrice)
+                    .filter(p -> p != null)
                     .min(BigDecimal::compareTo)
                     .orElse(fallback != null ? fallback : BigDecimal.ZERO);
         }
@@ -399,19 +434,6 @@ public class AdminShowServiceImpl implements AdminShowService {
         return BigDecimal.ZERO;
     }
 
-    private List<ShowVO.ZonePriceVO> toZonePriceVOs(List<ShowCreateDTO.ZonePriceItem> items, BigDecimal fallback) {
-        if (items == null || items.isEmpty()) return null;
-        List<ShowVO.ZonePriceVO> vos = new ArrayList<>();
-        for (ShowCreateDTO.ZonePriceItem item : items) {
-            vos.add(ShowVO.ZonePriceVO.builder()
-                    .zone(item.getZone())
-                    .price(item.getPrice() != null ? item.getPrice().setScale(2, RoundingMode.HALF_UP) : fallback)
-                    .build());
-        }
-        return vos;
-    }
-
-    /** staff 只能操作自己绑定的影院；admin 不受限 */
     private void assertCinemaScope(String cinemaId) {
         if (SecurityContext.isAdmin()) return;
         if (!SecurityContext.hasRole(Roles.STAFF) || !currentStaffCinemaId().equals(cinemaId)) {

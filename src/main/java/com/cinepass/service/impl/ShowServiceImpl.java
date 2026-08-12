@@ -7,9 +7,11 @@ import com.cinepass.mapper.CinemaMapper;
 import com.cinepass.mapper.MovieMapper;
 import com.cinepass.mapper.SeatStatusMapper;
 import com.cinepass.mapper.ShowMapper;
+import com.cinepass.mapper.ShowZonePriceMapper;
 import com.cinepass.model.Cinema;
 import com.cinepass.model.Movie;
 import com.cinepass.model.ShowSchedule;
+import com.cinepass.model.ShowZonePrice;
 import com.cinepass.service.ShowService;
 import com.cinepass.vo.MovieVO;
 import com.cinepass.vo.PageResult;
@@ -40,39 +42,30 @@ public class ShowServiceImpl implements ShowService {
     private final SeatStatusMapper seatStatusMapper;
     private final MovieMapper movieMapper;
     private final CinemaMapper cinemaMapper;
+    private final ShowZonePriceMapper showZonePriceMapper;
 
     public ShowServiceImpl(ShowMapper showMapper,
                            SeatStatusMapper seatStatusMapper,
                            MovieMapper movieMapper,
-                           CinemaMapper cinemaMapper) {
+                           CinemaMapper cinemaMapper,
+                           ShowZonePriceMapper showZonePriceMapper) {
         this.showMapper = showMapper;
         this.seatStatusMapper = seatStatusMapper;
         this.movieMapper = movieMapper;
         this.cinemaMapper = cinemaMapper;
+        this.showZonePriceMapper = showZonePriceMapper;
     }
 
     @Override
     public ShowListResult list(String cinemaId, String movieId, String date) {
         List<ShowSchedule> rows = showMapper.listByMovieCinemaDate(cinemaId, movieId, date);
-        List<ShowVO> items = new ArrayList<>();
-        if (rows != null) {
-            for (ShowSchedule s : rows) {
-                items.add(buildShowVO(s));
-            }
-        }
-        return ShowListResult.builder().date(date).items(items).build();
+        return ShowListResult.builder().date(date).items(buildShowVosWithZonePrices(rows)).build();
     }
 
     @Override
     public ShowListResult listAll(String cinemaId, String movieId, OffsetDateTime after) {
         List<ShowSchedule> rows = showMapper.listByMovieCinema(cinemaId, movieId, after);
-        List<ShowVO> items = new ArrayList<>();
-        if (rows != null) {
-            for (ShowSchedule s : rows) {
-                items.add(buildShowVO(s));
-            }
-        }
-        return ShowListResult.builder().date(null).items(items).build();
+        return ShowListResult.builder().date(null).items(buildShowVosWithZonePrices(rows)).build();
     }
 
     @Override
@@ -123,7 +116,7 @@ public class ShowServiceImpl implements ShowService {
 
     @Override
     public ShowVO buildShowVO(ShowSchedule s) {
-        return buildShowVO(s, null);
+        return buildShowVO(s, loadZonePriceVos(s.getShowId()));
     }
 
     @Override
@@ -131,6 +124,8 @@ public class ShowServiceImpl implements ShowService {
         int total = seatStatusMapper.countTotal(s.getShowId());
         int available = seatStatusMapper.countAvailable(s.getShowId());
         String level = calcSeatRemainLevel(total, available);
+        List<ShowVO.ZonePriceVO> resolvedZonePrices = zonePrices != null
+                ? zonePrices : loadZonePriceVos(s.getShowId());
         return ShowVO.builder()
                 .showId(s.getShowId()).movieId(s.getMovieId()).movieTitle(s.getMovieTitle())
                 .cinemaId(s.getCinemaId()).hallId(s.getHallId())
@@ -138,11 +133,79 @@ public class ShowServiceImpl implements ShowService {
                 .startTime(s.getStartTime() != null ? DateTimeFormats.format(s.getStartTime()) : null)
                 .endTime(s.getEndTime() != null ? DateTimeFormats.format(s.getEndTime()) : null)
                 .price(s.getPrice())
-                .zonePrices(zonePrices)
+                .zonePrices(resolvedZonePrices)
                 .seatRemain(available).seatRemainLevel(level)
                 .status(s.getStatus())
                 .runtimeState(calcRuntimeState(s))
                 .build();
+    }
+
+    /** 列表批量装配分区价，避免 N+1 */
+    private List<ShowVO> buildShowVosWithZonePrices(List<ShowSchedule> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<String> showIds = new ArrayList<>();
+        for (ShowSchedule s : rows) {
+            if (s != null && s.getShowId() != null) {
+                showIds.add(s.getShowId());
+            }
+        }
+        Map<String, List<ShowVO.ZonePriceVO>> zoneByShow = loadZonePriceVosByShowIds(showIds);
+        List<ShowVO> items = new ArrayList<>();
+        for (ShowSchedule s : rows) {
+            if (s == null) {
+                continue;
+            }
+            items.add(buildShowVO(s, zoneByShow.getOrDefault(s.getShowId(), Collections.emptyList())));
+        }
+        return items;
+    }
+
+    private List<ShowVO.ZonePriceVO> loadZonePriceVos(String showId) {
+        if (showId == null) {
+            return Collections.emptyList();
+        }
+        return toZonePriceVos(showZonePriceMapper.selectByShowId(showId));
+    }
+
+    private Map<String, List<ShowVO.ZonePriceVO>> loadZonePriceVosByShowIds(List<String> showIds) {
+        Map<String, List<ShowVO.ZonePriceVO>> map = new HashMap<>();
+        if (showIds == null || showIds.isEmpty()) {
+            return map;
+        }
+        List<ShowZonePrice> rows = showZonePriceMapper.selectByShowIds(showIds);
+        if (rows == null) {
+            return map;
+        }
+        for (ShowZonePrice row : rows) {
+            if (row == null || row.getShowId() == null) {
+                continue;
+            }
+            map.computeIfAbsent(row.getShowId(), k -> new ArrayList<>())
+                    .add(ShowVO.ZonePriceVO.builder()
+                            .zone(row.getZone())
+                            .price(row.getPrice())
+                            .build());
+        }
+        return map;
+    }
+
+    private List<ShowVO.ZonePriceVO> toZonePriceVos(List<ShowZonePrice> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<ShowVO.ZonePriceVO> vos = new ArrayList<>();
+        for (ShowZonePrice row : rows) {
+            if (row == null || row.getZone() == null || row.getPrice() == null) {
+                continue;
+            }
+            vos.add(ShowVO.ZonePriceVO.builder()
+                    .zone(row.getZone())
+                    .price(row.getPrice())
+                    .build());
+        }
+        return vos;
     }
 
     private MovieVO buildMovieVO(String movieId) {

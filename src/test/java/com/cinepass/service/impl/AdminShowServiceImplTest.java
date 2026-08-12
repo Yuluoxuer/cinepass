@@ -81,11 +81,12 @@ class AdminShowServiceImplTest {
             show.setPrice(new BigDecimal("39.90"));
             return show;
         });
-        when(showService.buildShowVO(any(ShowSchedule.class), any()))
+        when(showService.buildShowVO(any(ShowSchedule.class)))
                 .thenReturn(ShowVO.builder().showId("show_1").build());
 
         AdminShowServiceImpl service = new AdminShowServiceImpl(
                 showMapper, movieMapper, cinemaMapper, hallMapper, seatMapMapper,
+                mock(com.cinepass.mapper.ShowZonePriceMapper.class),
                 showService, seatInventoryService, esIndexService,
                 mock(UserAccountMapper.class));
         ShowCreateDTO dto = new ShowCreateDTO();
@@ -124,6 +125,7 @@ class AdminShowServiceImplTest {
 
         AdminShowServiceImpl service = new AdminShowServiceImpl(
                 showMapper, movieMapper, cinemaMapper, hallMapper, mock(SeatMapMapper.class),
+                mock(com.cinepass.mapper.ShowZonePriceMapper.class),
                 mock(ShowService.class), mock(SeatInventoryService.class), mock(EsIndexService.class),
                 mock(UserAccountMapper.class));
         ShowCreateDTO dto = new ShowCreateDTO();
@@ -158,6 +160,7 @@ class AdminShowServiceImplTest {
 
         AdminShowServiceImpl service = new AdminShowServiceImpl(
                 showMapper, movieMapper, cinemaMapper, hallMapper, seatMapMapper,
+                mock(com.cinepass.mapper.ShowZonePriceMapper.class),
                 showService, seatInventoryService, esIndexService,
                 mock(UserAccountMapper.class));
 
