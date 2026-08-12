@@ -7,3 +7,6 @@ __pycache__/
 agent/rag/chroma_db/
 agent/rag/models/
 agent/rag/chunks_preview.md
+agent4/rag/chroma_db/
+agent4/rag/models/
+agent4/rag/chunks_preview.md

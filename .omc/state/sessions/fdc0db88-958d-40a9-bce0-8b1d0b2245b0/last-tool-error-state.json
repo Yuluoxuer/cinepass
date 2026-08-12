@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"echo \\\"=== 非流式 /chat ===\\\"; curl -s -m 60 -X POST http://localhost:8001/api/v1/chat \\\\\\n  -H \\\"Content-Type: application/json\\\" \\\\\\n  -d '{\\\"message\\\": \\\"你好，介绍一下你自己\\\", \\\"session_id\\\": \\\"te...",
+  "error": "Exit code 1\n=== 非流式 /chat ===\n{\"route\":\"agent2\",\"reply\":\"你好！我是「购票助手」，一个专业的电影票务智能助手 🎬🍿\\n\\n我可以帮你完成以下事情：\\n\\n**🎫 查电影**\\n- 查看当前热映影片、即将上映影片\\n- 搜索特定电影、查看影片详情、获取个性化推荐\\n\\n**🏢 \n\n=== 多轮记忆测试（同 session_id）===\nTraceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/usr/lib/python3.12/json/__init__.py\", line 293, in load\n    return loads(fp.read(),\n                 ^^^^^^^\nAttributeError: 'str' object has no attribute 'read'",
+  "timestamp": "2026-08-07T17:56:57.740Z",
+  "retry_count": 2
+}

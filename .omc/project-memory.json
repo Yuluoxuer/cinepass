@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1785658144983,
+  "lastScanned": 1786412344109,
   "projectRoot": "/media/rei/Data/Code/movie/cinepass_leijieming_aiagent",
   "techStack": {
     "languages": [
@@ -19,7 +19,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "BASE=/media/rei/Data/Code/movie/cinepass_leijieming_aiagent\n\n# ── Level 2: app/api ──────────────────────────────────────────────\ncat > \"$BASE/app/api/AGENTS.md\" << 'HEREDOC'\n<!-- Parent: ../AGENTS.md -->\n<!-- Generated: 2026-08-02 | Updated: 2026-08-02 -->\n\n# api（HTTP 路由层）\n\n## Purpose\nFastAPI 路由定义层，当前仅支持版本 v1。负责解析 HTTP 请求、注入请求上下文（`Authorization`、`X-Request-Id`）、调用 `process_agent_turn` 业务逻辑，并返回统一格式响应。路由层本身不含业务逻辑。\n\n## Key Files\n\n| File | Description |\n|------|-------------|\n| `__init__.py` | 导出 `api_router`，供 `app/main.py` 挂载 |\n| `deps.py` | `get_request_context`：从请求头提取 `Authorization` 和 `X-Request-Id`，返回 `RequestContext` dataclass |\n\n## Subdirectories\n\n| Directory | Purpose |\n|-----------|---------|\n| `v1/` | v1 版本路由定义（见 `v1/AGENTS.md`） |\n\n## For AI Agents\n\n### Working In This Directory\n- 新增路由在 `v1/` 子目录下定义，并挂载到 `v1/__init__.py` 导出的 `api_router`\n- `deps.py` 提供请求级上下文（`Authorization` JWT）；新增依赖注入函数在此处添加\n- 路由函数保持薄层：解析入参 → 调用 `langchain/` 或 `clients/` → 包装 `ok()` 返回\n\n### Testing Requirements\n- 用 `httpx.AsyncClient(app=create_app(), base_url=\"http://test\")` 做路由层集成测试\n- `deps.py` 可通过 `app.dependency_overrides` 替换来注入测试上下文\n\n### Common Patterns\n- 响应统一用 `from app.models.response import ok`\n- 依赖注入：`ctx: RequestContext = Depends(get_request_context)`\n\n## Dependencies\n\n### Internal\n- `app/models/response.py` — 统一响应包装\n- `app/langchain/turn/process_turn.py` — 业务逻辑入口\n\n### External\n- `fastapi` — `APIRouter`、`Depends`、`Header`\n\n<!-- MANUAL: Any manually added notes below this line are preserved on regeneration -->\nHEREDOC\n\n# ── Level 2: app/clients ─────────────────────────────────────────\ncat > \"$BASE/app/clients/AGENTS.md\" << 'HEREDOC'\n<!-- Parent: ../AGENTS.md -->\n<!-- Generated: 2026-08-02 | Updated: 2026-08-02 -->\n\n# clients（中台 HTTP 客户端）\n\n## Purpose\n封装对票务中台 ticket-api（Java 服务）的所有 HTTP 调用。使用 httpx 异步客户端，透传用户 `Authorization` JWT，不附加 `X-Internal-Api-Key`。对话消息不经此层，由 `app/db/` 直接存 Agent 自有库。\n\n## Key Files\n\n| File | Description |\n|------|-------------|\n| `__init__.py` | 包入口（空） |\n| `ticket_api.py` | `TicketApiClient`：封装 `get`/`post`/`put`/`delete`；`get_draft`/`put_draft` 为 Draft 专用方法 |\n\n## For AI Agents\n\n### Working In This Directory\n- `TicketApiClient` 每次调用创建新的 `httpx.AsyncClient` 上下文（短连接），超时由 `settings.ticket_api_timeout_s` 控制\n- **禁止**在此层捕获并吞掉 HTTP 错误；调用方（`process_turn.py`）负责 `try/except`\n- 新增中台接口：在 `ticket_api.py` 添加专用方法（类似 `get_draft`/`put_draft`），不在 Tools 中直接构造 URL\n- `Authorization` 头从 `RequestContext` 透传，不从配置读取\n\n### Testing Requirements\n- 用 `respx` 或 `unittest.mock.AsyncMock` mock `httpx.AsyncClient`\n- 验证 `Authorization` 头是否正确透传\n- 验证 `raise_for_status()` 在 4xx/5xx 时抛出异常\n\n### Common Patterns\n```python\napi = TicketApiClient(authorization=ctx.authorization)\nresult = await api.get(\"/api/v1/movies\", params={\"genre\": \"comedy\"})\n```\n\n## Dependencies\n\n### Internal\n- `app/config.py` — `get_settings()`（base_url、timeout）\n\n### External\n- `httpx` 0.27 — 异步 HTTP 客户端\n\n<!-- MANUAL: Any manually added notes below this line are preserved on regeneration -->\nHEREDOC\n\n# ── Level 2: app/models ──────────────────────────────────────────\ncat > \"$BASE/app/models/AGENTS.md\" << 'HEREDOC'\n<!-- Parent: ../AGENTS.md -->\n<!-- Generated: 2026-08-02 | Updated: 2026-08-02 -->\n\n# models（Pydantic 数据模型）\n\n## Purpose\n定义服务的请求/响应 Pydantic 契约模型，对齐前端系分 §7.5 和后端系分 §8.1。字段使用 camelCase alias 供 JSON 序列化，内部代码用 snake_case 访问。\n\n## Key Files\n\n| File | Description |\n|------|-------------|\n| `__init__.py` | 包入口（空） |\n| `response.py` | `ok(data)` — 统一成功响应包装，返回 `{\"code\": 0, \"data\": ...}` |\n| `turn.py` | 对话轮次契约：`AgentTurnRequest`、`AgentTurnResponse`、`CardAction`、`AgentCardVO`、`ProgressVO`、`ToolTraceVO` |\n\n## For AI Agents\n\n### Working In This Directory\n- **字段命名**：JSON alias 用 camelCase（`alias=\"sessionId\"`），Python 属性用 snake_case；`model_config = {\"populate_by_name\": True}` 两者均可接受\n- **`AgentTurnRequest`** 有验证器：`message` 与 `cardAction` 至少填一个\n- **`ProgressVO`** 的 `steps` 默认值与 `card_composer.py` 中的 `PROGRESS_STEPS` 保持一致\n- 序列化时用 `model.model_dump(by_alias=True, exclude_none=True)`\n\n### Common Patterns\n```python\n# 统一响应\nreturn ok(result.model_dump(by_alias=True, exclude_none=True))\n```\n\n## Dependencies\n\n### External\n- `pydantic` — `BaseModel`、`Field`、`model_validator`\n\n<!-- MANUAL: Any manually added notes below this line are preserved on regeneration -->\nHEREDOC\n\n# ── Level 2: app/langchain (update) ──────────────────────────────\ncat > \"$BASE/app/langchain/AGENTS.md\" << 'HEREDOC'\n<!-- Parent: ../AGENTS.md -->\n<!-- Generated: 2026-08-02 | Updated: 2026-08-02 -->\n\n# langchain（LangChain/LangGraph 编排层）\n\n## Purpose\nAI 对话购票的核心编排逻辑，实现从用户消息到结构化卡片回复的完整管道。管道顺序：card_action 优先于 NLP → NLP 意图槽位提取 → RAG FAQ 检索 → 确定性 Planner → 子 Agent Tools 调用 → Composer 生成卡片与回复文本。入口为 `graph/booking_graph.py` 的 `run_booking_graph`。\n\n## Key Files\n\n| File | Description |\n|------|-------------|\n| `__init__.py` | 包入口（空） |\n\n## Subdirectories\n\n| Directory | Purpose |\n|-----------|---------|\n| `agents/` | 子 Agent 类：`MovieAgent`、`CinemaAgent`、`ShowAgent`、`SeatAgent`、`OrderAgent`（见 `agents/AGENTS.md`） |\n| `composer/` | `card_composer.py`：将 draft、plan、tool_results、rag_hits 合成回复（见 `composer/AGENTS.md`） |\n| `graph/` | `booking_graph.py`（`run_booking_graph` 主图）、`state.py`（`BookingGraphState`）（见 `graph/AGENTS.md`） |\n| `nlp/` | `langchain_nlp.py`：规则降级 MVP，提取 intent 与 slots；后续接 LLM（见 `nlp/AGENTS.md`） |\n| `planner/` | `planner.py`：确定性规划器，不调用 LLM，按 Draft 缺失字段决定下一步（见 `planner/AGENTS.md`） |\n| `rag/` | `retriever.py`（FAQ 检索）、`document_loader.py`（语料加载）（见 `rag/AGENTS.md`） |\n| `tools/` | 各领域 Tool 函数：movie/cinema/show/seat/order，及 `context.py`（见 `tools/AGENTS.md`） |\n| `turn/` | `process_turn.py`：对话轮次编排，hydrate Draft → 运行图 → 写回（见 `turn/AGENTS.md`） |\n\n## For AI Agents\n\n### Working In This Directory\n- **管道顺序不可随意更改**：card_action 优先于 NLP → RAG → Planner → Tools → Composer（见 `graph/booking_graph.py`）\n- **新增领域 Tool**：在 `tools/` 添加文件，通过 `app/clients/` 调用后端，**禁止 Tool 直接操作数据库**\n- **新增子 Agent**：在 `agents/` 添加，绑定对应 Tools\n- **Planner 是确定性的**（不调用 LLM），不要将推理逻辑移入 LLM\n- **RAG 仅用于 FAQ/政策检索**，事实性业务数据走 Tools\n- `BookingGraphState` 是 TypedDict（total=False），所有节点函数均接受并返回此类型\n\n### Testing Requirements\n- `pytest` 单元测试各节点\n- 测试 `run_booking_graph` 时可传入 mock state 验证管道输出\n- NLP、Planner、Composer 均可独立单测\n\n### Common Patterns\n- 所有节点函数为 `async`，接受并返回 `BookingGraphState`\n- Tool 函数通过 `ToolsContext` 持有的 `TicketApiClient` 调用中台\n- Composer 输出固定结构：`{reply_text, cards, progress, need_login, draft?, events}`\n\n## Dependencies\n\n### Internal\n- `app/clients/` — 各 Tool 通过此层调用票务中台 REST API\n- `app/models/turn.py` — 对话轮次输入/输出模型\n- `app/db/` — `message_repo` 读写对话历史（在 `turn/process_turn.py` 中调用）\n\n### External\n- `langchain-core` 0.3 + `langchain-community` 0.3 — LLM 调用抽象\n- `langgraph` 0.2 — StateGraph 状态机（MVP 顺序执行，后续改 `add_node`/`add_edge`）\n- `chromadb` — RAG 远端向量库客户端\n\n<!-- MANUAL: Any manually added notes below this line are preserved on regeneration -->\nHEREDOC\n\necho \"Level 2 done\"",
+    "testCommand": null,
     "lintCommand": null,
     "devCommand": null,
     "scripts": {}
@@ -34,18 +34,50 @@
     "isMonorepo": false,
     "workspaces": [],
     "mainDirectories": [
-      "app",
-      "docs"
+      "docs",
+      "scripts",
+      "tests"
     ],
     "gitBranches": null
   },
   "customNotes": [],
   "directoryMap": {
-    "app": {
-      "path": "app",
-      "purpose": "Application code",
+    "__pycache__": {
+      "path": "__pycache__",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1786412344089,
+      "keyFiles": [
+        "cli.cpython-312.pyc"
+      ]
+    },
+    "agent4": {
+      "path": "agent4",
+      "purpose": null,
+      "fileCount": 5,
+      "lastAccessed": 1786412344092,
+      "keyFiles": [
+        "MainAgent.py",
+        "__init__.py",
+        "config.py",
+        "llm.py",
+        "state.py"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 1,
+      "lastAccessed": 1786412344093,
+      "keyFiles": [
+        "agent-draft-optimistic-lock.md"
+      ]
+    },
+    "fapi": {
+      "path": "fapi",
+      "purpose": null,
       "fileCount": 4,
-      "lastAccessed": 1785658144979,
+      "lastAccessed": 1786412344095,
       "keyFiles": [
         "AGENTS.md",
         "__init__.py",
@@ -53,310 +85,67 @@
         "main.py"
       ]
     },
-    "docs": {
-      "path": "docs",
-      "purpose": "Documentation",
-      "fileCount": 0,
-      "lastAccessed": 1785658144979,
-      "keyFiles": []
-    },
-    "app/api": {
-      "path": "app/api",
-      "purpose": "API routes",
-      "fileCount": 2,
-      "lastAccessed": 1785658144980,
+    "knowledge": {
+      "path": "knowledge",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1786412344096,
       "keyFiles": [
-        "__init__.py",
-        "deps.py"
+        "refund_policy.md"
       ]
     },
-    "app/models": {
-      "path": "app/models",
-      "purpose": "Data models",
-      "fileCount": 3,
-      "lastAccessed": 1785658144982,
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1786412344099,
+      "keyFiles": [
+        "test_embedding.py"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 2,
+      "lastAccessed": 1786412344103,
+      "keyFiles": [
+        "test_cli.py",
+        "test_knowledge.py"
+      ]
+    },
+    "agent4/api": {
+      "path": "agent4/api",
+      "purpose": "API routes",
+      "fileCount": 7,
+      "lastAccessed": 1786412344105,
       "keyFiles": [
         "__init__.py",
-        "response.py",
-        "turn.py"
+        "cards.py",
+        "contract.py"
+      ]
+    },
+    "fapi/api": {
+      "path": "fapi/api",
+      "purpose": "API routes",
+      "fileCount": 2,
+      "lastAccessed": 1786412344106,
+      "keyFiles": [
+        "AGENTS.md",
+        "__init__.py"
       ]
     }
   },
   "hotPaths": [
     {
-      "path": "",
-      "accessCount": 17,
-      "lastAccessed": 1785670321090,
-      "type": "directory"
-    },
-    {
-      "path": "AGENTS.md",
-      "accessCount": 3,
-      "lastAccessed": 1785675519091,
-      "type": "file"
-    },
-    {
-      "path": "README.md",
-      "accessCount": 3,
-      "lastAccessed": 1785675519409,
-      "type": "file"
-    },
-    {
-      "path": "app/config.py",
+      "path": "agent4/api/knowledge.py",
       "accessCount": 2,
-      "lastAccessed": 1785670360393,
+      "lastAccessed": 1786412515372,
       "type": "file"
     },
     {
-      "path": "app/main.py",
-      "accessCount": 2,
-      "lastAccessed": 1785670360873,
-      "type": "file"
-    },
-    {
-      "path": "app/api/v1/agent.py",
-      "accessCount": 2,
-      "lastAccessed": 1785670367861,
-      "type": "file"
-    },
-    {
-      "path": "app/langchain/graph/booking_graph.py",
-      "accessCount": 2,
-      "lastAccessed": 1785670368461,
-      "type": "file"
-    },
-    {
-      "path": "app/langchain/turn/process_turn.py",
-      "accessCount": 2,
-      "lastAccessed": 1785670369176,
-      "type": "file"
-    },
-    {
-      "path": "app/models/turn.py",
-      "accessCount": 2,
-      "lastAccessed": 1785670376592,
-      "type": "file"
-    },
-    {
-      "path": "app/clients/ticket_api.py",
-      "accessCount": 2,
-      "lastAccessed": 1785670376888,
-      "type": "file"
-    },
-    {
-      "path": "app/langchain/nlp/langchain_nlp.py",
-      "accessCount": 2,
-      "lastAccessed": 1785670377385,
-      "type": "file"
-    },
-    {
-      "path": "app/langchain/planner/planner.py",
-      "accessCount": 2,
-      "lastAccessed": 1785670377844,
-      "type": "file"
-    },
-    {
-      "path": "app/langchain/composer/card_composer.py",
-      "accessCount": 2,
-      "lastAccessed": 1785670378332,
-      "type": "file"
-    },
-    {
-      "path": "app/langchain/rag/retriever.py",
-      "accessCount": 2,
-      "lastAccessed": 1785670387524,
-      "type": "file"
-    },
-    {
-      "path": "app/langchain/graph/state.py",
-      "accessCount": 2,
-      "lastAccessed": 1785670387970,
-      "type": "file"
-    },
-    {
-      "path": "app/AGENTS.md",
-      "accessCount": 2,
-      "lastAccessed": 1785670805543,
-      "type": "file"
-    },
-    {
-      "path": "requirements.txt",
-      "accessCount": 2,
-      "lastAccessed": 1785675519803,
-      "type": "file"
-    },
-    {
-      "path": ".env.example",
-      "accessCount": 2,
-      "lastAccessed": 1785675520273,
-      "type": "file"
-    },
-    {
-      "path": "fastapi/AGENTS.md",
-      "accessCount": 2,
-      "lastAccessed": 1785675737887,
-      "type": "file"
-    },
-    {
-      "path": "app/models/response.py",
+      "path": "agent4/api/contract.py",
       "accessCount": 1,
-      "lastAccessed": 1785511607480,
-      "type": "file"
-    },
-    {
-      "path": "app/langchain/tools/context.py",
-      "accessCount": 1,
-      "lastAccessed": 1785511632754,
-      "type": "file"
-    },
-    {
-      "path": "app/langchain/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785670367592,
-      "type": "file"
-    },
-    {
-      "path": "app/langchain/tools/cinema_tools.py",
-      "accessCount": 1,
-      "lastAccessed": 1785670378794,
-      "type": "file"
-    },
-    {
-      "path": "app/api/deps.py",
-      "accessCount": 1,
-      "lastAccessed": 1785670386825,
-      "type": "file"
-    },
-    {
-      "path": "app/langchain/agents/movie_agent.py",
-      "accessCount": 1,
-      "lastAccessed": 1785670388516,
-      "type": "file"
-    },
-    {
-      "path": "fastapi/main.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675541603,
-      "type": "file"
-    },
-    {
-      "path": "fastapi/config.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675542049,
-      "type": "file"
-    },
-    {
-      "path": "fastapi/api/chat.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675542447,
-      "type": "file"
-    },
-    {
-      "path": "fastapi/models/chat.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675542871,
-      "type": "file"
-    },
-    {
-      "path": "agent/llm.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675543291,
-      "type": "file"
-    },
-    {
-      "path": "agent/settings.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675543692,
-      "type": "file"
-    },
-    {
-      "path": "agent/langgraph/graph.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675544142,
-      "type": "file"
-    },
-    {
-      "path": "agent/langgraph/state.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675544456,
-      "type": "file"
-    },
-    {
-      "path": "agent/langgraph/runner.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675544911,
-      "type": "file"
-    },
-    {
-      "path": "agent/subagent/base.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675545216,
-      "type": "file"
-    },
-    {
-      "path": "agent/subagent/chat_agent.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675545714,
-      "type": "file"
-    },
-    {
-      "path": "agent/subagent/helper_agent.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675546121,
-      "type": "file"
-    },
-    {
-      "path": "agent/tools/sample_tools.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675546432,
-      "type": "file"
-    },
-    {
-      "path": "agent/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785675547318,
-      "type": "file"
-    },
-    {
-      "path": "agent/langgraph/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785675547695,
-      "type": "file"
-    },
-    {
-      "path": "agent/subagent/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785675548181,
-      "type": "file"
-    },
-    {
-      "path": "fastapi/api/__init__.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675574832,
-      "type": "file"
-    },
-    {
-      "path": "agent/tools/__init__.py",
-      "accessCount": 1,
-      "lastAccessed": 1785675575069,
-      "type": "file"
-    },
-    {
-      "path": "fastapi/api/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785675640977,
-      "type": "file"
-    },
-    {
-      "path": "fastapi/models/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785675652189,
-      "type": "file"
-    },
-    {
-      "path": "agent/tools/AGENTS.md",
-      "accessCount": 1,
-      "lastAccessed": 1785675660016,
+      "lastAccessed": 1786412928069,
       "type": "file"
     }
   ],
