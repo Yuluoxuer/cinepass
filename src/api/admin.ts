@@ -262,18 +262,25 @@ export interface KnowledgeFileVO {
   updatedAt?: string | null;
 }
 
-/** 列出当前账号作用域知识库的文档（admin→系统知识库，staff→本院知识库）。 */
-export function listKnowledgeFiles() {
-  return get<KnowledgeFileVO[]>('/agent4/knowledge/files');
+/** 列出当前账号作用域知识库的文档。
+ * admin 不传 cinemaId→系统知识库，传 cinemaId→指定影院知识库；
+ * staff 固定传本院 cinemaId（后端会校验越权拒绝）。 */
+export function listKnowledgeFiles(cinemaId?: string) {
+  const params: Record<string, string> = {};
+  if (cinemaId) params.cinemaId = cinemaId;
+  return get<KnowledgeFileVO[]>('/agent4/knowledge/files', params);
 }
 
-/** 上传 Markdown 知识文档到当前账号作用域知识库。 */
-export async function uploadKnowledgeFile(file: File): Promise<KnowledgeFileVO> {
+/** 上传 Markdown 知识文档。
+ * admin 只能上传系统知识库（不传 cinemaId）；staff 传本院 cinemaId。 */
+export async function uploadKnowledgeFile(file: File, cinemaId?: string): Promise<KnowledgeFileVO> {
   const formData = new FormData();
   formData.append('file', file);
   const { getAccessToken } = await import('@/stores/auth');
   const token = getAccessToken();
-  const resp = await fetch('/api/v1/agent4/knowledge/files', {
+  let url = '/api/v1/agent4/knowledge/files';
+  if (cinemaId) url += `?cinemaId=${encodeURIComponent(cinemaId)}`;
+  const resp = await fetch(url, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
@@ -285,7 +292,30 @@ export async function uploadKnowledgeFile(file: File): Promise<KnowledgeFileVO> 
   return json.data as KnowledgeFileVO;
 }
 
-/** 删除知识库中的指定文档（向量块 + 磁盘原文）。 */
-export function deleteKnowledgeFile(filename: string) {
-  return del<null>(`/agent4/knowledge/files/${encodeURIComponent(filename)}`);
+/** 删除知识库中的指定文档（向量块 + 磁盘原文）。
+ * admin 不传 cinemaId→系统知识库，传 cinemaId→指定影院知识库；
+ * staff 固定传本院 cinemaId。 */
+export function deleteKnowledgeFile(filename: string, cinemaId?: string) {
+  const params: Record<string, string> = {};
+  if (cinemaId) params.cinemaId = cinemaId;
+  return del<null>(`/agent4/knowledge/files/${encodeURIComponent(filename)}`, params);
+}
+
+/** ===== 切块明细（预览切分效果） ===== */
+
+export interface KnowledgeChunkVO {
+  id: string;
+  chunkIndex: number;
+  section: string;
+  text: string;
+  charCount: number;
+}
+
+/** 查看指定文档的全部切块明细。
+ * admin 不传 cinemaId→系统知识库，传 cinemaId→指定影院知识库；
+ * staff 固定传本院 cinemaId。 */
+export function getFileChunks(filename: string, cinemaId?: string) {
+  const params: Record<string, string> = {};
+  if (cinemaId) params.cinemaId = cinemaId;
+  return get<KnowledgeChunkVO[]>(`/agent4/knowledge/files/${encodeURIComponent(filename)}/chunks`, params);
 }
