@@ -1,0 +1,253 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&display=swap');
+
+:root {
+  /* ── Surfaces: warm ticket cream ── */
+  --color-bg-page:     #f6f1e8;
+  --color-bg-header:   #101828;
+  --color-bg-card:     #fffdf9;
+  --color-bg-surface:  #ebe6dd;
+  --color-bg-elevated: #fffdf9;
+  --color-bg-ink:      #101828;
+  --color-bg-ink-soft: #172338;
+  --color-bg-panel:    #ebe6dd;
+  --color-bg-agent:    #e6e0d5;
+
+  /* ── Brand: ticket red + signal teal + amber ── */
+  --color-primary:        #d9423a;
+  --color-primary-hover:  #c43831;
+  --color-primary-soft:   rgba(217, 66, 58, 0.1);
+  --color-primary-glow:   rgba(217, 66, 58, 0.22);
+  --color-tungsten:       #f2b84b;
+  --color-tungsten-soft:  rgba(242, 184, 75, 0.16);
+  --color-agent:          #37b7a5;
+  --color-agent-hover:    #2a9e8e;
+  --color-agent-soft:     #dff3ef;
+  --color-agent-glow:     rgba(55, 183, 165, 0.22);
+
+  /* ── Text ── */
+  --color-text-primary:   #101828;
+  --color-text-secondary: #172338;
+  --color-text-muted:     #6e7480;
+  --color-text-on-ink:    #fffdf9;
+
+  /* ── Borders ── */
+  --color-border:        #ddd8cf;
+  --color-border-strong: #c8c1b6;
+
+  /* ── Semantic ── */
+  --color-success: #16806f;
+  --color-warning: #976f1f;
+  --color-danger:  #d9423a;
+  --color-gold:    #f2b84b;
+  --color-score:   #f2b84b;
+  --color-accent:  #f2b84b;
+
+  /* ── Radius ── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 14px;
+  --radius-xl: 22px;
+
+  /* ── Shadows ── */
+  --shadow-card:   0 18px 50px rgba(16, 24, 40, 0.12);
+  --shadow-hover:  0 18px 50px rgba(16, 24, 40, 0.14);
+  --shadow-poster: -20px 24px 60px rgba(0, 0, 0, 0.4);
+
+  /* ── Typography ── */
+  --font-display: 'Songti SC', 'STSong', 'Noto Serif SC', Georgia, serif;
+  --font-family:  'MiSans', 'HarmonyOS Sans SC', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono:    'DIN Alternate', 'Bahnschrift', 'Cascadia Mono', monospace;
+  --font-size-h1:      42px;
+  --font-size-h2:      26px;
+  --font-size-body:    14px;
+  --font-size-caption: 12px;
+
+  /* ── Layout ── */
+  --spacing-page-x:      24px;
+  --spacing-section:     28px;
+  --header-height:       72px;
+  --booking-bar-height:  60px;
+  --drawer-width:        460px;
+  --content-max:         1240px;
+  --admin-sidebar-width: 226px;
+  --admin-bg:            #eef0f2;
+  --admin-sidebar-bg:    #101828;
+  --admin-primary:       #37b7a5;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-family);
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; color: inherit; }
+img { max-width: 100%; }
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(55, 183, 165, 0.35);
+  outline-offset: 2px;
+}
+
+.miaoyu-container {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 16px var(--spacing-page-x) 32px;
+}
+
+/* ── Eyebrow label ── */
+.miaoyu-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.miaoyu-eyebrow.teal { color: var(--color-agent); }
+
+/* ── Buttons ── */
+.miaoyu-btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  padding: 0 20px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  height: 42px;
+  box-shadow: 0 6px 18px var(--color-primary-glow);
+  transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
+}
+
+.miaoyu-btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.miaoyu-btn-primary:active:not(:disabled) { transform: scale(0.98); }
+
+.miaoyu-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.miaoyu-btn-secondary {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid #aab0b8;
+  padding: 0 17px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  height: 40px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.miaoyu-btn-secondary:hover {
+  background: rgba(16, 24, 40, 0.04);
+  border-color: #8a9099;
+}
+
+.miaoyu-btn-ghost {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.miaoyu-btn-text {
+  background: none;
+  border: none;
+  color: var(--color-agent);
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.miaoyu-btn-agent {
+  background: var(--color-agent);
+  color: #fff;
+  border: none;
+  padding: 0 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  height: 40px;
+  transition: background 0.15s;
+}
+
+.miaoyu-btn-agent:hover:not(:disabled) {
+  background: var(--color-agent-hover);
+}
+
+/* ── Skeleton ── */
+.miaoyu-skeleton {
+  background: linear-gradient(90deg, #e4ddd2 25%, #efe9df 37%, #e4ddd2 63%);
+  background-size: 400% 100%;
+  animation: miaoyu-shimmer 1.3s ease infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes miaoyu-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+@keyframes miaoyu-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes miaoyu-reveal {
+  from { opacity: 0; transform: translateY(20px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes miaoyu-beam-in {
+  0%   { opacity: 0; transform: translateX(80px); }
+  60%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-20px); }
+}
+
+.miaoyu-fade-up {
+  animation: miaoyu-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 只禁用应用自身的装饰性动画，保留 antd 组件动效。
+     否则 rc-motion 收不到 animationend，Modal 关闭会卡死在 zoom-leave 态，
+     .ant-modal-container 一直保持 pointer-events:none，整块弹窗无法交互。 */
+  [class*='miaoyu-'],
+  [class*='miaoyu-']::before,
+  [class*='miaoyu-']::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}

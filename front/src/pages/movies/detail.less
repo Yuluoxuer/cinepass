@@ -1,0 +1,131 @@
+.page {
+  padding-bottom: calc(var(--booking-bar-height) + 32px);
+}
+
+.pageLoading {
+  min-height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.banner {
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+}
+
+.bannerMask {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, rgba(16, 24, 40, 0.95), rgba(16, 24, 40, 0.78) 52%, rgba(16, 24, 40, 0.58));
+  backdrop-filter: blur(18px);
+}
+
+.bannerInner {
+  position: relative;
+  z-index: 1;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 28px var(--spacing-page-x) 32px;
+  display: flex;
+  gap: 28px;
+  color: var(--color-text-on-ink);
+}
+
+.poster {
+  width: 168px;
+  height: 252px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.meta { flex: 1; min-width: 0; padding-top: 4px; }
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.top h1 { margin: 0; font-family: var(--font-display); font-size: 36px; line-height: 1.15; }
+
+.want {
+  background: rgba(242, 240, 235, 0.08);
+  border: 1px solid rgba(242, 240, 235, 0.22);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+.want:hover:not(:disabled) { background: rgba(55, 183, 165, 0.45); border-color: transparent; }
+.want:disabled { cursor: wait; opacity: 0.65; }
+
+.scoreRow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin-top: 14px; color: rgba(242, 240, 235, 0.72); font-size: 13px; }
+.score { color: var(--color-tungsten); font-weight: 600; }
+.score em { font-family: var(--font-display); font-style: italic; font-size: 26px; font-weight: 500; margin-right: 3px; }
+.noScore { color: rgba(242, 240, 235, 0.4); }
+.dot { opacity: 0.35; }
+.cast { color: rgba(242, 240, 235, 0.62); margin: 12px 0; font-size: 13px; }
+.heroDesc { max-width: 640px; margin: 0; color: rgba(242, 240, 235, 0.68); font-size: 13px; line-height: 1.7; }
+.agentLink { margin-top: 14px; padding: 0; border: 0; background: none; color: var(--color-tungsten); cursor: pointer; font-size: 13px; font-weight: 650; }
+.agentLink:hover { color: #e0b028; }
+
+.content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 296px;
+  gap: 24px;
+  align-items: start;
+  margin-top: 28px;
+}
+.mainColumn { display: grid; gap: 20px; }
+.infoCard, .purchaseCard { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.infoCard { padding: 24px 28px; }
+.infoCard h2, .purchaseCard h2 { margin: 0 0 16px; color: var(--color-text-primary); font-family: var(--font-display); font-size: 20px; }
+
+.synopsis { display: -webkit-box; margin: 0; overflow: hidden; color: var(--color-text-secondary); font-size: 14px; line-height: 1.9; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.synopsis.open { display: block; }
+.expand { padding: 0; margin-top: 8px; border: 0; background: none; color: var(--color-brand); cursor: pointer; font-size: 13px; }
+
+.peopleList { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 2px; }
+.person { width: 92px; flex: 0 0 92px; display: flex; flex-direction: column; gap: 4px; color: var(--color-text-muted); font-size: 12px; }
+.avatar { width: 92px; height: 112px; display: flex; align-items: center; justify-content: center; object-fit: cover; border-radius: var(--radius-sm); background: #edf1f5; color: #708092; font-family: var(--font-display); font-size: 28px; }
+.person strong { overflow: hidden; color: var(--color-text-primary); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.emptyText, .summaryError, .summaryLoading { margin: 0; color: var(--color-text-muted); font-size: 13px; line-height: 1.7; }
+.summaryError { color: var(--color-danger); }
+
+.purchaseCard { position: sticky; top: 88px; padding: 22px; }
+.priceBlock { display: grid; gap: 5px; padding: 16px 0; border-top: 1px solid var(--color-border-light); border-bottom: 1px solid var(--color-border-light); }
+.priceBlock span, .features > span { color: var(--color-text-muted); font-size: 12px; }
+.priceBlock strong { color: var(--color-price); font-family: var(--font-display); font-size: 24px; }
+.priceBlock small { color: var(--color-text-secondary); font-size: 12px; }
+.features { display: grid; gap: 8px; padding: 16px 0; }
+.features > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.features i { padding: 3px 7px; border-radius: 3px; background: rgba(55, 183, 165, 0.12); color: #178c7e; font-size: 11px; font-style: normal; }
+.purchaseCard :global(.miaoyu-btn-primary) { width: 100%; height: 40px; }
+.agentButton { width: 100%; height: 38px; margin-top: 10px; border: 1px solid var(--color-brand); border-radius: var(--radius-sm); background: transparent; color: var(--color-brand); cursor: pointer; font-weight: 600; }
+.barWant { min-width: 200px; height: 40px; border: 1px solid var(--color-brand); border-radius: var(--radius-sm); background: transparent; color: var(--color-brand); cursor: pointer; font-weight: 650; font-size: 14px; transition: 0.15s; }
+.barWant:hover { background: rgba(55, 183, 165, 0.1); }
+
+.bar { position: fixed; z-index: 50; right: 0; bottom: 0; left: 0; height: var(--booking-bar-height); background: rgba(246, 247, 249, 0.92); border-top: 1px solid var(--color-border); box-shadow: 0 -4px 24px rgba(12, 16, 24, 0.06); backdrop-filter: blur(12px); }
+.barInner { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: var(--content-max); height: 100%; margin: 0 auto; padding: 0 var(--spacing-page-x); }
+.barInfo { display: flex; flex-direction: column; }
+.barInfo strong { color: var(--color-text-primary); font-size: 14px; }
+.barInfo span { color: var(--color-text-muted); font-size: 12px; }
+
+@media (max-width: 800px) {
+  .content { grid-template-columns: 1fr; }
+  .purchaseCard { position: static; }
+}
+
+@media (max-width: 700px) {
+  .bannerInner { flex-direction: column; }
+  .poster { width: 120px; height: 180px; }
+  .top h1 { font-size: 24px; }
+  .content { margin-top: 16px; }
+  .infoCard { padding: 20px; }
+  .barInner { padding: 0 16px; }
+  .barInfo { display: none; }
+  .bar :global(.miaoyu-btn-primary), .barWant { width: 100%; }
+}

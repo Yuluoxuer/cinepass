@@ -1,0 +1,225 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1786415576970,
+  "projectRoot": "/media/rei/Data/Code/movie/cinepass_leijieming_frontend",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "playwright",
+        "version": "1.61.1",
+        "category": "testing"
+      }
+    ],
+    "packageManager": "pnpm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "cd /media/rei/Data/Code/movie/cinepass_leijieming_frontend; echo \"=== 全部时间截取残留检查 ===\"; grep -rn \"\\.slice(11\\|toISOString().slice\\|replace('T'\" src/ --include=\"*.tsx\" --include=\"*.ts\" | grep -v \".umi\" || echo \"✅ 已全部清除\"; echo \"=== tsc ===\"; npx tsc --noEmit -p tsconfig.json 2>&1 | grep -v \"node_modules\" | grep -E \"booking/shows|booking/cinemas|format.ts\" || echo \"✅ 无类型错误\"",
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": "pnpm dev",
+    "scripts": {
+      "dev": "umi dev",
+      "build": "umi build",
+      "postinstall": "umi setup",
+      "setup": "umi setup",
+      "start": "npm run dev"
+    }
+  },
+  "conventions": {
+    "namingStyle": "camelCase",
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": "feature-based"
+  },
+  "structure": {
+    "isMonorepo": true,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs",
+      "public",
+      "scripts",
+      "src"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 101,
+      "lastAccessed": 1786415576913,
+      "keyFiles": [
+        "1583.async.js",
+        "1828.async.js",
+        "2333.async.js",
+        "2596.async.js",
+        "2858.async.js"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 1,
+      "lastAccessed": 1786415576917,
+      "keyFiles": [
+        "search-api.md"
+      ]
+    },
+    "public": {
+      "path": "public",
+      "purpose": "Public files",
+      "fileCount": 3,
+      "lastAccessed": 1786415576928,
+      "keyFiles": [
+        "AGENTS.md",
+        "app-icon.png"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 8,
+      "lastAccessed": 1786415576930,
+      "keyFiles": [
+        "_conflict_dump.txt",
+        "_dump_conflicts.py",
+        "_enhance_pageerror.py",
+        "_inspect_admin.py",
+        "_patch_admin.py"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 5,
+      "lastAccessed": 1786415576933,
+      "keyFiles": [
+        "AGENTS.md",
+        "access.ts",
+        "app.tsx",
+        "typings.d.ts"
+      ]
+    },
+    "src/api": {
+      "path": "src/api",
+      "purpose": "API routes",
+      "fileCount": 9,
+      "lastAccessed": 1786415576945,
+      "keyFiles": [
+        "admin.ts",
+        "agent.ts",
+        "auth.ts"
+      ]
+    },
+    "src/components": {
+      "path": "src/components",
+      "purpose": "UI components",
+      "fileCount": 2,
+      "lastAccessed": 1786415576947,
+      "keyFiles": [
+        "AGENTS.md"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src/pages/booking/shows.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1786437408778,
+      "type": "file"
+    },
+    {
+      "path": "src/pages/admin/shows.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1786437043708,
+      "type": "file"
+    },
+    {
+      "path": "src/pages/mobile/pay.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1786437091257,
+      "type": "file"
+    },
+    {
+      "path": "src/agent/CardRenderer.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1786437116010,
+      "type": "file"
+    },
+    {
+      "path": "src/utils/format.ts",
+      "accessCount": 2,
+      "lastAccessed": 1786437030788,
+      "type": "file"
+    },
+    {
+      "path": "src/pages/booking/pay.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786437052269,
+      "type": "file"
+    },
+    {
+      "path": "src/pages/booking/ticket.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786437061829,
+      "type": "file"
+    },
+    {
+      "path": "src/pages/booking/confirm.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786437070928,
+      "type": "file"
+    },
+    {
+      "path": "src/pages/me/orderDetail.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786437079073,
+      "type": "file"
+    },
+    {
+      "path": "src/pages/mobile/redeem.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786437100816,
+      "type": "file"
+    },
+    {
+      "path": "src/pages/booking/cinemas.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786437375947,
+      "type": "file"
+    },
+    {
+      "path": "src/api/auth.ts",
+      "accessCount": 1,
+      "lastAccessed": 1786436755126,
+      "type": "file"
+    },
+    {
+      "path": "src/types/index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1786436755470,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

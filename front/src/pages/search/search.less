@@ -1,0 +1,250 @@
+.h1 {
+  font-family: var(--font-display);
+  font-size: 42px;
+  font-weight: 700;
+  margin: 28px 0 10px;
+  color: var(--color-text-primary);
+  line-height: 1.15;
+}
+
+.empty {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  padding: 40px 0;
+  text-align: center;
+}
+
+/* ---- tabs ---- */
+.tabs {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--color-bg-ink);
+  padding: 18px 0;
+  flex-wrap: wrap;
+}
+
+.tabs button {
+  background: transparent;
+  border: 1px solid #bbb6ae;
+  border-radius: 20px;
+  padding: 7px 20px;
+  cursor: pointer;
+  color: #5f6671;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.tabs button:hover {
+  border-color: var(--color-agent);
+  color: #167b6d;
+}
+
+.tabs .active {
+  background: var(--color-bg-ink);
+  color: white;
+  border-color: var(--color-bg-ink);
+}
+
+/* ---- sort bar ---- */
+.sortBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.sortBar button {
+  background: transparent;
+  border: 1px solid #bbb6ae;
+  border-radius: 20px;
+  padding: 5px 16px;
+  cursor: pointer;
+  color: #5f6671;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.sortBar button:hover {
+  border-color: var(--color-agent);
+  color: #167b6d;
+}
+
+.sortBar .sortActive {
+  background: var(--color-bg-ink);
+  color: white;
+  border-color: var(--color-bg-ink);
+}
+
+/* ---- list ---- */
+.list {
+  border-top: 1px solid var(--color-border);
+}
+
+/* ---- movie row ---- */
+.movieRow {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  gap: 24px;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.movieRow:hover {
+  background: rgba(16, 24, 40, 0.02);
+}
+
+.movieRow img {
+  width: 110px;
+  height: 145px;
+  object-fit: cover;
+  flex-shrink: 0;
+  display: block;
+}
+
+.info {
+  min-width: 0;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.info h3 {
+  margin: 5px 0;
+  font: 700 24px var(--font-display);
+  color: var(--color-text-primary);
+}
+
+.info p {
+  margin: 6px 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.desc {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ---- cinema row ---- */
+.cinemaRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.cinemaRow:hover {
+  background: rgba(16, 24, 40, 0.02);
+}
+
+.cinemaInfo {
+  min-width: 0;
+}
+
+.cinemaInfo h3 {
+  margin: 0 0 6px;
+  font: 700 18px var(--font-display);
+  color: var(--color-text-primary);
+}
+
+.address {
+  margin: 0 0 8px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.cinemaMeta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.price {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-agent);
+}
+
+.tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(55, 183, 165, 0.1);
+  color: #167b6d;
+  font-weight: 600;
+}
+
+/* ---- pager ---- */
+.pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.pager button {
+  padding: 8px 16px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pager button:hover:not(:disabled) {
+  border-color: var(--color-agent);
+  color: #167b6d;
+}
+
+.pager button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---- responsive ---- */
+@media (max-width: 720px) {
+  .h1 {
+    font-size: 34px;
+  }
+
+  .movieRow {
+    grid-template-columns: 80px 1fr;
+  }
+
+  .movieRow img {
+    width: 80px;
+    height: 110px;
+  }
+
+  .movieRow .miaoyu-btn-primary,
+  .movieRow button.miaoyu-btn-primary {
+    grid-column: 2;
+  }
+
+  .cinemaRow {
+    grid-template-columns: 1fr;
+  }
+}

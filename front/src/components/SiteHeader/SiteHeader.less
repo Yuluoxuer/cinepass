@@ -1,0 +1,274 @@
+.header {
+  height: var(--header-height);
+  background: var(--color-bg-header);
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.inner {
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 max(24px, calc((100vw - var(--content-max)) / 2));
+  display: flex;
+  align-items: center;
+  gap: 38px;
+}
+
+.brand {
+  border: 0;
+  background: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.brandMark {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 46% 54%;
+  object-fit: cover;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.nav {
+  display: flex;
+  align-self: stretch;
+  flex: 1;
+}
+
+.navLink {
+  position: relative;
+  border: 0;
+  background: none;
+  color: #abb3c2;
+  padding: 0 16px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.15s;
+}
+
+.navLink:hover,
+.active {
+  color: white;
+}
+
+.active::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 3px;
+  background: var(--color-tungsten);
+}
+
+.actions {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.locBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #313d50;
+  background: #202b3d;
+  color: #cbd5e1;
+  border-radius: 20px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.locBtn:hover:not(:disabled) {
+  background: #253448;
+  border-color: rgba(55, 183, 165, 0.55);
+  color: #fff;
+}
+
+.locBtn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.searchWrap {
+  position: relative;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  width: 210px;
+  background: #202b3d;
+  border: 1px solid #313d50;
+  border-radius: 20px;
+  padding: 8px 14px;
+  color: #9da8b8;
+  margin: 0;
+}
+
+.search input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: white;
+  outline: 0;
+  margin-left: 6px;
+  font-size: 13px;
+}
+
+.search input::placeholder {
+  color: #7a8494;
+}
+
+/* ---- 搜索联想下拉 ---- */
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 6px;
+  background: #1a2332;
+  border: 1px solid #313d50;
+  border-radius: 12px;
+  padding: 6px 0;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.dropdownLoading {
+  padding: 10px 16px;
+  color: #7a8494;
+  font-size: 12px;
+}
+
+.dropdownItem {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #cbd5e1;
+  padding: 9px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  transition: background 0.1s, color 0.1s;
+}
+
+.dropdownItem:hover {
+  background: #253448;
+  color: #fff;
+}
+
+.agentBtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(55, 183, 165, 0.55);
+  background: rgba(55, 183, 165, 0.1);
+  color: #d9fff8;
+  border-radius: 22px;
+  padding: 9px 13px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.agentBtn:hover {
+  background: rgba(55, 183, 165, 0.18);
+  border-color: rgba(55, 183, 165, 0.8);
+}
+
+.spark {
+  color: #8fe2d6;
+}
+
+.agentState {
+  font-size: 10px;
+  color: #8fe2d6;
+}
+
+.opsBtn {
+  background: transparent;
+  border: 1px solid #4c586b;
+  color: #abb3c2;
+  border-radius: 16px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.opsBtn:hover {
+  color: white;
+  border-color: #6a778c;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #4c586b;
+  border-radius: 50%;
+  background: #28354a;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.avatar:hover {
+  border-color: #6a778c;
+}
+
+@media (max-width: 980px) {
+  .searchWrap {
+    display: none;
+  }
+
+  .inner {
+    gap: 12px;
+    padding: 0 14px;
+  }
+
+  .agentState {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .header {
+    height: 60px;
+  }
+
+  .brand span {
+    display: none;
+  }
+
+  .nav {
+    display: none;
+  }
+
+  .opsBtn {
+    display: none;
+  }
+}
