@@ -1,0 +1,12 @@
+.env
+*.pyc
+__pycache__/
+.venv/
+
+# RAG 运行时生成物：向量库、embedding 模型缓存、分块预览（均由 ingest 重建）
+agent/rag/chroma_db/
+agent/rag/models/
+agent/rag/chunks_preview.md
+agent4/rag/chroma_db/
+agent4/rag/models/
+agent4/rag/chunks_preview.md

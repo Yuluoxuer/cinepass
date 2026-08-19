@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"SECRET=\\\"mini-hr-jwt-secret-key-2026-please-change-in-prod\\\" && CID=\\\"c019fcce5e85f771d81c5fdc58d5eda9\\\" && S=$(/home/rei/miniconda3/envs/langchain/bin/python -c \\\"\\nimport jwt,time,sys\\ns...",
+  "error": "Exit code 2\n编码文件名: 23%E7%BA%A7%E5%A4%A7%E6%95%B0%E6%8D%AE%E9%87%8D%E7%82%B9.md\n=== 删除该影院残留文档 ===\n{\"code\":200,\"message\":\"ok\",\"data\":{\"filename\":\"23级大数据重点.md\"}}\n=== 该影院列表（应空） ===\n{\"code\":200,\"message\":\"ok\",\"data\":[]}\n=== 磁盘原文应已删除 ===\n\"/media/rei/Data/Code/movie/cinepass_leijieming_aiagent/knowledge/cinema_cc019fcce5e85f771d81c5fdc58d5eda9/\": No such file or directory (os error 2)",
+  "timestamp": "2026-08-09T20:06:39.654Z",
+  "retry_count": 1
+}

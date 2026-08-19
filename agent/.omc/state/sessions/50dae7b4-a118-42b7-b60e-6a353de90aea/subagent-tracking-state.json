@@ -1,0 +1,17 @@
+{
+  "agents": [
+    {
+      "agent_id": "a9fcbfb7d4de12524",
+      "agent_type": "ecc:code-explorer",
+      "started_at": "2026-08-02T11:31:40.748Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-02T11:32:11.980Z",
+      "duration_ms": 31232
+    }
+  ],
+  "total_spawned": 1,
+  "total_completed": 1,
+  "total_failed": 0,
+  "last_updated": "2026-08-02T11:32:12.117Z"
+}

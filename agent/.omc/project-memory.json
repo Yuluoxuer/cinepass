@@ -1,0 +1,153 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1786412344109,
+  "projectRoot": "/media/rei/Data/Code/movie/cinepass_leijieming_aiagent",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "requirements.txt"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "pip",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs",
+      "scripts",
+      "tests"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "__pycache__": {
+      "path": "__pycache__",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1786412344089,
+      "keyFiles": [
+        "cli.cpython-312.pyc"
+      ]
+    },
+    "agent4": {
+      "path": "agent4",
+      "purpose": null,
+      "fileCount": 5,
+      "lastAccessed": 1786412344092,
+      "keyFiles": [
+        "MainAgent.py",
+        "__init__.py",
+        "config.py",
+        "llm.py",
+        "state.py"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 1,
+      "lastAccessed": 1786412344093,
+      "keyFiles": [
+        "agent-draft-optimistic-lock.md"
+      ]
+    },
+    "fapi": {
+      "path": "fapi",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1786412344095,
+      "keyFiles": [
+        "AGENTS.md",
+        "__init__.py",
+        "config.py",
+        "main.py"
+      ]
+    },
+    "knowledge": {
+      "path": "knowledge",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1786412344096,
+      "keyFiles": [
+        "refund_policy.md"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1786412344099,
+      "keyFiles": [
+        "test_embedding.py"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 2,
+      "lastAccessed": 1786412344103,
+      "keyFiles": [
+        "test_cli.py",
+        "test_knowledge.py"
+      ]
+    },
+    "agent4/api": {
+      "path": "agent4/api",
+      "purpose": "API routes",
+      "fileCount": 7,
+      "lastAccessed": 1786412344105,
+      "keyFiles": [
+        "__init__.py",
+        "cards.py",
+        "contract.py"
+      ]
+    },
+    "fapi/api": {
+      "path": "fapi/api",
+      "purpose": "API routes",
+      "fileCount": 2,
+      "lastAccessed": 1786412344106,
+      "keyFiles": [
+        "AGENTS.md",
+        "__init__.py"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "agent4/api/knowledge.py",
+      "accessCount": 2,
+      "lastAccessed": 1786412515372,
+      "type": "file"
+    },
+    {
+      "path": "agent4/api/contract.py",
+      "accessCount": 1,
+      "lastAccessed": 1786412928069,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

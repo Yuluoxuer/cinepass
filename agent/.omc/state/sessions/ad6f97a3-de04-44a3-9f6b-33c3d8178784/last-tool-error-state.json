@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"journalctl -u agent --since \\\"10 minutes ago\\\" --no-pager 2>/dev/null | grep -iE \\\"seat|error|traceback|exception\\\" | tail -20; echo \\\"=== 或查 uvicorn 日志 ===\\\"; ls /var/log/ 2>/dev/null | g...",
+  "error": "Exit code 1\n=== 或查 uvicorn 日志 ===",
+  "timestamp": "2026-08-09T14:29:03.588Z",
+  "retry_count": 1
+}
