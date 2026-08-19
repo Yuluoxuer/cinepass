@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.RecoWeightMapper">
+
+    <select id="selectByCity" resultType="com.cinepass.model.RecoWeight">
+        SELECT city_id AS cityId, w_orders AS wOrders, w_clicks AS wClicks,
+               w_rating AS wRating, w_fresh AS wFresh, updated_at AS updatedAt
+        FROM reco_weight WHERE city_id = #{cityId}
+    </select>
+
+    <!-- 幂等 seed：城市已有权重则不动 -->
+    <insert id="insertDefault" databaseId="postgresql">
+        INSERT INTO reco_weight (city_id, w_orders, w_clicks, w_rating, w_fresh, updated_at)
+        VALUES (#{cityId}, 0.4500, 0.2500, 0.1500, 0.1500, #{updatedAt})
+        ON CONFLICT (city_id) DO NOTHING
+    </insert>
+    <insert id="insertDefault">
+        MERGE INTO reco_weight KEY(city_id)
+        VALUES (#{cityId}, 0.4500, 0.2500, 0.1500, 0.1500, #{updatedAt})
+    </insert>
+</mapper>

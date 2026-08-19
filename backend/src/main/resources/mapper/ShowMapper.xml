@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.ShowMapper">
+
+    <select id="selectById" databaseId="postgresql" resultType="com.cinepass.model.ShowSchedule">
+        SELECT s.show_id AS showId, s.movie_id AS movieId, s.cinema_id AS cinemaId,
+               s.hall_id AS hallId, s.seat_map_id AS seatMapId,
+               s.start_time AS startTime, s.end_time AS endTime,
+               s.price, s.status, s.created_at AS createdAt, s.updated_at AS updatedAt,
+               h.name AS hallName
+        FROM show_schedule s
+        LEFT JOIN hall h ON h.hall_id = s.hall_id
+        WHERE s.show_id = #{showId}
+    </select>
+    <select id="selectById" resultType="com.cinepass.model.ShowSchedule">
+        SELECT s.show_id AS showId, s.movie_id AS movieId, s.cinema_id AS cinemaId,
+               s.hall_id AS hallId, s.seat_map_id AS seatMapId,
+               s.start_time AS startTime, s.end_time AS endTime,
+               s.price, s.status, s.created_at AS createdAt, s.updated_at AS updatedAt,
+               h.name AS hallName
+        FROM show_schedule s
+        LEFT JOIN hall h ON h.hall_id = s.hall_id
+        WHERE s.show_id = #{showId}
+    </select>
+
+    <select id="listByMovieCinemaDate" databaseId="postgresql" resultType="com.cinepass.model.ShowSchedule">
+        SELECT s.show_id AS showId, s.movie_id AS movieId, s.cinema_id AS cinemaId,
+               s.hall_id AS hallId, s.seat_map_id AS seatMapId,
+               s.start_time AS startTime, s.end_time AS endTime,
+               s.price, s.status, s.created_at AS createdAt, s.updated_at AS updatedAt,
+               h.name AS hallName, m.title AS movieTitle
+        FROM show_schedule s
+        LEFT JOIN hall h ON h.hall_id = s.hall_id
+        LEFT JOIN movie m ON m.movie_id = s.movie_id
+        WHERE s.cinema_id = #{cinemaId}
+          AND s.movie_id = #{movieId}
+          AND s.start_time::date = TO_DATE(#{date}, 'YYYY-MM-DD')
+          AND s.status IN ('on_sale', 'cancelled')
+        ORDER BY s.start_time ASC
+    </select>
+    <select id="listByMovieCinemaDate" resultType="com.cinepass.model.ShowSchedule">
+        SELECT s.show_id AS showId, s.movie_id AS movieId, s.cinema_id AS cinemaId,
+               s.hall_id AS hallId, s.seat_map_id AS seatMapId,
+               s.start_time AS startTime, s.end_time AS endTime,
+               s.price, s.status, s.created_at AS createdAt, s.updated_at AS updatedAt,
+               h.name AS hallName, m.title AS movieTitle
+        FROM show_schedule s
+        LEFT JOIN hall h ON h.hall_id = s.hall_id
+        LEFT JOIN movie m ON m.movie_id = s.movie_id
+        WHERE s.cinema_id = #{cinemaId}
+          AND s.movie_id = #{movieId}
+          AND CAST(s.start_time AS DATE) = CAST(#{date} AS DATE)
+          AND s.status IN ('on_sale', 'cancelled')
+        ORDER BY s.start_time ASC
+    </select>
+
+    <select id="listByMovieCinema" databaseId="postgresql" resultType="com.cinepass.model.ShowSchedule">
+        SELECT s.show_id AS showId, s.movie_id AS movieId, s.cinema_id AS cinemaId,
+               s.hall_id AS hallId, s.seat_map_id AS seatMapId,
+               s.start_time AS startTime, s.end_time AS endTime,
+               s.price, s.status, s.created_at AS createdAt, s.updated_at AS updatedAt,
+               h.name AS hallName, m.title AS movieTitle
+        FROM show_schedule s
+        LEFT JOIN hall h ON h.hall_id = s.hall_id
+        LEFT JOIN movie m ON m.movie_id = s.movie_id
+        WHERE s.cinema_id = #{cinemaId}
+          AND s.status IN ('on_sale', 'cancelled')
+          <if test="movieId != null and movieId != ''">
+              AND s.movie_id = #{movieId}
+          </if>
+          <if test="after != null">
+              AND s.start_time >= #{after}
+          </if>
+        ORDER BY s.start_time ASC
+    </select>
+    <select id="listByMovieCinema" resultType="com.cinepass.model.ShowSchedule">
+        SELECT s.show_id AS showId, s.movie_id AS movieId, s.cinema_id AS cinemaId,
+               s.hall_id AS hallId, s.seat_map_id AS seatMapId,
+               s.start_time AS startTime, s.end_time AS endTime,
+               s.price, s.status, s.created_at AS createdAt, s.updated_at AS updatedAt,
+               h.name AS hallName, m.title AS movieTitle
+        FROM show_schedule s
+        LEFT JOIN hall h ON h.hall_id = s.hall_id
+        LEFT JOIN movie m ON m.movie_id = s.movie_id
+        WHERE s.cinema_id = #{cinemaId}
+          AND s.status IN ('on_sale', 'cancelled')
+          <if test="movieId != null and movieId != ''">
+              AND s.movie_id = #{movieId}
+          </if>
+          <if test="after != null">
+              AND s.start_time >= #{after}
+          </if>
+        ORDER BY s.start_time ASC
+    </select>
+
+    <!-- 院→片：当前时刻之后该院在售影片（每片最早一场） -->
+    <select id="listEarliestUpcomingByCinema" resultType="com.cinepass.model.ShowSchedule">
+        <![CDATA[
+        SELECT s.movie_id AS movieId, MIN(s.start_time) AS startTime
+        FROM show_schedule s
+        WHERE s.cinema_id = #{cinemaId}
+          AND s.status = 'on_sale'
+          AND s.start_time >= #{after}
+        GROUP BY s.movie_id
+        ORDER BY MIN(s.start_time) ASC
+        ]]>
+    </select>
+
+    <!-- 批量：多部影片的最近排片日期 -->
+    <select id="listEarliestByMovieIds" resultType="com.cinepass.model.ShowSchedule">
+        SELECT s.movie_id AS movieId, MIN(s.start_time) AS startTime
+        FROM show_schedule s
+        WHERE s.movie_id IN
+        <foreach collection="movieIds" item="mid" open="(" separator="," close=")">#{mid}</foreach>
+          AND s.status = 'on_sale'
+          AND s.start_time &gt;= #{after}
+        GROUP BY s.movie_id
+    </select>
+
+    <!--
+      同厅冲突：两场区间各外扩 20 分钟清场缓冲后仍相交则冲突。
+      改期时用 excludeShowId 排除自身；新建时不传或传 null。
+    -->
+    <select id="findOverlapping" databaseId="postgresql" resultType="com.cinepass.model.ShowSchedule">
+        SELECT show_id AS showId, hall_id AS hallId,
+               start_time AS startTime, end_time AS endTime, status
+        FROM show_schedule
+        WHERE hall_id = #{hallId}
+          AND status &lt;&gt; 'cancelled'
+          <if test="excludeShowId != null and excludeShowId != ''">
+              AND show_id &lt;&gt; #{excludeShowId}
+          </if>
+          AND start_time &lt; (#{endTime} + INTERVAL '20 minutes')
+          AND (end_time + INTERVAL '20 minutes') &gt; #{startTime}
+    </select>
+    <select id="findOverlapping" resultType="com.cinepass.model.ShowSchedule">
+        SELECT show_id AS showId, hall_id AS hallId,
+               start_time AS startTime, end_time AS endTime, status
+        FROM show_schedule
+        WHERE hall_id = #{hallId}
+          AND status &lt;&gt; 'cancelled'
+          <if test="excludeShowId != null and excludeShowId != ''">
+              AND show_id &lt;&gt; #{excludeShowId}
+          </if>
+          AND start_time &lt; DATEADD('MINUTE', 20, #{endTime})
+          AND DATEADD('MINUTE', 20, end_time) &gt; #{startTime}
+    </select>
+
+    <insert id="insert" databaseId="postgresql" parameterType="com.cinepass.model.ShowSchedule">
+        INSERT INTO show_schedule (show_id, movie_id, cinema_id, hall_id, seat_map_id,
+            start_time, end_time, price, status, created_at, updated_at)
+        VALUES (#{show.showId}, #{show.movieId}, #{show.cinemaId}, #{show.hallId},
+            #{show.seatMapId}, #{show.startTime}, #{show.endTime},
+            #{show.price}, 'on_sale', NOW(), NOW())
+    </insert>
+    <insert id="insert" parameterType="com.cinepass.model.ShowSchedule">
+        INSERT INTO show_schedule (show_id, movie_id, cinema_id, hall_id, seat_map_id,
+            start_time, end_time, price, status, created_at, updated_at)
+        VALUES (#{show.showId}, #{show.movieId}, #{show.cinemaId}, #{show.hallId},
+            #{show.seatMapId}, #{show.startTime}, #{show.endTime},
+            #{show.price}, 'on_sale', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    </insert>
+
+    <update id="update" parameterType="com.cinepass.model.ShowSchedule">
+        UPDATE show_schedule SET
+            start_time = #{show.startTime}, end_time = #{show.endTime},
+            price = #{show.price}, updated_at = NOW()
+        WHERE show_id = #{show.showId}
+    </update>
+
+    <update id="cancel">
+        UPDATE show_schedule SET status = 'cancelled', updated_at = NOW()
+        WHERE show_id = #{showId}
+    </update>
+
+    <update id="closeSale">
+        UPDATE show_schedule SET status = 'cancelled', updated_at = NOW()
+        WHERE show_id = #{showId}
+    </update>
+
+    <update id="resumeSale">
+        UPDATE show_schedule SET status = 'on_sale', updated_at = NOW()
+        WHERE show_id = #{showId}
+    </update>
+
+    <select id="countActiveLocksOrOrders" databaseId="postgresql" resultType="int">
+        SELECT COUNT(1) FROM seat_status
+        WHERE show_id = #{showId} AND status = 'locked' AND expire_at > NOW()
+    </select>
+
+    <select id="countBySeatMapId" resultType="long">
+        SELECT COUNT(1) FROM show_schedule WHERE seat_map_id = #{seatMapId}
+    </select>
+
+    <select id="countActiveBySeatMapId" resultType="long">
+        SELECT COUNT(1) FROM show_schedule WHERE seat_map_id = #{seatMapId} AND status != 'cancelled'
+    </select>
+
+    <select id="countOnSaleByDate" databaseId="postgresql" resultType="long">
+        SELECT COUNT(1) FROM show_schedule
+        WHERE status = 'on_sale'
+          AND start_time::date = TO_DATE(#{date}, 'YYYY-MM-DD')
+          <if test="cinemaId != null and cinemaId != ''">
+              AND cinema_id = #{cinemaId}
+          </if>
+    </select>
+    <select id="countOnSaleByDate" resultType="long">
+        SELECT COUNT(1) FROM show_schedule
+        WHERE status = 'on_sale'
+          AND CAST(start_time AS DATE) = CAST(#{date} AS DATE)
+          <if test="cinemaId != null and cinemaId != ''">
+              AND cinema_id = #{cinemaId}
+          </if>
+    </select>
+
+    <!-- 下架前置校验：该影片未来仍在售的场次数 -->
+    <select id="countOnSaleByMovie" resultType="long">
+        SELECT COUNT(1) FROM show_schedule
+        WHERE movie_id = #{movieId}
+          AND status = 'on_sale'
+          AND start_time &gt; #{now}
+    </select>
+    <!-- 按时间段查有场次的电影（distinct movieId + 最早开场时间），分页 -->
+    <select id="listMoviesByTimeRange" resultType="com.cinepass.model.ShowSchedule">
+        <![CDATA[
+        SELECT s.movie_id AS movieId, MIN(s.start_time) AS startTime
+        FROM show_schedule s
+        WHERE s.start_time >= #{startTime}
+          AND s.start_time < #{endTime}
+          AND s.status = 'on_sale'
+        ]]>
+        <if test="cinemaId != null and cinemaId != ''">
+            AND s.cinema_id = #{cinemaId}
+        </if>
+        GROUP BY s.movie_id
+        ORDER BY MIN(s.start_time) ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countMoviesByTimeRange" resultType="long">
+        <![CDATA[
+        SELECT COUNT(DISTINCT s.movie_id)
+        FROM show_schedule s
+        WHERE s.start_time >= #{startTime}
+          AND s.start_time < #{endTime}
+          AND s.status = 'on_sale'
+        ]]>
+        <if test="cinemaId != null and cinemaId != ''">
+            AND s.cinema_id = #{cinemaId}
+        </if>
+    </select>
+</mapper>

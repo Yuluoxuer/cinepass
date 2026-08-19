@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.SeatMapper">
+    <select id="selectBySeatMapId" resultType="com.cinepass.model.Seat">
+        SELECT seat_id AS seatId, seat_map_id AS seatMapId, graph_row AS graphRow, graph_col AS graphCol,
+               row_no AS rowNo, col_no AS colNo, seat_name AS seatName, seat_type AS seatType,
+               zone, couple_pair_id AS couplePairId, default_status AS defaultStatus
+        FROM seat
+        WHERE seat_map_id = #{seatMapId}
+        ORDER BY graph_row ASC, graph_col ASC
+    </select>
+
+    <select id="selectBySeatIds" resultType="com.cinepass.model.Seat">
+        SELECT seat_id AS seatId, seat_map_id AS seatMapId, graph_row AS graphRow, graph_col AS graphCol,
+               row_no AS rowNo, col_no AS colNo, seat_name AS seatName, seat_type AS seatType,
+               zone, couple_pair_id AS couplePairId, default_status AS defaultStatus
+        FROM seat
+        WHERE seat_map_id = #{seatMapId}
+          AND seat_id IN
+        <foreach collection="seatIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
+    <insert id="insertBatch">
+        INSERT INTO seat (seat_id, seat_map_id, graph_row, graph_col, row_no, col_no, seat_name,
+                          seat_type, zone, couple_pair_id, default_status)
+        VALUES
+        <foreach collection="seats" item="seat" separator=",">
+            (#{seat.seatId}, #{seat.seatMapId}, #{seat.graphRow}, #{seat.graphCol}, #{seat.rowNo},
+             #{seat.colNo}, #{seat.seatName}, #{seat.seatType}, #{seat.zone},
+             #{seat.couplePairId}, #{seat.defaultStatus})
+        </foreach>
+    </insert>
+
+    <delete id="deleteBySeatMapId">
+        DELETE FROM seat WHERE seat_map_id = #{seatMapId}
+    </delete>
+</mapper>

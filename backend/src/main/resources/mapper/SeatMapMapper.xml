@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.SeatMapMapper">
+    <sql id="seatMapColumns">
+        sm.seat_map_id AS seatMapId, sm.name, sm.cinema_id AS cinemaId, sm.rows_n AS rowsN,
+        sm.cols_n AS colsN, sm.screen_label AS screenLabel, sm.mutable,
+        (SELECT COUNT(1) FROM seat s WHERE s.seat_map_id = sm.seat_map_id) AS seatCount
+    </sql>
+
+    <select id="selectById" resultType="com.cinepass.model.SeatMap">
+        SELECT <include refid="seatMapColumns" /> FROM seat_map sm
+        WHERE sm.seat_map_id = #{seatMapId}
+    </select>
+
+    <select id="selectByCinemaId" resultType="com.cinepass.model.SeatMap">
+        SELECT <include refid="seatMapColumns" /> FROM seat_map sm
+        WHERE sm.cinema_id = #{cinemaId}
+        ORDER BY sm.seat_map_id ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByCinemaId" resultType="long">
+        SELECT COUNT(1) FROM seat_map WHERE cinema_id = #{cinemaId}
+    </select>
+
+    <insert id="insert" parameterType="com.cinepass.model.SeatMap">
+        INSERT INTO seat_map (seat_map_id, name, cinema_id, rows_n, cols_n, screen_label, mutable)
+        VALUES (#{seatMapId}, #{name}, #{cinemaId}, #{rowsN}, #{colsN}, #{screenLabel}, #{mutable})
+    </insert>
+
+    <update id="update" parameterType="com.cinepass.model.SeatMap">
+        UPDATE seat_map
+        SET rows_n = #{rowsN}, cols_n = #{colsN}, screen_label = #{screenLabel}
+        WHERE seat_map_id = #{seatMapId} AND mutable = TRUE
+    </update>
+
+    <update id="markImmutable">
+        UPDATE seat_map SET mutable = FALSE WHERE seat_map_id = #{seatMapId}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM seat_map WHERE seat_map_id = #{seatMapId} AND mutable = TRUE
+    </delete>
+</mapper>

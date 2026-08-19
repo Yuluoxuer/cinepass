@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.UserAccountMapper">
+
+    <resultMap id="UserAccountMap" type="com.cinepass.model.UserAccount">
+        <id property="userId" column="user_id"/>
+        <result property="nickname" column="nickname"/>
+        <result property="phone" column="phone"/>
+        <result property="passwordHash" column="password_hash"/>
+        <result property="role" column="role"/>
+        <result property="cinemaId" column="cinema_id"/>
+        <result property="avatarUrl" column="avatar_url"/>
+        <result property="status" column="status"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="cols">
+        user_id, nickname, phone, password_hash, role, cinema_id, avatar_url, status, created_at, updated_at
+    </sql>
+
+    <select id="findById" resultMap="UserAccountMap">
+        SELECT <include refid="cols"/> FROM user_account WHERE user_id = #{userId}
+    </select>
+    <select id="findByIds" resultMap="UserAccountMap">
+        SELECT <include refid="cols"/> FROM user_account
+        WHERE user_id IN
+        <foreach collection="userIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+    <select id="findByNickname" resultMap="UserAccountMap">
+        SELECT <include refid="cols"/> FROM user_account WHERE nickname = #{nickname}
+    </select>
+    <select id="findByPhone" resultMap="UserAccountMap">
+        SELECT <include refid="cols"/> FROM user_account WHERE phone = #{phone}
+    </select>
+
+    <insert id="insert">
+        INSERT INTO user_account(user_id, nickname, phone, password_hash, role, cinema_id, avatar_url, status, created_at, updated_at)
+        VALUES (#{userId}, #{nickname}, #{phone}, #{passwordHash}, #{role}, #{cinemaId}, #{avatarUrl}, #{status}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE user_account
+        <set>
+            <if test="nickname != null">nickname = #{nickname},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="passwordHash != null">password_hash = #{passwordHash},</if>
+            <if test="role != null">role = #{role},</if>
+            <if test="updateCinemaId != null and updateCinemaId">cinema_id = #{cinemaId},</if>
+            <if test="avatarUrl != null">avatar_url = #{avatarUrl},</if>
+            <if test="status != null">status = #{status},</if>
+            updated_at = #{updatedAt}
+        </set>
+        WHERE user_id = #{userId}
+    </update>
+
+    <select id="countActiveAdmins" resultType="long">
+        SELECT COUNT(1) FROM user_account
+        WHERE role = 'admin' AND status = 1
+        <if test="excludeUserId != null">AND user_id &lt;&gt; #{excludeUserId}</if>
+    </select>
+
+    <select id="countStaffByCinemaId" resultType="long" flushCache="true" useCache="false">
+        SELECT COUNT(1)
+        FROM user_account
+        WHERE role = 'staff'
+          AND cinema_id = #{cinemaId}
+    </select>
+
+    <select id="page" resultMap="UserAccountMap">
+        SELECT <include refid="cols"/> FROM user_account
+        <where>
+            <if test="role != null and role != ''">AND role = #{role}</if>
+            <if test="status != null">AND status = #{status}</if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(1) FROM user_account
+        <where>
+            <if test="role != null and role != ''">AND role = #{role}</if>
+            <if test="status != null">AND status = #{status}</if>
+        </where>
+    </select>
+</mapper>

@@ -1,0 +1,77 @@
+# ============ Spring Boot 公共配置 ============
+spring:
+  profiles:
+    active: dev
+
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+  jackson:
+    # 瞬时走 ISO-8601（见 JacksonConfig / DateTimeFormats）；勿用无偏移的 yyyy-MM-dd HH:mm:ss
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+
+  redis:
+    timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: 3000ms
+
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+
+# ============ MyBatis 配置 ============
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.cinepass.model
+  configuration:
+    map-underscore-to-camel-case: true
+
+# ============ JWT 配置（系分：Access TTL 3600s，claim role/sid/jti） ============
+jwt:
+  secret: ${JWT_SECRET:mini-hr-jwt-secret-key-2026-please-change-in-prod}
+  access-token-expire-seconds: ${JWT_ACCESS_EXPIRE_SECONDS:3600}
+  refresh-expire-seconds: ${JWT_REFRESH_EXPIRE_SECONDS:604800}
+
+# ============ 支付二维码配置（系分 §2.1 / §6.4） ============
+ticket:
+  # 推荐周信号物化重算间隔（毫秒）；GET /reco/weekly-hot 为空/过期时也会同步重算兜底
+  reco-recompute-interval-ms: ${TICKET_RECO_RECOMPUTE_INTERVAL_MS:600000}
+  reco-recompute-enabled: ${TICKET_RECO_RECOMPUTE_ENABLED:true}
+  # 支付/核销 H5 域名：拼装 payUrl = {public-base-url}/m/pay/{orderId}?t={payToken}
+  # 默认指向前端 dev server（8000），H5 页面由前端提供；真机扫码请设环境变量 PUBLIC_BASE_URL=http://<本机局域网IP>:8000
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8000}
+  # payToken 独立签名密钥（与取票 qrPayload 密钥分离）
+  pay-qr-secret: ${PAY_QR_SECRET:mini-hr-pay-qr-secret-key-2026-change-in-prod}
+  # 待支付订单超时清扫：默认开启，每 30s 扫一次（DB expire_at 为权威截止）
+  expire-scan-enabled: ${TICKET_EXPIRE_SCAN_ENABLED:true}
+  expire-scan-interval-ms: ${TICKET_EXPIRE_SCAN_INTERVAL_MS:30000}
+  # 到上映日自动上架：默认开启，每 30 分钟扫一次（release_date<=今天 的 coming_soon → hot_showing，条件相对日期、幂等可补扫）
+  movie-status-scan-enabled: ${TICKET_MOVIE_STATUS_SCAN_ENABLED:true}
+  movie-status-scan-interval-ms: ${TICKET_MOVIE_STATUS_SCAN_INTERVAL_MS:1800000}
+  # 推荐共享底座缓存：物理 TTL（默认 10 分钟）；未命中用 Redisson RLock 单飞重载，输家短等后重读
+  reco-cache-enabled: ${TICKET_RECO_CACHE_ENABLED:true}
+  reco-cache-ttl-seconds: ${TICKET_RECO_CACHE_TTL_SECONDS:600}
+
+# ============ Knife4j 配置 ============
+knife4j:
+  enable: true
+  setting:
+    language: zh-CN
+
+# ============ 文件上传配置 ============
+app:
+  upload-dir: ${UPLOAD_DIR:uploads}
+
+server:
+  port: 8080

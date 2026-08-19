@@ -1,0 +1,262 @@
+{
+  "info": {
+    "_postman_id": "f624d5fc-1796-4c2a-a84b-86d522768921",
+    "name": "妙语购票-影院模块-顺序接口测试",
+    "description": "在 Collection Runner 中按目录顺序执行。测试数据全部通过 HTTP 接口创建，不使用数据库直写；每次运行均由服务端生成新的影院、座位图和影厅 ID。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api/v1" },
+    { "key": "adminAccount", "value": "系统管理员", "description": "开发环境管理员账号" },
+    { "key": "adminPassword", "value": "demo123456", "description": "开发环境管理员密码" },
+    { "key": "staffAccount", "value": "运营小李", "description": "开发环境员工账号" },
+    { "key": "staffPassword", "value": "demo123456", "description": "开发环境员工密码" },
+    { "key": "adminToken", "value": "" },
+    { "key": "staffToken", "value": "" },
+    { "key": "cinemaId", "value": "" },
+    { "key": "seatMapId", "value": "" },
+    { "key": "hallId", "value": "" },
+    { "key": "staffSeatMapId", "value": "" },
+    { "key": "staffHallId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01-认证",
+      "item": [
+        {
+          "name": "01-管理员登录并保存 Token",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('管理员登录返回 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('管理员登录业务成功', function () { pm.expect(body.code).to.eql(200); });",
+            "pm.collectionVariables.set('adminToken', body.data.accessToken);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"account\": \"{{adminAccount}}\",\n  \"password\": \"{{adminPassword}}\"\n}", "options": { "raw": { "language": "json" }}},
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "02-员工登录并保存 Token",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('员工登录返回 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('员工登录业务成功', function () { pm.expect(body.code).to.eql(200); });",
+            "pm.collectionVariables.set('staffToken', body.data.accessToken);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"account\": \"{{staffAccount}}\",\n  \"password\": \"{{staffPassword}}\"\n}", "options": { "raw": { "language": "json" }}},
+            "url": "{{baseUrl}}/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02-管理员创建测试数据",
+      "item": [
+        {
+          "name": "01-创建影院并保存 cinemaId",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('创建影院返回 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('影院 ID 和城市名称已返回', function () { pm.expect(body.data.cinemaId).to.be.a('string').and.not.empty; pm.expect(body.data.cityName).to.eql('上海市'); });",
+            "pm.collectionVariables.set('cinemaId', body.data.cinemaId);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cityName\": \"上海市\",\n  \"name\": \"接口自动化影院\",\n  \"address\": \"上海市徐汇区接口测试路 1 号\",\n  \"lat\": 31.2304,\n  \"lng\": 121.4737,\n  \"trafficNote\": \"接口测试专用数据\",\n  \"tags\": [\"IMAX\", \"杜比\"]\n}", "options": { "raw": { "language": "json" }}},
+            "url": "{{baseUrl}}/admin/cinemas"
+          }
+        },
+        {
+          "name": "02-创建座位图并保存 seatMapId",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('创建座位图返回 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('座位图归属新影院且含座位明细', function () { pm.expect(body.data.cinemaId).to.eql(pm.collectionVariables.get('cinemaId')); pm.expect(body.data.seats).to.have.length(4); });",
+            "pm.collectionVariables.set('seatMapId', body.data.seatMapId);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cinemaId\": \"{{cinemaId}}\",\n  \"rows\": 2,\n  \"cols\": 4,\n  \"screenLabel\": \"自动化测试银幕\",\n  \"seats\": [\n    { \"graphRow\": 1, \"graphCol\": 1 },\n    { \"graphRow\": 1, \"graphCol\": 2 },\n    { \"graphRow\": 2, \"graphCol\": 1, \"type\": \"couple\", \"couplePairId\": \"pair_auto_1\" },\n    { \"graphRow\": 2, \"graphCol\": 2, \"type\": \"couple\", \"couplePairId\": \"pair_auto_1\" }\n  ]\n}", "options": { "raw": { "language": "json" }}},
+            "url": "{{baseUrl}}/seat-maps"
+          }
+        },
+        {
+          "name": "03-创建影厅并保存 hallId",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('创建影厅返回 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('影厅绑定新影院和座位图', function () { pm.expect(body.data.cinemaId).to.eql(pm.collectionVariables.get('cinemaId')); pm.expect(body.data.seatMapId).to.eql(pm.collectionVariables.get('seatMapId')); });",
+            "pm.collectionVariables.set('hallId', body.data.hallId);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cinemaId\": \"{{cinemaId}}\",\n  \"name\": \"自动化测试 1 号厅\",\n  \"seatMapId\": \"{{seatMapId}}\"\n}", "options": { "raw": { "language": "json" }}},
+            "url": "{{baseUrl}}/halls"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03-管理员查询与更新",
+      "item": [
+        {
+          "name": "01-查询新建影院详情",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('影院详情返回 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('详情包含刚创建的影厅', function () { pm.expect(body.data.cinemaId).to.eql(pm.collectionVariables.get('cinemaId')); pm.expect(body.data.halls.some(function (hall) { return hall.hallId === pm.collectionVariables.get('hallId'); })).to.eql(true); });"
+          ]}}],
+          "request": { "method": "GET", "url": "{{baseUrl}}/cinemas/{{cinemaId}}" }
+        },
+        {
+          "name": "02-查询新建影院的影厅列表",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('影厅列表返回 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('影厅列表包含刚创建的影厅', function () { pm.expect(body.data.items.some(function (hall) { return hall.hallId === pm.collectionVariables.get('hallId'); })).to.eql(true); });"
+          ]}}],
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/admin/halls?cinemaId={{cinemaId}}&page=1&size=20" }
+        },
+        {
+          "name": "03-更新影院",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('更新影院返回 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('交通说明已更新', function () { pm.expect(pm.response.json().data.trafficNote).to.eql('已由自动化接口更新'); });"
+          ]}}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"trafficNote\": \"已由自动化接口更新\",\n  \"tags\": [\"自动化\", \"杜比全景声\"]\n}", "options": { "raw": { "language": "json" }}},
+            "url": "{{baseUrl}}/admin/cinemas/{{cinemaId}}"
+          }
+        },
+        {
+          "name": "04-更新影厅名称",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('更新影厅返回 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('影厅名称已更新', function () { pm.expect(pm.response.json().data.name).to.eql('自动化测试杜比厅'); });"
+          ]}}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"自动化测试杜比厅\"\n}", "options": { "raw": { "language": "json" }}},
+            "url": "{{baseUrl}}/admin/halls/{{hallId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04-公开影院查询",
+      "item": [
+        {
+          "name": "01-按距离查询",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('距离排序返回 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('结果包含刚创建的影院', function () { pm.expect(body.data.items.some(function (cinema) { return cinema.cinemaId === pm.collectionVariables.get('cinemaId'); })).to.eql(true); });"
+          ]}}],
+          "request": { "method": "GET", "url": "{{baseUrl}}/cinemas?lat=31.2304&lng=121.4737&radiusMeters=1000&sort=distance&page=1&size=20" }
+        },
+        {
+          "name": "02-按价格查询（无需坐标）",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('价格排序返回 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('价格排序响应包含分页数据', function () { pm.expect(pm.response.json().data.items).to.be.an('array'); });"
+          ]}}],
+          "request": { "method": "GET", "url": "{{baseUrl}}/cinemas?sort=price&page=1&size=20" }
+        }
+      ]
+    },
+    {
+      "name": "05-员工所属影院链路",
+      "item": [
+        {
+          "name": "01-员工创建座位图（省略 cinemaId）",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('员工创建座位图返回 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('员工座位图已自动绑定影院', function () { pm.expect(body.data.cinemaId).to.be.a('string').and.not.empty; });",
+            "pm.collectionVariables.set('staffSeatMapId', body.data.seatMapId);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{staffToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"rows\": 1,\n  \"cols\": 2,\n  \"screenLabel\": \"员工接口测试银幕\",\n  \"seats\": [\n    { \"graphRow\": 1, \"graphCol\": 1 },\n    { \"graphRow\": 1, \"graphCol\": 2 }\n  ]\n}", "options": { "raw": { "language": "json" }}},
+            "url": "{{baseUrl}}/seat-maps"
+          }
+        },
+        {
+          "name": "02-员工创建影厅（省略 cinemaId）",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('员工创建影厅返回 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('员工影厅绑定其座位图', function () { pm.expect(body.data.seatMapId).to.eql(pm.collectionVariables.get('staffSeatMapId')); });",
+            "pm.collectionVariables.set('staffHallId', body.data.hallId);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{staffToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"员工自动化测试厅\",\n  \"seatMapId\": \"{{staffSeatMapId}}\"\n}", "options": { "raw": { "language": "json" }}},
+            "url": "{{baseUrl}}/halls"
+          }
+        },
+        {
+          "name": "03-员工查询所属影院影厅",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('员工影厅列表返回 200', function () { pm.response.to.have.status(200); });",
+            "var body = pm.response.json();",
+            "pm.test('列表包含员工刚创建的影厅', function () { pm.expect(body.data.items.some(function (hall) { return hall.hallId === pm.collectionVariables.get('staffHallId'); })).to.eql(true); });"
+          ]}}],
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{staffToken}}" }], "url": "{{baseUrl}}/admin/halls?page=1&size=20" }
+        },
+        {
+          "name": "04-员工越权创建其他影院座位图应失败",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('越权操作返回 403', function () { pm.response.to.have.status(403); });",
+            "pm.test('业务错误码为 403', function () { pm.expect(pm.response.json().code).to.eql(403); });"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{staffToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cinemaId\": \"{{cinemaId}}\",\n  \"rows\": 1,\n  \"cols\": 1,\n  \"seats\": [{ \"graphRow\": 1, \"graphCol\": 1 }]\n}", "options": { "raw": { "language": "json" }}},
+            "url": "{{baseUrl}}/seat-maps"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06-删除影院",
+      "item": [
+        {
+          "name": "01-管理员软删除影院",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('删除影院返回 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('删除影院业务成功', function () { pm.expect(pm.response.json().code).to.eql(200); });"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/admin/cinemas/{{cinemaId}}"
+          }
+        },
+        {
+          "name": "02-已删除影院详情不可访问",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('已删除影院详情返回 404', function () { pm.response.to.have.status(404); });",
+            "pm.test('已删除影院不可见', function () { pm.expect(pm.response.json().code).to.eql(404); });"
+          ]}}],
+          "request": { "method": "GET", "url": "{{baseUrl}}/cinemas/{{cinemaId}}" }
+        }
+      ]
+    }
+  ]
+}

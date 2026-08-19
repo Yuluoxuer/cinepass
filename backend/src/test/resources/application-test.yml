@@ -1,0 +1,57 @@
+# ============ 测试环境配置 ============
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;DATABASE_TO_UPPER=false
+    username: sa
+    password:
+    druid:
+      initial-size: 2
+      min-idle: 2
+      max-active: 5
+      test-while-idle: false
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+
+jwt:
+  secret: test-secret-key-for-unit-tests-only!!
+  access-token-expire-seconds: 3600
+  refresh-expire-seconds: 604800
+
+mybatis:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
+logging:
+  level:
+    com.cinepass: warn
+    org.springframework: warn
+
+search:
+  elasticsearch:
+    sync-enabled: false
+
+# 测试环境关闭推荐缓存（不创建真实 RedissonClient，由 TestMockBeanConfig 提供 mock，走 DB 降级）
+# 与推荐物化后台调度（榜单重算由 GET 兜底同步触发），保证测试确定性
+ticket:
+  reco-cache-enabled: false
+  reco-recompute-enabled: false

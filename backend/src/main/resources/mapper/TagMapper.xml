@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.TagMapper">
+
+    <!-- PG：name 唯一冲突时静默跳过 -->
+    <insert id="insertIgnore" databaseId="postgresql">
+        INSERT INTO tag(tag_id, name, created_at)
+        VALUES (#{tagId}, #{name}, #{createdAt})
+        ON CONFLICT (name) DO NOTHING
+    </insert>
+    <!-- H2(MySQL 模式) 兜底 -->
+    <insert id="insertIgnore">
+        INSERT IGNORE INTO tag(tag_id, name, created_at)
+        VALUES (#{tagId}, #{name}, #{createdAt})
+    </insert>
+
+    <select id="listAllNames" resultType="string">
+        SELECT name FROM tag ORDER BY name
+    </select>
+</mapper>

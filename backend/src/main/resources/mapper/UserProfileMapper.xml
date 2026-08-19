@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cinepass.mapper.UserProfileMapper">
+    <resultMap id="ProfileMap" type="com.cinepass.model.UserProfile">
+        <id property="userId" column="user_id"/>
+        <result property="preferGenresJson" column="prefer_genres_json"
+                typeHandler="org.apache.ibatis.type.StringTypeHandler"/>
+        <result property="preferRow" column="prefer_row"/>
+        <result property="preferSide" column="prefer_side"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <select id="findById" databaseId="postgresql" resultMap="ProfileMap">
+        SELECT user_id, prefer_genres_json::text AS prefer_genres_json, prefer_row, prefer_side, updated_at
+        FROM user_profile WHERE user_id = #{userId}
+    </select>
+    <select id="findById" resultMap="ProfileMap">
+        SELECT user_id, prefer_genres_json, prefer_row, prefer_side, updated_at
+        FROM user_profile WHERE user_id = #{userId}
+    </select>
+
+    <insert id="upsert" databaseId="postgresql">
+        INSERT INTO user_profile(user_id, prefer_genres_json, prefer_row, prefer_side, updated_at)
+        VALUES (#{userId}, CAST(#{preferGenresJson} AS jsonb), #{preferRow}, #{preferSide}, #{updatedAt})
+        ON CONFLICT (user_id) DO UPDATE SET
+            prefer_genres_json = CAST(#{preferGenresJson} AS jsonb),
+            prefer_row = #{preferRow},
+            prefer_side = #{preferSide},
+            updated_at = #{updatedAt}
+    </insert>
+    <insert id="upsert">
+        MERGE INTO user_profile KEY(user_id)
+        VALUES (#{userId}, #{preferGenresJson}, #{preferRow}, #{preferSide}, #{updatedAt})
+    </insert>
+</mapper>
