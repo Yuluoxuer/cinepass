@@ -1,3 +1,4 @@
+// C 端影片列表页面 — 支持分类筛选（热映/待映/全部）、关键词搜索、想看/选座购票
 import React, { useEffect, useState } from 'react';
 import { history, useLocation } from 'umi';
 import { message } from 'antd';
@@ -10,36 +11,36 @@ import StateView from '@/components/StateView';
 import styles from './movies.less';
 
 const MoviesPage: React.FC = () => {
+  // 从 URL 查询参数中读取搜索关键词
   const loc = useLocation();
   const params = new URLSearchParams(loc.search);
   const q = params.get('q') || '';
+
+  // 分类筛选、分页、影片数据、加载态
   const [status, setStatus] = useState<string>('hot_showing');
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ items: MovieVO[]; total: number }>({ items: [], total: 0 });
   const [loading, setLoading] = useState(true);
+
+  // 购票草稿操作与认证状态
   const patchLocal = useBookingStore((s) => s.patchLocal);
   const user = useAuthStore((s) => s.user);
   const openLogin = useAuthStore((s) => s.openLoginModal);
+
+  // 「想看」影片 ID 集合，用于即将上映影片的高亮态
   const [wantedIds, setWantedIds] = useState<Set<string>>(new Set());
 
-  // 加载当前用户「想看」的影片，用于即将上映影片的「想看」按钮状态
+  // user 变化时加载当前用户的「想看」列表，使用 active 标志防止竞态
   useEffect(() => {
-    if (!user) {
-      setWantedIds(new Set());
-      return;
-    }
+    if (!user) { setWantedIds(new Set()); return; }
     let active = true;
-    void catalogApi
-      .listWantSee({ page: 1, size: 100 })
-      .then((res) => {
-        if (active) setWantedIds(new Set(res.items.map((m) => m.movieId)));
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
+    void catalogApi.listWantSee({ page: 1, size: 100 }).then((res) => {
+      if (active) setWantedIds(new Set(res.items.map((m) => m.movieId)));
+    }).catch(() => {});
+    return () => { active = false; };
   }, [user]);
 
+  // 切换「想看」状态：未登录则弹窗登录，登录后乐观更新 + 服务端确认 + 失败回滚
   const toggleWant = async (movie: MovieVO) => {
     let currentUser = user;
     if (!currentUser) {
@@ -48,36 +49,38 @@ const MoviesPage: React.FC = () => {
       currentUser = useAuthStore.getState().user;
       if (!currentUser) return;
     }
+
     const wasWanted = wantedIds.has(movie.movieId);
-    // 乐观更新，失败回滚
+
+    // 乐观更新：立即切换本地状态
     setWantedIds((prev) => {
       const next = new Set(prev);
-      if (wasWanted) next.delete(movie.movieId);
-      else next.add(movie.movieId);
+      wasWanted ? next.delete(movie.movieId) : next.add(movie.movieId);
       return next;
     });
+
     try {
       const result = wasWanted
         ? await catalogApi.unwantSee(movie.movieId)
         : await catalogApi.wantSee(movie.movieId);
-      // 以服务端返回为准
+      // 以服务端返回为准，覆盖乐观更新
       setWantedIds((prev) => {
         const next = new Set(prev);
-        if (result.wanted) next.add(movie.movieId);
-        else next.delete(movie.movieId);
+        result.wanted ? next.add(movie.movieId) : next.delete(movie.movieId);
         return next;
       });
     } catch {
+      // 请求失败：回滚到操作前状态
       setWantedIds((prev) => {
         const next = new Set(prev);
-        if (wasWanted) next.add(movie.movieId);
-        else next.delete(movie.movieId);
+        wasWanted ? next.add(movie.movieId) : next.delete(movie.movieId);
         return next;
       });
       message.error('操作失败，请稍后重试');
     }
   };
 
+  // 筛选条件或分页变化时重新拉取影片列表
   useEffect(() => {
     let c = false;
     (async () => {
@@ -96,9 +99,7 @@ const MoviesPage: React.FC = () => {
         if (!c) setLoading(false);
       }
     })();
-    return () => {
-      c = true;
-    };
+    return () => { c = true; };
   }, [status, q, page]);
 
   const pages = Math.max(1, Math.ceil(data.total / 10));
@@ -110,6 +111,8 @@ const MoviesPage: React.FC = () => {
         {q ? `搜索「${q}」` : '找一部值得出门的电影'}
       </h1>
       {!q ? <p className={styles.sub}>不是无尽滑动。先说类型、时间，或你今天的心情。</p> : null}
+
+      {/* 分类标签栏：热映 / 即将上映 / 全部，切换时重置页码 */}
       <div className={styles.tabs}>
         {[
           ['hot_showing', '正在热映'],
@@ -120,19 +123,22 @@ const MoviesPage: React.FC = () => {
             key={k}
             type="button"
             className={status === k ? styles.active : ''}
-            onClick={() => {
-              setStatus(k);
-              setPage(1);
-            }}
+            onClick={() => { setStatus(k); setPage(1); }}
           >
             {label}
           </button>
         ))}
       </div>
+
+      {/* 根据加载/空/有数据 三种状态分别渲染 */}
       {loading ? (
         <LoadingView text="正在加载影片…" />
       ) : data.items.length === 0 ? (
-        <StateView variant="empty" title={q ? `未找到「${q}」` : '暂无影片'} description={q ? '换个关键词试试，或看看正在热映的电影' : '当前暂无影片，请稍后再来看看'} />
+        <StateView
+          variant="empty"
+          title={q ? `未找到「${q}」` : '暂无影片'}
+          description={q ? '换个关键词试试，或看看正在热映的电影' : '当前暂无影片，请稍后再来看看'}
+        />
       ) : (
         <div className={styles.list}>
           {data.items.map((m) => (
@@ -149,14 +155,13 @@ const MoviesPage: React.FC = () => {
                 </p>
                 <p className={styles.desc}>{m.description}</p>
               </div>
+
+              {/* 右侧操作按钮：即将上映 → 「想看」，热映/全部 → 「选场购票」 */}
               {m.status === 'coming_soon' ? (
                 <button
                   type="button"
                   className={wantedIds.has(m.movieId) ? `${styles.wantBtn} ${styles.wantActive}` : styles.wantBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void toggleWant(m);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); void toggleWant(m); }}
                 >
                   {wantedIds.has(m.movieId) ? '♥ 已想看' : '想看'}
                 </button>
@@ -171,9 +176,7 @@ const MoviesPage: React.FC = () => {
                         { movieId: m.movieId, filmTitle: m.title, state: 'SelectCinema' },
                         { debounce: false },
                       );
-                    } catch {
-                      /* 拦截器已提示 */
-                    }
+                    } catch { /* 拦截器已统一提示 */ }
                     history.push(`/booking/cinemas?movieId=${m.movieId}`);
                   }}
                 >
@@ -184,19 +187,15 @@ const MoviesPage: React.FC = () => {
           ))}
         </div>
       )}
-      {data.items.length > 0 ? (
+
+      {/* 分页器：上一页 / 页码 / 下一页，首尾页禁用对应按钮 */}
+      {data.items.length > 0 && (
         <div className={styles.pager}>
-          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            上一页
-          </button>
-          <span>
-            {page} / {pages}
-          </span>
-          <button type="button" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>
-            下一页
-          </button>
+          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>上一页</button>
+          <span>{page} / {pages}</span>
+          <button type="button" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>下一页</button>
         </div>
-      ) : null}
+      )}
     </div>
   );
 };

@@ -1,3 +1,4 @@
+// 管理端影片管理页面 — 影片列表、搜索、上架/下架操作
 import React, { useEffect, useState } from 'react';
 import { Alert, Button, Input, Space, Table, Tag, Empty, Modal, message } from 'antd';
 import { history } from 'umi';
@@ -5,6 +6,7 @@ import * as catalogApi from '@/api/catalog';
 import { takeDownMovie, relistMovie } from '@/api/admin';
 import type { MovieVO } from '@/types';
 
+// 影片状态 → 展示文本与颜色映射，供表格 Tag 标签一致性渲染
 const movieStatusMeta: Record<MovieVO['status'], { label: string; color: string }> = {
   hot_showing: { label: '热映', color: 'red' },
   coming_soon: { label: '待映', color: 'blue' },
@@ -12,11 +14,13 @@ const movieStatusMeta: Record<MovieVO['status'], { label: string; color: string 
 };
 
 const AdminMoviesPage: React.FC = () => {
+  // 页面状态：影片列表、搜索关键词、加载态、错误信息
   const [data, setData] = useState<MovieVO[]>([]);
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // 确认下架：校验场次后调用 takeDownMovie，成功刷新列表
   const confirmDown = (r: MovieVO) => {
     Modal.confirm({
       title: `下架《${r.title}》？`,
@@ -29,13 +33,13 @@ const AdminMoviesPage: React.FC = () => {
           message.success('已下架');
           void load();
         } catch (error) {
-          // 后端会返回「还有 N 场在售场次」等冲突提示
           message.error(error instanceof Error ? error.message : '下架失败，请稍后重试');
         }
       },
     });
   };
 
+  // 确认上架：调用 relistMovie，根据返回的状态展示不同提示文案
   const confirmRelist = (r: MovieVO) => {
     Modal.confirm({
       title: `上架《${r.title}》？`,
@@ -53,6 +57,7 @@ const AdminMoviesPage: React.FC = () => {
     });
   };
 
+  // 加载影片列表：调用后端接口获取分页数据，管理 loading/error 状态
   const load = async () => {
     setLoading(true);
     setLoadError(null);
@@ -67,18 +72,22 @@ const AdminMoviesPage: React.FC = () => {
     }
   };
 
+  // 挂载时加载一次影片列表
   useEffect(() => {
     void load();
   }, []);
 
   return (
     <div>
+      {/* 顶部工具栏：新建按钮 + 搜索框 */}
       <Space style={{ marginBottom: 16 }}>
         <Button type="primary" onClick={() => history.push('/admin/movies/new')}>
           + 新建影片
         </Button>
         <Input.Search placeholder="搜索片名" value={q} onChange={(e) => setQ(e.target.value)} onSearch={() => load()} />
       </Space>
+
+      {/* 错误提示栏：展示加载错误并提供重试按钮 */}
       {loadError && (
         <Alert
           type="error"
@@ -89,6 +98,8 @@ const AdminMoviesPage: React.FC = () => {
           style={{ marginBottom: 16 }}
         />
       )}
+
+      {/* 影片数据表格：海报、片名、类型、状态、上映日、操作 */}
       <Table
         rowKey="movieId"
         loading={loading}
@@ -113,19 +124,16 @@ const AdminMoviesPage: React.FC = () => {
           { title: '上映日', dataIndex: 'releaseDate' },
           {
             title: '操作',
+            // 编辑按钮 + 根据状态动态显示上架/下架按钮
             render: (_, r) => (
               <>
                 <Button type="link" onClick={() => history.push(`/admin/movies/${r.movieId}`)}>
                   编辑
                 </Button>
                 {r.status === 'off' ? (
-                  <Button type="link" onClick={() => confirmRelist(r)}>
-                    上架
-                  </Button>
+                  <Button type="link" onClick={() => confirmRelist(r)}>上架</Button>
                 ) : (
-                  <Button type="link" danger onClick={() => confirmDown(r)}>
-                    下架
-                  </Button>
+                  <Button type="link" danger onClick={() => confirmDown(r)}>下架</Button>
                 )}
               </>
             ),
