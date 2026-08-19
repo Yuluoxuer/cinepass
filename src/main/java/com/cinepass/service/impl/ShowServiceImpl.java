@@ -244,12 +244,6 @@ public class ShowServiceImpl implements ShowService {
         return "almost_full";
     }
 
-<<<<<<< HEAD
-    // 按时间范围+影院分页查询有排片的影片：归一化分页参数→查总数→分页查场次→组装VO并附最近排片日
-    @Override
-    public PageResult<MovieVO> listMoviesByTimeRange(OffsetDateTime startTime, OffsetDateTime endTime,
-                                                     String cinemaId, int page, int size) {
-=======
     /**
      * 根据当前时间计算场次运行时状态。
      * not_started — 未开始（开场时间在未来）；
@@ -274,7 +268,6 @@ public class ShowServiceImpl implements ShowService {
     public PageResult<MovieVO> listMoviesByTimeRange(OffsetDateTime startTime, OffsetDateTime endTime,
                                                      String cinemaId, int page, int size) {
         // 归一化分页
->>>>>>> 80f55f05cfe9242c3e481c73dd6c48b304091ef7
         if (page < 1) page = 1;
         if (size < 1 || size > 50) size = 10;
         int offset = (page - 1) * size;
@@ -295,14 +288,9 @@ public class ShowServiceImpl implements ShowService {
                 if (vo == null) {
                     continue;
                 }
-<<<<<<< HEAD
-                if (row.getStartTime() != null) {
-                    vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DISPLAY_ZONE).toLocalDate().toString());
-=======
                 // nextShowDate 使用该时间段内最早开场日期
                 if (row.getStartTime() != null) {
                     vo.setNextShowDate(row.getStartTime().atZoneSameInstant(DateTimeFormats.ZONE).toLocalDate().toString());
->>>>>>> 80f55f05cfe9242c3e481c73dd6c48b304091ef7
                 }
                 items.add(vo);
             }
